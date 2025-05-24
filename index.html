@@ -150,7 +150,7 @@ function shootRadial() {
 
     if (!player.active) return;
 
-    const bullet1 = bullets.create(player.x, player.y, 'bullet').setScale(0.1);
+    const bullet1 = bullets.create(player.x, player.y, 'bullet').setScale(0.05);
     bullet1.body.velocity.set(vx, vy);
 
     if (playerStats.doubleBullets) {
