@@ -121,7 +121,7 @@ function create() {
 
 
   this.time.addEvent({
-    delay: 900,
+    delay: 9000,
     loop: true,
     callback: () => {
       enemies.getChildren().forEach(enemy => {
@@ -180,7 +180,7 @@ function shootRadial() {
 
     if (playerStats.doubleBullets) {
       const offset = 10;
-      const bullet2 = bullets.create(player.x + offset, player.y + offset, 'bullet').setScale(0.05);
+      const bullet2 = bullets.create(player.x + offset, player.y + offset, 'bullet').setScale(0.06);
       bullet2.body.velocity.set(vx, vy);
     }
   }
@@ -191,7 +191,7 @@ function spawnWave() {
   for (let i = 0; i < count; i++) {
     const x = Phaser.Math.Between(100, 1200);
     const y = Phaser.Math.Between(50, 540);
-    const enemy = this.physics.add.sprite(x, y, 'enemy').setScale(0.5);
+    const enemy = this.physics.add.sprite(x, y, 'enemy').setScale(0.05);
     enemy.health = 3 + wave;
     enemies.add(enemy);
   }
