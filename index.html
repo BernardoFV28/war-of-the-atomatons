@@ -5,17 +5,18 @@
   <title>War of the automatons</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; background: black; }
+    body { margin: 0; overflow: hidden; background: rgb(8, 0, 0); }
     canvas { display: block; margin: auto; }
   </style>
 </head>
 <body>
+  
 <script>
 const config = {
   type: Phaser.AUTO,
   width: 1300,
   height: 590,
-  backgroundColor: '#000000',
+  backgroundimage: 'fundogame.png',
   physics: {
     default: 'arcade',
     arcade: { debug: false }
@@ -26,7 +27,9 @@ const config = {
     update
   }
 };
-
+let hudGroup;
+let armaNomeText;
+let armaImagem;
 let player, cursors;
 let bullets, enemies, enemyBullets;
 let lastShoot = 0;
@@ -53,12 +56,17 @@ function preload() {
   this.load.image('player', 'assets/player.png');
   this.load.image('enemy', 'assets/enemy.png');
   this.load.image('bullet', 'assets/bullet.png');
+  this.load.image('arma1', 'assets/pistola.png');
+  this.load.image('arma2', 'assets/metralhadora.png');
+  this.load.image('arma3', 'assets/lancarrio.png');
+  this.load.image('fundogame', 'assets/fundogame.png');
 }
 
 function create() {
+  this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1);
   player = this.physics.add.sprite(400, 300, 'player')
     .setCollideWorldBounds(true)
-    .setScale(0.05); // player pequeno
+    .setScale(0.5); // player pequeno
 
   bullets = this.physics.add.group();
   enemies = this.physics.add.group();
@@ -94,6 +102,23 @@ function create() {
       }
     }
   });
+    hudGroup = this.add.group();
+
+  // Texto do nome da arma (centralizado no topo)
+  armaNomeText = this.add.text(config.width / 2, 20, 'Arauto da Guerra', {
+    fontFamily: 'Arial Black',
+    fontSize: '28px',
+    color: '#FFD700',
+    stroke: '#000000',
+    strokeThickness: 4,
+    shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 4, stroke: true, fill: true }
+  }).setOrigin(0.5, 0);
+
+  // Imagem da arma logo abaixo do texto, também centralizada
+  armaImagem = this.add.image(config.width / 2, 70, 'arma3').setScale(0.3);
+
+  hudGroup.addMultiple([armaNomeText, armaImagem]);
+
 
   this.time.addEvent({
     delay: 900,
@@ -101,7 +126,7 @@ function create() {
     callback: () => {
       enemies.getChildren().forEach(enemy => {
         if (!enemy.active) return;
-        const bullet = enemyBullets.create(enemy.x, enemy.y, 'bullet').setScale(0.1);
+        const bullet = enemyBullets.create(enemy.x, enemy.y, 'bullet').setScale(0.01);
         const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
         this.physics.velocityFromRotation(angle, 150, bullet.body.velocity);
       });
@@ -166,7 +191,7 @@ function spawnWave() {
   for (let i = 0; i < count; i++) {
     const x = Phaser.Math.Between(100, 1200);
     const y = Phaser.Math.Between(50, 540);
-    const enemy = this.physics.add.sprite(x, y, 'enemy').setScale(0.02);
+    const enemy = this.physics.add.sprite(x, y, 'enemy').setScale(0.5);
     enemy.health = 3 + wave;
     enemies.add(enemy);
   }
@@ -303,6 +328,66 @@ function dashPlayer() {
     playerStats.dashCooldown = false;
   });
 }
+const tiposDeArmas = {
+  arma1: { dano: 1, fireRate: 500 }, // Pistola rápida
+  arma2: { dano: 2, fireRate: 700 }, // Metralhadora média
+  arma3: { dano: 3, fireRate: 1000 } // Lança-raio brabo
+};
+function spawnArmas() {
+  const tipos = Object.keys(tiposDeArmas);
+
+  for (let i = 0; i < 3; i++) {
+    const tipo = Phaser.Utils.Array.GetRandom(tipos);
+    const x = Phaser.Math.Between(100, 1200);
+    const y = Phaser.Math.Between(100, 500);
+    const arma = armas.create(x, y, tipo).setScale(0.2);
+    arma.tipo = tipo;
+  }
+}
+function pegarArma(arma) {
+  const props = tiposDeArmas[arma.tipo];
+
+  playerStats.bulletDamage = props.dano;
+  playerStats.fireRate = props.fireRate;
+
+  arma.destroy();
+
+  // Feedback visual se quiser
+  this.add.text(player.x, player.y - 30, `Pegou ${arma.tipo.toUpperCase()}!`, {
+    fontSize: '18px',
+    color: '#FFD700',
+    fontStyle: 'bold'
+  }).setOrigin(0.5).setDepth(99).setScrollFactor(0);
+}
+function atualizarHUDarma(nomeArma, keyImagem) {
+  armaNomeText.setText(nomeArma);
+  armaImagem.setTexture(keyImagem);
+}
+function pegarArma(arma) {
+  const props = tiposDeArmas[arma.tipo];
+
+  playerStats.bulletDamage = props.dano;
+  playerStats.fireRate = props.fireRate;
+
+  arma.destroy();
+
+  // Atualiza a HUD com o nome e imagem da arma atual
+  const nomeArmasMap = {
+    arma1: 'Arauto da Guerra',
+    arma2: 'Fúria Metralhadora',
+    arma3: 'Lança-Raio Supremo'
+  };
+
+  atualizarHUDarma(nomeArmasMap[arma.tipo], arma.tipo);
+
+  // Feedback visual se quiser
+  this.add.text(player.x, player.y - 30, `Pegou ${nomeArmasMap[arma.tipo]}!`, {
+    fontSize: '18px',
+    color: '#FFD700',
+    fontStyle: 'bold'
+  }).setOrigin(0.5).setDepth(99).setScrollFactor(0);
+}
+
 </script>
 
 
