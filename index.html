@@ -1,0 +1,351 @@
+<!DOCTYPE html> 
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>War of the automatons</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; }
+    canvas { display: block; margin: auto; }
+  </style>
+</head>
+<body>
+<script>
+const config = {
+  type: Phaser.AUTO,
+  width: 1300,
+  height: 590,
+  backgroundColor: '#000000',
+  physics: {
+    default: 'arcade',
+    arcade: { debug: false }
+  },
+  scene: {
+    preload,
+    create,
+    update
+  }
+};
+
+let player, cursors;
+let bullets, enemies, enemyBullets;
+let lastShoot = 0;
+let showingCards = false;
+let wave = 1;
+let cardsGroup;
+let playerSpeed = 200;
+
+let spiritAlly = null;
+
+// Player stats organizados num objeto só, para facilitar upgrades e manipulação
+let playerStats = window.playerStats || {
+  life: 3,
+  bulletDamage: 1,
+  fireRate: 500,
+  hasShield: false,
+  spiritAllyActive: false,
+  spreadUpgrade: false,
+  doubleBullets: false,
+  dashAvailable: false
+};
+
+
+
+const game = new Phaser.Game(config);
+
+function preload() {
+  this.load.image('player', 'assets/player.png');
+  this.load.image('enemy', 'assets/enemy.png');
+  this.load.image('bullet', 'assets/bullet.png');
+}
+
+function create() {
+  player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true);
+
+  bullets = this.physics.add.group();
+  enemies = this.physics.add.group();
+  enemyBullets = this.physics.add.group();
+  cursors = this.input.keyboard.createCursorKeys();
+
+  // Atalho para dash com a tecla Z
+  this.input.keyboard.on('keydown-Z', () => {
+    if (playerStats.dashAvailable && !playerStats.dashCooldown) {
+      dashPlayer.call(this);
+    }
+  });
+
+  spawnWave.call(this);
+
+  this.physics.add.overlap(bullets, enemies, (b, e) => {
+    if (b.active && e.active) {
+      b.destroy();
+      e.health = (e.health || 1) - playerStats.bulletDamage;
+      if (e.health <= 0) e.destroy();
+    }
+  });
+
+  this.physics.add.overlap(enemyBullets, player, (b, p) => {
+    if (b.active && p.active) {
+      b.destroy();
+      if (!playerStats.hasShield) {
+        p.setTint(0xff0000);
+        this.time.delayedCall(100, () => p.clearTint());
+      } else {
+        // Escudo absorve o tiro e some
+        playerStats.hasShield = false;
+        this.cameras.main.setZoom(1);
+        p.clearTint();
+      }
+    }
+  });
+
+  this.time.addEvent({
+    delay: 900,
+    loop: true,
+    callback: () => {
+      enemies.getChildren().forEach(enemy => {
+        if (!enemy.active) return;
+        const bullet = enemyBullets.create(enemy.x, enemy.y, 'bullet');
+        const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
+        this.physics.velocityFromRotation(angle, 150, bullet.body.velocity);
+      });
+    }
+  });
+}
+
+function update(time) {
+  if (!player.active) return;
+
+  player.setVelocity(0);
+  if (cursors.left.isDown) player.setVelocityX(-playerSpeed);
+  if (cursors.right.isDown) player.setVelocityX(playerSpeed);
+  if (cursors.up.isDown) player.setVelocityY(-playerSpeed);
+  if (cursors.down.isDown) player.setVelocityY(playerSpeed);
+
+  if (time > lastShoot + playerStats.fireRate) {
+    shootRadial.call(this);
+    lastShoot = time;
+  }
+
+  enemies.getChildren().forEach(enemy => {
+    if (!enemy.active) return;
+    const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
+    this.physics.velocityFromRotation(angle, 100, enemy.body.velocity);
+  });
+
+  if (enemies.countActive() === 0 && !showingCards) {
+    showingCards = true;
+    showCardChoices.call(this);
+  }
+}
+
+function shootRadial() {
+  const count = playerStats.spreadUpgrade ? 24 : 12;
+  const speed = 700;
+
+  for (let i = 0; i < count; i++) {
+    const angle = Phaser.Math.DegToRad((360 / count) * i);
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed;
+
+    if (!player.active) return;
+
+    const bullet1 = bullets.create(player.x, player.y, 'bullet');
+    bullet1.body.velocity.set(vx, vy);
+
+    if (playerStats.doubleBullets) {
+      const offset = 10;
+      const bullet2 = bullets.create(player.x + offset, player.y + offset, 'bullet');
+      bullet2.body.velocity.set(vx, vy);
+    }
+  }
+}
+
+function spawnWave() {
+  const count = 5 + wave * 2;
+  for (let i = 0; i < count; i++) {
+    const x = Phaser.Math.Between(100, 1200);
+    const y = Phaser.Math.Between(50, 540);
+    const enemy = this.physics.add.sprite(x, y, 'enemy');
+    enemy.health = 3 + wave; // Enemigos mais fortes conforme a wave cresce
+    enemies.add(enemy);
+  }
+}
+
+function showCardChoices() {
+  const choices = [
+    {
+      title: "⚡ Bala Braba",
+      desc: "Dano +50%, cadência -50%",
+      color: 0xff5e5b,
+      effect: () => {
+        playerStats.bulletDamage *= 1.5;
+        playerStats.fireRate *= 1.5;
+      }
+    },
+    {
+      title: "🛡️ Escudo de prata",
+      desc: "Ganha escudo que absorve um tiro",
+      color: 0x00bbf9,
+      effect: () => {
+        playerStats.hasShield = true;
+        this.cameras.main.setZoom(0.7);
+      }
+    },
+    {
+      title: "👻 Espírito Pit",
+      desc: "Aliado que destrói inimigos por 10s",
+      color: 0x9b5de5,
+      effect: () => {
+        if (!playerStats.spiritAllyActive) {
+          summonSpiritAlly.call(this);
+          playerStats.spiritAllyActive = true;
+        }
+      }
+    },
+    {
+      title: "🎯 Tiros Duplos",
+      desc: "Cada disparo gera 2 balas paralelas",
+      color: 0xf15bb5,
+      effect: () => {
+        playerStats.doubleBullets = true;
+      }
+    },
+    {
+      title: "🌪️ Dispersão",
+      desc: "Aumenta tiros para 24 balas por disparo",
+      color: 0x00f5d4,
+      effect: () => {
+        playerStats.spreadUpgrade = true;
+      }
+    },
+    {
+      title: "⚡ Dash Rápido",
+      desc: "Ative dash com tecla Z, cooldown 3s",
+      color: 0xffc300,
+      effect: () => {
+        playerStats.dashAvailable = true;
+      }
+    }
+  ];
+
+  const shuffled = Phaser.Utils.Array.Shuffle(choices);
+  const deck = shuffled.slice(0, 3);
+
+  cardsGroup = this.add.group();
+  const overlay = this.add.rectangle(650, 295, 1300, 590, 0x000000, 0.7).setDepth(10);
+
+  deck.forEach((choice, i) => {
+    const x = 350 + i * 300;
+
+    // CARTA com cor única
+    const card = this.add.rectangle(x, 250, 180, 220, choice.color)
+      .setStrokeStyle(3, 0xffffff)
+      .setDepth(11)
+      .setInteractive()
+      .setAlpha(0);
+
+    // ANIMAÇÃO neon style
+    this.tweens.add({
+      targets: card,
+      alpha: 1,
+      scale: { from: 1, to: 1.05 },
+      yoyo: true,
+      repeat: -1,
+      duration: 800,
+      ease: 'Sine.easeInOut'
+    });
+
+    // TEXTOS
+    const title = this.add.text(x, 190, choice.title, {
+      fontSize: '22px',
+      color: '#000',
+      fontFamily: 'Arial Black'
+    }).setOrigin(0.5).setDepth(11);
+
+    const desc = this.add.text(x, 250, choice.desc, {
+      fontSize: '16px',
+      color: '#111',
+      wordWrap: { width: 160 }
+    }).setOrigin(0.5).setDepth(11);
+
+    // Interações
+    card.on('pointerover', () => card.setStrokeStyle(4, 0xffff00));
+    card.on('pointerout', () => card.setStrokeStyle(3, 0xffffff));
+    card.on('pointerdown', () => {
+      cardsGroup.clear(true, true);
+      overlay.destroy();
+      choice.effect();
+      showingCards = false;
+      wave++;
+      spawnWave.call(this);
+    });
+
+    cardsGroup.addMultiple([card, title, desc]);
+  });
+}
+
+function summonSpiritAlly() {
+  if (spiritAlly && spiritAlly.active) return; // Só um espírito por vez
+
+  spiritAlly = this.physics.add.sprite(player.x + 40, player.y, 'player').setTint(0x00ffff).setScale(1.4);
+  spiritAlly.setDepth(5);
+
+  this.time.addEvent({
+    delay: 100,
+    loop: true,
+    callback: () => {
+      if (!spiritAlly.active) return;
+      const closestEnemy = enemies.getChildren()
+        .filter(e => e.active)
+        .sort((a, b) => Phaser.Math.Distance.Between(spiritAlly.x, spiritAlly.y, a.x, a.y) - Phaser.Math.Distance.Between(spiritAlly.x, spiritAlly.y, b.x, b.y))[0];
+
+      if (closestEnemy) {
+        this.physics.moveToObject(spiritAlly, closestEnemy, 300);
+      }
+    }
+  });
+
+  this.physics.add.overlap(spiritAlly, enemies, (s, e) => {
+    if (e.active && s.active) e.destroy();
+  });
+
+  this.time.delayedCall(10000, () => {
+    if (spiritAlly) spiritAlly.destroy();
+    playerStats.spiritAllyActive = false;
+  });
+}
+
+function dashPlayer() {
+  if (playerStats.dashCooldown) return;
+
+  const dashDistance = 150;
+  let vx = 0;
+  let vy = 0;
+
+  if (cursors.left.isDown) vx = -dashDistance;
+  else if (cursors.right.isDown) vx = dashDistance;
+
+  if (cursors.up.isDown) vy = -dashDistance;
+  else if (cursors.down.isDown) vy = dashDistance;
+
+  if (vx === 0 && vy === 0) return; // Se não apertou direção, não dasha
+
+  player.setVelocity(vx * 5, vy * 5); // Dá uma velocidade forte no dash
+
+  // Após 100ms, para o dash
+  this.time.delayedCall(100, () => {
+    player.setVelocity(0);
+  });
+
+  playerStats.dashCooldown = true;
+
+  // Cooldown de 3 segundos para o dash
+  this.time.delayedCall(3000, () => {
+    playerStats.dashCooldown = false;
+  });
+}
+</script>
+
+</body>
+</html>
