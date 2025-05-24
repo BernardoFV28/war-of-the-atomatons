@@ -60,7 +60,11 @@ function preload() {
 }
 
 function create() {
-  player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true);
+    player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true).setScale(0.5);
+    const enemy = this.physics.add.sprite(x, y, 'enemy').setScale(0.4);
+    const bullet = bullets.create(player.x, player.y, 'bullet').setScale(0.3);
+
+    
 
   bullets = this.physics.add.group();
   enemies = this.physics.add.group();
@@ -140,6 +144,13 @@ function update(time) {
 }
 
 function shootRadial() {
+const bullet1 = bullets.create(player.x, player.y, 'bullet').setScale(0.3);
+
+if (playerStats.doubleBullets) {
+  const offset = 10;
+  const bullet2 = bullets.create(player.x + offset, player.y + offset, 'bullet').setScale(0.3);
+}
+
   const count = playerStats.spreadUpgrade ? 24 : 12;
   const speed = 700;
 
