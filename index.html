@@ -62,8 +62,8 @@ let playerStats = {
 };
 
 const tiposDeArmas = {
-  arma1: { dano: 1, fireRate: 1300 }, // Pistola rápida
-  arma2: { dano: 2, fireRate: 1000 }, // Metralhadora média
+  arma1: { dano: 1, fireRate: 3000 }, // Pistola 
+  arma2: { dano: 2, fireRate: 900 }, // Metralhadora média
   arma3: { dano: 3, fireRate: 2000 } // Lança-raio brabo
 };
 
@@ -80,6 +80,7 @@ function preload() {
 }
 
 function create() {
+      
   this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1);
 
   player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true).setScale(0.05);
@@ -134,16 +135,6 @@ function create() {
         p.clearTint();
       }
     }
-    bullets.children.each(function(bullet) {
-  if (bullet.active) {
-    if (this.time.now - bullet.spawnTime > bullet.lifespan) {
-      bullet.setActive(false);
-      bullet.setVisible(false);
-      bullet.body.enable = false;
-    }
-  }
-}, this);
-
   });
 
   hudGroup = this.add.group();
@@ -184,6 +175,10 @@ function create() {
       });
     }
   });
+      this.player = { health: 5, maxHealth: 5 };
+    this.enemy = { health: 10, maxHealth: 10 };
+
+    this.hud = new HUD(this, this.player);
 }
 
 function spawnArmas() {
@@ -193,7 +188,7 @@ function spawnArmas() {
     const tipo = Phaser.Utils.Array.GetRandom(tipos);
     const x = Phaser.Math.Between(100, 1200);
     const y = Phaser.Math.Between(100, 500);
-    const arma = armas.create(x, y, tipo).setScale(0.01);
+    const arma = armas.create(x, y, tipo).setScale(0.2);
     arma.tipo = tipo;
   }
 }
@@ -232,6 +227,10 @@ function atualizarHUDarma(nomeArma, keyImagem) {
 }
 
 function update(time) {
+      this.currentHealth = this.player.health;
+    for(let i = 0; i < this.maxHealth; i++) {
+      this.drawHeart(this.heartsGraphics[i], i < this.currentHealth);
+    }
   if (!player.active) return;
 
   let vx = 0, vy = 0;
@@ -267,7 +266,7 @@ function shootRadial() {
 
   for (let i = 0; i < count; i++) {
     const angle = Phaser.Math.DegToRad((360 / count) * i);
-    const bullet = bullets.create(player.x, player.y, 'bullet').setScale(0.01);
+    const bullet = bullets.create(player.x, player.y, 'bullet').setScale(0.02);
     this.physics.velocityFromRotation(angle, speed, bullet.body.velocity);
   }
 }
@@ -339,21 +338,6 @@ function dashPlayer() {
     }
   });
 }
-function shootBullet(x, y, velocityX, velocityY) {
-  const bullet = bullets.get(x, y); // pega uma bala do pool
-
-  if (bullet) {
-    bullet.setActive(true);
-    bullet.setVisible(true);
-    bullet.body.enable = true;
-
-    bullet.setVelocity(velocityX, velocityY);
-
-    // Depois de 2 segundos, destrói a bala
-    bullet.lifespan = 1000; // 2 segundos em milissegundos
-    bullet.spawnTime = this.time.now; // registra o tempo de criação
-  }
-}
 
 function spawnWave() {
   for (let i = 0; i < wave * 3; i++) {
@@ -362,6 +346,107 @@ function spawnWave() {
     const enemy = enemies.create(x, y, 'enemy').setScale(0.05);
     enemy.health = 3 + wave;
     enemy.setCollideWorldBounds(true);
+  }
+}
+class HUD {
+  constructor(scene, player) {
+    this.scene = scene;
+    this.player = player;
+    
+    this.maxHealth = player.maxHealth || 5;
+    this.currentHealth = player.health;
+    
+    this.heartSize = 20;
+    this.heartSpacing = 30;
+    
+    this.heartsGraphics = [];
+    
+    this.createHearts();
+    
+    // Barra de vida do inimigo
+    this.enemyHealthBarBg = scene.add.graphics();
+    this.enemyHealthBarFill = scene.add.graphics();
+    
+    // Posicionamento barra de inimigo
+    this.enemyHealthBarX = 20;
+    this.enemyHealthBarY = 60;
+    this.enemyHealthBarWidth = 120;
+    this.enemyHealthBarHeight = 20;
+  }
+  
+  createHearts() {
+    for(let i = 0; i < this.maxHealth; i++) {
+      let g = this.scene.add.graphics();
+      g.setScrollFactor(0);
+      g.x = 20 + i * this.heartSpacing;
+      g.y = 20;
+      this.drawHeart(g, true); // inicialmente cheio
+      this.heartsGraphics.push(g);
+    }
+  }
+  
+  drawHeart(graphics, full) {
+    graphics.clear();
+    const size = this.heartSize;
+    
+    if(full) {
+      graphics.fillStyle(0xff0000, 1);
+      graphics.lineStyle(2, 0x880000, 1);
+    } else {
+      graphics.fillStyle(0x550000, 0.3);
+      graphics.lineStyle(2, 0x330000, 1);
+    }
+    
+    // Desenho simples de coração
+    graphics.beginPath();
+    graphics.moveTo(size / 2, size);
+    graphics.bezierCurveTo(size / 2 + size / 2, size / 2, size, size / 2, size, size / 4);
+    graphics.bezierCurveTo(size, 0, size / 2, 0, size / 2, size / 4);
+    graphics.bezierCurveTo(size / 2, 0, 0, 0, 0, size / 4);
+    graphics.bezierCurveTo(0, size / 2, size / 2 - size / 2, size / 2, size / 2, size);
+    graphics.closePath();
+    graphics.fillPath();
+    graphics.strokePath();
+  }
+  
+ 
+  
+  updateEnemyHealthBar(enemy) {
+    this.enemyHealthBarBg.clear();
+    this.enemyHealthBarFill.clear();
+    
+    // Fundo cinza
+    this.enemyHealthBarBg.fillStyle(0x222222, 1);
+    this.enemyHealthBarBg.fillRect(this.enemyHealthBarX, this.enemyHealthBarY, this.enemyHealthBarWidth, this.enemyHealthBarHeight);
+    
+    if (!enemy || enemy.health <= 0) return;
+    
+    const ratio = Phaser.Math.Clamp(enemy.health / enemy.maxHealth, 0, 1);
+    const barWidth = this.enemyHealthBarWidth * ratio;
+    
+    // Barra vermelha
+    this.enemyHealthBarFill.fillStyle(0xff0000, 1);
+    this.enemyHealthBarFill.fillRect(this.enemyHealthBarX, this.enemyHealthBarY, barWidth, this.enemyHealthBarHeight);
+  }
+}
+class MyScene extends Phaser.Scene {
+  constructor() {
+    super('MyScene');
+  }
+
+  update(time, delta) {
+    // Atualiza a vida do player (exemplo)
+    // this.player.health = algum valor dinâmico
+
+    this.hud.update();
+
+    // Atualiza barra do inimigo
+    this.hud.updateEnemyHealthBar(this.enemy);
+
+    // Exemplo: diminuir vida do inimigo a cada 3 segundos (só pra demo)
+    if (time % 3000 < delta) {
+      this.enemy.health = Math.max(this.enemy.health - 1, 0);
+    }
   }
 }
 
