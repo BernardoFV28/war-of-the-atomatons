@@ -62,8 +62,8 @@ let playerStats = {
 };
 
 const tiposDeArmas = {
-  arma1: { dano: 1, fireRate: 1000 }, // Pistola rápida
-  arma2: { dano: 2, fireRate: 900 }, // Metralhadora média
+  arma1: { dano: 1, fireRate: 1300 }, // Pistola rápida
+  arma2: { dano: 2, fireRate: 1000 }, // Metralhadora média
   arma3: { dano: 3, fireRate: 2000 } // Lança-raio brabo
 };
 
@@ -350,7 +350,7 @@ function shootBullet(x, y, velocityX, velocityY) {
     bullet.setVelocity(velocityX, velocityY);
 
     // Depois de 2 segundos, destrói a bala
-    bullet.lifespan = 2000; // 2 segundos em milissegundos
+    bullet.lifespan = 1000; // 2 segundos em milissegundos
     bullet.spawnTime = this.time.now; // registra o tempo de criação
   }
 }
