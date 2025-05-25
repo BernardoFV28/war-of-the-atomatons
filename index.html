@@ -64,13 +64,15 @@ function preload() {
   this.load.image('player', 'assets/player.png');
   this.load.image('enemy', 'assets/enemy.png');
   this.load.image('bullet', 'assets/bullet.png');
-  this.load.image('arma1', 'assets/pistola.png');
+  this.load.image('arma1', 'assets/pistolinha.png');
   this.load.image('arma2', 'assets/metralha.png');
   this.load.image('arma3', 'assets/lancarrio.png');
   this.load.image('fundogame', 'assets/fundogame.png');
 }
 
 function create() {
+  this.bullets.children.each(...)
+
   this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1);
 
   player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true).setScale(0.05);
@@ -102,7 +104,7 @@ function create() {
       });
     }
   });
-
+  
   spawnWave.call(this);
 
   this.physics.add.overlap(bullets, enemies, (b, e) => {
@@ -190,7 +192,7 @@ function create() {
   hudGroup.addMultiple([armaNomeText, armaImagem]);
 
   this.time.addEvent({
-    delay: 9000,
+    delay: 60000,
     loop: true,
     callback: () => {
       enemies.getChildren().forEach(enemy => {
@@ -278,11 +280,15 @@ function update(time) {
     showingCards = true;
     showCardChoices.call(this);
   }
-  this.balas.children.each(function(bala) {
-  if (bala.active && bala.update) {
-    bala.update();
-  }
-}, this);
+//aquiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+if (this.bullets && this.bullets.children) {
+  this.bullets.children.each(function(bullet) {
+    if (bullet.active && bullet.update) {
+      bullet.update();
+    }
+  }, this);
+}
+
 
 }
 
