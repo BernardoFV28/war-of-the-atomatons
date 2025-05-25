@@ -5,7 +5,7 @@
   <title>War of the automatons</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; background: rgb(8, 0, 0); }
+    body { margin: 0; overflow: hidden; background: #0a0000ce }
     canvas { display: block; margin: auto; }
   </style>
 </head>
@@ -27,6 +27,7 @@ const config = {
     update
   }
 };
+let waveText;
 let hudGroup;
 let armaNomeText;
 let armaImagem;
@@ -42,7 +43,7 @@ let spiritAlly = null;
 let playerStats = {
   life: 3,
   bulletDamage: 1,
-  fireRate: 500,
+  fireRate: 1000,
   hasShield: false,
   spiritAllyActive: false,
   spreadUpgrade: false,
@@ -57,16 +58,24 @@ function preload() {
   this.load.image('enemy', 'assets/enemy.png');
   this.load.image('bullet', 'assets/bullet.png');
   this.load.image('arma1', 'assets/pistola.png');
-  this.load.image('arma2', 'assets/metralhadora.png');
+  this.load.image('arma2', 'assets/metralha.png');
   this.load.image('arma3', 'assets/lancarrio.png');
   this.load.image('fundogame', 'assets/fundogame.png');
 }
 
 function create() {
+  waveText = this.add.text(config.width - 20, 20, `Fase ${wave}`, {
+  fontFamily: 'cinzel',
+  fontSize: '24px',
+  color: '#FFFFFF',
+  stroke: '#000000',
+  strokeThickness: 4
+}).setOrigin(1, 0); // Alinha pela direita no topo
+
   this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1);
   player = this.physics.add.sprite(400, 300, 'player')
     .setCollideWorldBounds(true)
-    .setScale(0.05); // player pequeno 
+    .setScale(0.05); // player pequeno
 
   bullets = this.physics.add.group();
   enemies = this.physics.add.group();
@@ -105,7 +114,7 @@ function create() {
     hudGroup = this.add.group();
 
   // Texto do nome da arma (centralizado no topo)
-  armaNomeText = this.add.text(config.width / 2, 20, 'pistolinha', {
+  armaNomeText = this.add.text(config.width / 2, 20, 'Arauto da Guerra', {
     fontFamily: 'Arial Black',
     fontSize: '28px',
     color: '#FFD700',
@@ -175,12 +184,12 @@ function shootRadial() {
 
     if (!player.active) return;
 
-    const bullet1 = bullets.create(player.x, player.y, 'bullet').setScale(0.05);
+    const bullet1 = bullets.create(player.x, player.y, 'bullet').setScale(0.02);
     bullet1.body.velocity.set(vx, vy);
 
     if (playerStats.doubleBullets) {
       const offset = 10;
-      const bullet2 = bullets.create(player.x + offset, player.y + offset, 'bullet').setScale(0.06);
+      const bullet2 = bullets.create(player.x + offset, player.y + offset, 'bullet').setScale(0.03);
       bullet2.body.velocity.set(vx, vy);
     }
   }
@@ -329,9 +338,9 @@ function dashPlayer() {
   });
 }
 const tiposDeArmas = {
-  arma1: { dano: 1, fireRate: 500 }, // Pistola rápida
-  arma2: { dano: 2, fireRate: 700 }, // Metralhadora média
-  arma3: { dano: 3, fireRate: 1000 } // Lança-raio brabo
+  arma1: { dano: 1, fireRate: 1000 }, // Pistola rápida
+  arma2: { dano: 2, fireRate: 900 }, // Metralhadora média
+  arma3: { dano: 3, fireRate: 2000 } // Lança-raio brabo
 };
 function spawnArmas() {
   const tipos = Object.keys(tiposDeArmas);
@@ -387,10 +396,26 @@ function pegarArma(arma) {
     fontStyle: 'bold'
   }).setOrigin(0.5).setDepth(99).setScrollFactor(0);
 }
+//reinciar
+this.input.keyboard.on('keydown-SPACE', () => {
+  if (!player.active) {
+    this.cameras.main.fadeOut(500, 0, 0, 0);
+    this.time.delayedCall(500, () => {
+      this.scene.restart();
+    });
+  }
+});
+//texto para weve onda ou fase do jogo
+card.on('pointerdown', () => {
+  cardsGroup.clear(true, true);
+  overlay.destroy();
+  choice.effect.call(this);
+  showingCards = false;
+  wave++;
+  waveText.setText(`Fase ${wave}`);
+  spawnWave.call(this);
+});
 
 </script>
-
-
-
 </body>
 </html>
