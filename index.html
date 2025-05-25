@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V.1.2.4</title>
+  <title>War of the Automatons V.1.2.5</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -116,7 +116,6 @@ function create() {
 
   this.input.keyboard.on('keydown-SPACE', () => {
     if (!player.active) {
-      this.cameras.main.fadeOut(500, 0, 0, 0);
       this.time.delayedCall(500, () => {
         this.scene.restart();
       });
@@ -162,7 +161,7 @@ function create() {
   box.setStrokeStyle(2, 0x00ffff, 0.7);
   hudGroup.add(box);
 
-  armaImagem = this.add.image(config.width / 2, 70, 'arma1').setScale(0.3);
+  armaImagem = this.add.image(config.width / 2, 70, 'arma1').setScale(0.01);
   hudGroup.addMultiple([armaNomeText, armaImagem]);
 
   waveText = this.add.text(config.width - 20, 20, `Fase ${wave}`, {
@@ -185,10 +184,6 @@ function create() {
       });
     }
   });
-      this.player = { health: 5, maxHealth: 5 };
-    this.enemy = { health: 10, maxHealth: 10 };
-
-    this.hud = new HUD(this, this.player);
 }
 
 function spawnArmas() {
@@ -239,17 +234,26 @@ function atualizarHUDarma(nomeArma, keyImagem) {
 function update(time) {
       this.currentHealth = this.player.health;
     for(let i = 0; i < this.maxHealth; i++) {
-      this.drawHeart(this.heartsGraphics[i], i < this.currentHealth);
-    }
+      this.hud.drawHeart(this.hud.heartsGraphics[i], i < this.currentHealth);
+       }
   if (!player.active) return;
 
-  let vx = 0, vy = 0;
-  if (cursors.left.isDown) vx = -1;
-  else if (cursors.right.isDown) vx = 1;
+  let vx = 0;
+  let vy = 0;
 
-  if (cursors.up.isDown) vy = -1;
-  else if (cursors.down.isDown) vy = 1;
+  if (cursors.left.isDown) {
+    vx = -1;
+  } else if (cursors.right.isDown) {
+    vx = 1;
+  }
 
+  if (cursors.up.isDown) {
+    vy = -1;
+  } else if (cursors.down.isDown) {
+    vy = 1;
+  }
+
+  // Normaliza pra não correr mais na diagonal
   const norm = Math.hypot(vx, vy) || 1;
   player.setVelocity((vx / norm) * playerSpeed, (vy / norm) * playerSpeed);
 
@@ -283,15 +287,14 @@ function shootRadial() {
 
 function showCardChoices() {
   const cardOptions = [
-    { nome: 'Escudo da Favela', desc: 'Proteção que te salva da morte uma vez', cor: 0xffc107, efeito: () => { playerStats.hasShield = true; } },
+    { nome: 'Escudo de Ivirik', desc: 'Proteção que te salva da morte uma vez', cor: 0xffc107, efeito: () => { playerStats.hasShield = true; } },
     { nome: 'Tiro Duplo', desc: 'Dispara duas vezes mais balas', cor: 0x4caf50, efeito: () => { playerStats.doubleBullets = true; } },
     { nome: 'Bênção do Espírito', desc: 'Espírito aliado ajuda no ataque', cor: 0x00bcd4, efeito: ativarSpiritAlly },
     { nome: 'Upgrade do Spread', desc: 'Dispara balas em círculo maior', cor: 0x9c27b0, efeito: () => { playerStats.spreadUpgrade = true; } },
-    { nome: 'Dash da Quebrada', desc: 'Corrida rápida para escapar', cor: 0xf44336, efeito: () => { playerStats.dashAvailable = true; } },
+    { nome: 'Dash ', desc: 'Corrida rápida para escapar', cor: 0xf44336, efeito: () => { playerStats.dashAvailable = true; } },
     { nome: 'Projétil Perfurante', desc: 'Balas atravessam inimigos', cor: 0x03a9f4, efeito: () => { playerStats.piercingShots = true; } },
     { nome: 'Recuperação Instantânea', desc: 'Recupera 2 de vida', cor: 0x8bc34a, efeito: () => { player.health = Math.min(player.health + 2, player.maxHealth); } },
-    { nome: 'Fúria do Morro', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.damageBoost = true; setTimeout(() => { playerStats.damageBoost = false; }, 15000); } },
-    { nome: 'Tempo Congelado', desc: 'Congela inimigos por 5s', cor: 0x2196f3, efeito: () => { freezeEnemies(5000); } },
+    { nome: 'Fúria de Metalion', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.damageBoost = true; setTimeout(() => { playerStats.damageBoost = false; }, 15000); } },
     { nome: 'Vida Fantasma', desc: 'Sobrevive com 1 de vida ao morrer', cor: 0x673ab7, efeito: () => { playerStats.phantomLife = true; } },
     { nome: 'Espinhos do Asfalto', desc: 'Dano nos inimigos ao ser atingido', cor: 0xe91e63, efeito: () => { playerStats.thorns = true; } },
   ];
@@ -384,41 +387,38 @@ function spawnWave() {
   }
 }
 
-function freezeEnemies(duration) {
-  enemies.children.iterate(enemy => {
-    enemy.body.enable = false;
-  });
-
-  setTimeout(() => {
-    enemies.children.iterate(enemy => {
-      enemy.body.enable = true;
-    });
-  }, duration);
-}
-
 function dashPlayer() {
+  if (playerStats.dashCooldown) return; // evita dash no cooldown, sem vacilo
+
   playerStats.dashCooldown = true;
+
+  // Direção do dash, pegando o input do cursors
+  let dx = 0, dy = 0;
+  if (cursors.left.isDown) dx = -1;
+  else if (cursors.right.isDown) dx = 1;
+  if (cursors.up.isDown) dy = -1;
+  else if (cursors.down.isDown) dy = 1;
+
+  // Se não apertou nenhuma direção, não dá dash, tá ligado?
+  if (dx === 0 && dy === 0) {
+    playerStats.dashCooldown = false; // libera de novo porque não rolou dash
+    return;
+  }
+
+  const dashDistance = 150;
+
   this.tweens.add({
     targets: player,
-    x: player.x + (cursors.left.isDown ? -150 : cursors.right.isDown ? 150 : 0),
-    y: player.y + (cursors.up.isDown ? -150 : cursors.down.isDown ? 150 : 0),
+    x: player.x + dx * dashDistance,
+    y: player.y + dy * dashDistance,
     duration: 150,
     ease: 'Power2',
     onComplete: () => {
-      playerStats.dashCooldown = false;
+      playerStats.dashCooldown = false; // libera o dash depois do tempo
     }
   });
 }
 
-function spawnWave() {
-  for (let i = 0; i < wave * 3; i++) {
-    const x = Phaser.Math.Between(100, 1200);
-    const y = Phaser.Math.Between(100, 500);
-    const enemy = enemies.create(x, y, 'enemy').setScale(0.05);
-    enemy.health = 3 + wave;
-    enemy.setCollideWorldBounds(true);
-  }
-}
 class HUD {
   constructor(scene, player) {
     this.scene = scene;
@@ -498,26 +498,6 @@ class HUD {
     // Barra vermelha
     this.enemyHealthBarFill.fillStyle(0xff0000, 1);
     this.enemyHealthBarFill.fillRect(this.enemyHealthBarX, this.enemyHealthBarY, barWidth, this.enemyHealthBarHeight);
-  }
-}
-class MyScene extends Phaser.Scene {
-  constructor() {
-    super('MyScene');
-  }
-
-  update(time, delta) {
-    // Atualiza a vida do player (exemplo)
-    // this.player.health = algum valor dinâmico
-
-    this.hud.update();
-
-    // Atualiza barra do inimigo
-    this.hud.updateEnemyHealthBar(this.enemy);
-
-    // Exemplo: diminuir vida do inimigo a cada 3 segundos (só pra demo)
-    if (time % 3000 < delta) {
-      this.enemy.health = Math.max(this.enemy.health - 1, 0);
-    }
   }
 }
 
