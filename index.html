@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the automatons V.1.2.1</title>
+  <title>War of the automatons V.1.2.2</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
     body { margin: 0; overflow: hidden; background: #0a0000ce }
@@ -43,7 +43,7 @@ let spiritAlly = null;
 let playerStats = {
   life: 3,
   bulletDamage: 1,
-  fireRate: 1000,
+  fireRate: 3000,
   hasShield: false,
   spiritAllyActive: false,
   spreadUpgrade: false,
@@ -244,6 +244,12 @@ function update(time) {
     showingCards = true;
     showCardChoices.call(this);
   }
+  this.balas.children.each(function(bala) {
+  if (bala.active && bala.update) {
+    bala.update();
+  }
+}, this);
+
 }
 
 function shootRadial() {
@@ -488,6 +494,33 @@ card.on('pointerdown', () => {
   waveText.setText(`Fase ${wave}`);
   spawnWave.call(this);
 });
+
+this.balas = this.physics.add.group({
+  classType: Phaser.GameObjects.Image,
+  runChildUpdate: true
+});
+function dispararBala(x, y, velocidadeX, velocidadeY) {
+  const bala = this.balas.get(x, y, 'imagemDaBala');
+
+  if (bala) {
+    bala.setActive(true);
+    bala.setVisible(true);
+    bala.body.velocity.x = velocidadeX;
+    bala.body.velocity.y = velocidadeY;
+
+    // Update próprio pra sumir se sair da tela
+    bala.update = function () {
+      if (
+        this.x < 0 || this.x > this.scene.sys.canvas.width ||
+        this.y < 0 || this.y > this.scene.sys.canvas.height
+      ) {
+        this.setActive(false);
+        this.setVisible(false);
+        this.destroy(); // se quiser destruir pra liberar memória
+      }
+    };
+  }
+}
 
 </script>
 </body>
