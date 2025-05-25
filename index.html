@@ -73,7 +73,7 @@ let playerStats = {
 
 const tiposDeArmas = {
   arma1: { dano: 1, fireRate: 3000 }, // Pistola 
-  arma2: { dano: 2, fireRate: 900 }, // Metralhadora média
+  arma2: { dano: 2, fireRate: 1000 }, // Metralhadora média
   arma3: { dano: 3, fireRate: 2000 } // Lança-raio brabo
 };
 
@@ -86,7 +86,8 @@ function preload() {
   this.load.image('arma1', 'assets/pistolinha.png');
   this.load.image('arma2', 'assets/metralha.png');
   this.load.image('arma3', 'assets/lancarrio.png');
-  this.load.image('fundogame', 'assets/fundogame.png');
+  this.load.image('fundogame', 'assets/fundogame.png'); 
+  this.load.image('cora', 'assets/cora.png');
 }
 
 function create() {
@@ -231,48 +232,6 @@ function atualizarHUDarma(nomeArma, keyImagem) {
   armaImagem.setTexture(keyImagem);
 }
 
-function update(time) {
-      this.currentHealth = this.player.health;
-    for(let i = 0; i < this.maxHealth; i++) {
-      this.hud.drawHeart(this.hud.heartsGraphics[i], i < this.currentHealth);
-       }
-  if (!player.active) return;
-
-  let vx = 0;
-  let vy = 0;
-
-  if (cursors.left.isDown) {
-    vx = -1;
-  } else if (cursors.right.isDown) {
-    vx = 1;
-  }
-
-  if (cursors.up.isDown) {
-    vy = -1;
-  } else if (cursors.down.isDown) {
-    vy = 1;
-  }
-
-  // Normaliza pra não correr mais na diagonal
-  const norm = Math.hypot(vx, vy) || 1;
-  player.setVelocity((vx / norm) * playerSpeed, (vy / norm) * playerSpeed);
-
-  if (time > lastShoot + playerStats.fireRate) {
-    shootRadial.call(this);
-    lastShoot = time;
-  }
-
-  enemies.getChildren().forEach(enemy => {
-    if (!enemy.active) return;
-    const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
-    this.physics.velocityFromRotation(angle, 100, enemy.body.velocity);
-  });
-
-  if (enemies.countActive() === 0 && !showingCards) {
-    showingCards = true;
-    showCardChoices.call(this);
-  }
-}
 
 function shootRadial() { 
   const count = playerStats.spreadUpgrade ? 24 : 12;
