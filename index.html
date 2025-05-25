@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons</title>
+  <title>War of the Automatons V.1.2.4</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -73,7 +73,7 @@ function preload() {
   this.load.image('player', 'assets/player.png');
   this.load.image('enemy', 'assets/enemy.png');
   this.load.image('bullet', 'assets/bullet.png');
-  this.load.image('arma1', 'assets/pistola.png');
+  this.load.image('arma1', 'assets/pistolinha.png');
   this.load.image('arma2', 'assets/metralha.png');
   this.load.image('arma3', 'assets/lancarrio.png');
   this.load.image('fundogame', 'assets/fundogame.png');
@@ -260,7 +260,7 @@ function update(time) {
   }
 }
 
-function shootRadial() {
+function shootRadial() { 
   const count = playerStats.spreadUpgrade ? 24 : 12;
   const speed = 700;
 
@@ -273,40 +273,78 @@ function shootRadial() {
 
 function showCardChoices() {
   const cardOptions = [
-    { nome: 'Escudo da Favela', desc: 'Proteção que te salva da morte uma vez', efeito: () => { playerStats.hasShield = true; } },
-    { nome: 'Tiro Duplo', desc: 'Dispara duas vezes mais balas', efeito: () => { playerStats.doubleBullets = true; } },
-    { nome: 'Bênção do Espírito', desc: 'Espírito aliado ajuda no ataque', efeito: ativarSpiritAlly },
-    { nome: 'Upgrade do Spread', desc: 'Dispara balas em círculo maior', efeito: () => { playerStats.spreadUpgrade = true; } },
-    { nome: 'Dash da Quebrada', desc: 'Corrida rápida para escapar', efeito: () => { playerStats.dashAvailable = true; } }
+    { nome: 'Escudo da Favela', desc: 'Proteção que te salva da morte uma vez', cor: 0xffc107, efeito: () => { playerStats.hasShield = true; } },
+    { nome: 'Tiro Duplo', desc: 'Dispara duas vezes mais balas', cor: 0x4caf50, efeito: () => { playerStats.doubleBullets = true; } },
+    { nome: 'Bênção do Espírito', desc: 'Espírito aliado ajuda no ataque', cor: 0x00bcd4, efeito: ativarSpiritAlly },
+    { nome: 'Upgrade do Spread', desc: 'Dispara balas em círculo maior', cor: 0x9c27b0, efeito: () => { playerStats.spreadUpgrade = true; } },
+    { nome: 'Dash da Quebrada', desc: 'Corrida rápida para escapar', cor: 0xf44336, efeito: () => { playerStats.dashAvailable = true; } },
+    { nome: 'Projétil Perfurante', desc: 'Balas atravessam inimigos', cor: 0x03a9f4, efeito: () => { playerStats.piercingShots = true; } },
+    { nome: 'Recuperação Instantânea', desc: 'Recupera 2 de vida', cor: 0x8bc34a, efeito: () => { player.health = Math.min(player.health + 2, player.maxHealth); } },
+    { nome: 'Fúria do Morro', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.damageBoost = true; setTimeout(() => { playerStats.damageBoost = false; }, 15000); } },
+    { nome: 'Tempo Congelado', desc: 'Congela inimigos por 5s', cor: 0x2196f3, efeito: () => { freezeEnemies(5000); } },
+    { nome: 'Vida Fantasma', desc: 'Sobrevive com 1 de vida ao morrer', cor: 0x673ab7, efeito: () => { playerStats.phantomLife = true; } },
+    { nome: 'Espinhos do Asfalto', desc: 'Dano nos inimigos ao ser atingido', cor: 0xe91e63, efeito: () => { playerStats.thorns = true; } },
   ];
+
+  Phaser.Utils.Array.Shuffle(cardOptions);
+  const selectedCards = cardOptions.slice(0, 3);
 
   cardsGroup = this.add.group();
 
-  const startX = 200;
-  const startY = 200;
-  const gap = 180;
+  const startX = this.cameras.main.centerX;
+  const startY = this.cameras.main.centerY;
+  const gap = 220;
 
-  cardOptions.forEach((card, i) => {
-    const cardContainer = this.add.container(startX + i * gap, startY);
+  selectedCards.forEach((card, i) => {
+    const x = startX + (i - 1) * gap;
+    const y = startY;
 
-    const cardBg = this.add.rectangle(0, 0, 150, 200, 0x222222, 0.8).setStrokeStyle(2, 0x00ffff);
-    const cardNome = this.add.text(0, -70, card.nome, { fontSize: '18px', color: '#fff' }).setOrigin(0.5);
-    const cardDesc = this.add.text(0, 10, card.desc, { fontSize: '14px', color: '#ddd', wordWrap: { width: 140 } }).setOrigin(0.5);
+    const container = this.add.container(x, y);
 
-    cardContainer.add([cardBg, cardNome, cardDesc]);
-    cardContainer.setSize(150, 200);
-    cardContainer.setInteractive();
+    const bg = this.add.rectangle(0, 0, 160, 240, card.cor, 0.8).setStrokeStyle(4, 0xffffff);
+    const title = this.add.text(0, -80, card.nome, { fontSize: '20px', color: '#fff', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
+    const desc = this.add.text(0, 0, card.desc, { fontSize: '14px', color: '#eee', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
 
-    cardContainer.on('pointerdown', () => {
-      card.efeito();
-      cardsGroup.clear(true, true);
-      showingCards = false;
-      wave++;
-      waveText.setText(`Fase ${wave}`);
-      spawnWave.call(this);
+    container.add([bg, title, desc]);
+    container.setSize(160, 240);
+    container.setInteractive();
+
+    this.tweens.add({
+      targets: container,
+      y: y - 20,
+      yoyo: true,
+      repeat: -1,
+      duration: 1000,
+      ease: 'Sine.easeInOut'
     });
 
-    cardsGroup.add(cardContainer);
+    container.on('pointerover', () => {
+      container.setScale(1.1);
+    });
+
+    container.on('pointerout', () => {
+      container.setScale(1);
+    });
+
+    container.on('pointerdown', () => {
+      this.tweens.add({
+        targets: container,
+        scale: 0.9,
+        duration: 100,
+        yoyo: true,
+        ease: 'Power1',
+        onComplete: () => {
+          card.efeito();
+          cardsGroup.clear(true, true);
+          showingCards = false;
+          wave++;
+          waveText.setText(`Fase ${wave}`);
+          spawnWave.call(this);
+        }
+      });
+    });
+
+    cardsGroup.add(container);
   });
 }
 
@@ -323,6 +361,29 @@ function ativarSpiritAlly() {
       playerStats.spiritAllyActive = false;
     }
   });
+}
+
+function spawnWave() {
+  for (let i = 0; i < wave * 3; i++) {
+    const x = Phaser.Math.Between(100, 1200);
+    const y = Phaser.Math.Between(100, 500);
+    const enemy = enemies.create(x, y, 'enemy').setScale(0.05);
+    enemy.health = 3 + wave;
+    enemy.maxHealth = enemy.health;
+    enemy.setCollideWorldBounds(true);
+  }
+}
+
+function freezeEnemies(duration) {
+  enemies.children.iterate(enemy => {
+    enemy.body.enable = false;
+  });
+
+  setTimeout(() => {
+    enemies.children.iterate(enemy => {
+      enemy.body.enable = true;
+    });
+  }, duration);
 }
 
 function dashPlayer() {
