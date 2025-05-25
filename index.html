@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the automatons</title>
+  <title>War of the automatons V.1.2.1</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
     body { margin: 0; overflow: hidden; background: #0a0000ce }
@@ -65,26 +65,47 @@ function preload() {
 
 function create() {
   waveText = this.add.text(config.width - 20, 20, `Fase ${wave}`, {
-  fontFamily: 'cinzel',
-  fontSize: '24px',
-  color: '#FFFFFF',
-  stroke: '#000000',
-  strokeThickness: 4
-}).setOrigin(1, 0); // Alinha pela direita no topo
+    fontFamily: 'cinzel',
+    fontSize: '24px',
+    color: '#FFFFFF',
+    stroke: '#000000',
+    strokeThickness: 4
+  }).setOrigin(1, 0);
 
   this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1);
+
   player = this.physics.add.sprite(400, 300, 'player')
     .setCollideWorldBounds(true)
-    .setScale(0.05); // player pequeno
+    .setScale(0.05);
 
   bullets = this.physics.add.group();
   enemies = this.physics.add.group();
   enemyBullets = this.physics.add.group();
+  armas = this.physics.add.group();  // Grupo das armas, mano!
+  
   cursors = this.input.keyboard.createCursorKeys();
+
+  // Spawn das armas no mapa
+  spawnArmas.call(this);
+
+  // Colisão pra pegar arma, atualiza stats e HUD
+  this.physics.add.overlap(player, armas, (player, arma) => {
+    pegarArma.call(this, arma);
+  });
 
   this.input.keyboard.on('keydown-Z', () => {
     if (playerStats.dashAvailable && !playerStats.dashCooldown) {
       dashPlayer.call(this);
+    }
+  });
+
+  // Restart com Espaço
+  this.input.keyboard.on('keydown-SPACE', () => {
+    if (!player.active) {
+      this.cameras.main.fadeOut(500, 0, 0, 0);
+      this.time.delayedCall(500, () => {
+        this.scene.restart();
+      });
     }
   });
 
@@ -111,10 +132,11 @@ function create() {
       }
     }
   });
-    hudGroup = this.add.group();
 
-  // Texto do nome da arma (centralizado no topo)
-  armaNomeText = this.add.text(config.width / 2, 20, 'Arauto da Guerra', {
+  hudGroup = this.add.group();
+
+  // Texto do nome da arma (com borda e glitch RGB estilo cyberpunk)
+  armaNomeText = this.add.text(config.width / 2, 20, 'pistolinha', {
     fontFamily: 'Arial Black',
     fontSize: '28px',
     color: '#FFD700',
@@ -123,11 +145,15 @@ function create() {
     shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 4, stroke: true, fill: true }
   }).setOrigin(0.5, 0);
 
-  // Imagem da arma logo abaixo do texto, também centralizada
+  // Caixa translúcida atrás do texto da arma (glitch RGB)
+  const box = this.add.rectangle(config.width / 2, 40, 300, 70, 0x111111, 0.3).setOrigin(0.5, 0);
+  box.setStrokeStyle(2, 0x00ffff, 0.7);
+  hudGroup.add(box);
+
+  // Imagem da arma logo abaixo do texto, centralizada
   armaImagem = this.add.image(config.width / 2, 70, 'arma3').setScale(0.3);
 
   hudGroup.addMultiple([armaNomeText, armaImagem]);
-
 
   this.time.addEvent({
     delay: 9000,
@@ -142,6 +168,53 @@ function create() {
     }
   });
 }
+function spawnArmas() {
+  const tipos = Object.keys(tiposDeArmas);
+
+  for (let i = 0; i < 3; i++) {
+    const tipo = Phaser.Utils.Array.GetRandom(tipos);
+    const x = Phaser.Math.Between(100, 1200);
+    const y = Phaser.Math.Between(100, 500);
+    const arma = armas.create(x, y, tipo).setScale(0.2);
+    arma.tipo = tipo;
+  }
+}
+
+function pegarArma(arma) {
+  const props = tiposDeArmas[arma.tipo];
+
+  playerStats.bulletDamage = props.dano;
+  playerStats.fireRate = props.fireRate;
+
+  arma.destroy();
+
+  // Atualiza a HUD com nome e imagem da arma
+  const nomeArmasMap = {
+    arma1: 'Pistolinha',
+    arma2: 'Fúria de Eryon',
+    arma3: 'Lança-Raio'
+  };
+
+  atualizarHUDarma(nomeArmasMap[arma.tipo], arma.tipo);
+
+  // Feedback visual style favela-glitch
+  this.add.text(player.x, player.y - 30, `Pegou ${nomeArmasMap[arma.tipo]}!`, {
+    fontSize: '18px',
+    color: '#FFD700',
+    fontStyle: 'bold',
+    stroke: '#000',
+    strokeThickness: 3
+  }).setOrigin(0.5).setDepth(99).setScrollFactor(0).setAlpha(0.9).setDepth(99)
+  .setInteractive()
+  .on('pointerdown', txt => txt.destroy())
+  .setDuration?.(2000); // Se quiser, some depois de um tempo (pode precisar de tween)
+}
+
+function atualizarHUDarma(nomeArma, keyImagem) {
+  armaNomeText.setText(nomeArma);
+  armaImagem.setTexture(keyImagem);
+}
+
 
 function update(time) {
   if (!player.active) return;
