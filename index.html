@@ -22,8 +22,8 @@
 <script>
 const config = {
   type: Phaser.AUTO,
-  width: 1300,
-  height: 590,
+  width: 1400,
+  height: 600,
   backgroundColor: '#000000',
   physics: {
     default: 'arcade',
@@ -50,16 +50,26 @@ let playerSpeed = 200;
 let spiritAlly = null;
 
 let playerStats = {
-  life: 3,
-  bulletDamage: 1,
-  fireRate: 3000,
-  hasShield: false,
-  spiritAllyActive: false,
-  spreadUpgrade: false,
-  doubleBullets: false,
-  dashAvailable: false,
-  dashCooldown: false
+  life: 3,                    // Coraçãozin tá firme
+  bulletDamage: 1,           // Dano padrão da bala
+  fireRate: 3000,            // Delay entre tiros
+  hasShield: false,          // Tem escudo ou não
+  spiritAllyActive: false,   // Espírito aliado tá junto?
+  spreadUpgrade: false,      // Tiro espalhado desbloqueado?
+  doubleBullets: false,      // Dois tiros de uma vez?
+  dashAvailable: false,      // Pode usar dash?
+  dashCooldown: false,       // Tá em cooldown?
+  slowEnemies: false,        // Inimigos lentos (efeito de carta)
+  reviveOnce: false,         // Ressuscita uma vez?
+  increasedDropRate: false,  // Mais chance de drop de arma?
+  tripleBullets: false,      // Três tiros, modo overpowered
+  freezeEnemies: false,      // Congela inimigos temporariamente
+  healOnKill: false,         // Cura ao matar?
+  damageAura: false,         // Aura de dano por perto
+  speedBoost: false,         // Velocidade turbinada
+  bulletPiercing: false      // Bala atravessa inimigos?
 };
+
 
 const tiposDeArmas = {
   arma1: { dano: 1, fireRate: 3000 }, // Pistola 
@@ -140,9 +150,9 @@ function create() {
   hudGroup = this.add.group();
 
   armaNomeText = this.add.text(config.width / 2, 20, 'Pistolinha', {
-    fontFamily: 'Arial Black',
+    fontFamily: 'Cinzel',
     fontSize: '28px',
-    color: '#FFD700',
+    color: '#A62E2E',
     stroke: '#000000',
     strokeThickness: 4,
     shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 4, stroke: true, fill: true }
