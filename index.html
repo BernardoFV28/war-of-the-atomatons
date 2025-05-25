@@ -1,12 +1,20 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the automatons</title>
+  <title>War of the Automatons</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; background: #0a0000ce }
-    canvas { display: block; margin: auto; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #0a0000ce;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+    }
   </style>
 </head>
 <body>
@@ -49,7 +57,8 @@ let playerStats = {
   spiritAllyActive: false,
   spreadUpgrade: false,
   doubleBullets: false,
-  dashAvailable: false
+  dashAvailable: false,
+  dashCooldown: false
 };
 
 const tiposDeArmas = {
@@ -64,15 +73,13 @@ function preload() {
   this.load.image('player', 'assets/player.png');
   this.load.image('enemy', 'assets/enemy.png');
   this.load.image('bullet', 'assets/bullet.png');
-  this.load.image('arma1', 'assets/pistolinha.png');
+  this.load.image('arma1', 'assets/pistola.png');
   this.load.image('arma2', 'assets/metralha.png');
   this.load.image('arma3', 'assets/lancarrio.png');
   this.load.image('fundogame', 'assets/fundogame.png');
 }
 
 function create() {
-  this.bullets.children.each(...)
-
   this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1);
 
   player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true).setScale(0.05);
@@ -104,7 +111,7 @@ function create() {
       });
     }
   });
-  
+
   spawnWave.call(this);
 
   this.physics.add.overlap(bullets, enemies, (b, e) => {
@@ -131,7 +138,7 @@ function create() {
 
   hudGroup = this.add.group();
 
-  armaNomeText = this.add.text(config.width / 2, 20, 'pistolinha', {
+  armaNomeText = this.add.text(config.width / 2, 20, 'Pistolinha', {
     fontFamily: 'Arial Black',
     fontSize: '28px',
     color: '#FFD700',
@@ -144,11 +151,11 @@ function create() {
   box.setStrokeStyle(2, 0x00ffff, 0.7);
   hudGroup.add(box);
 
-  armaImagem = this.add.image(config.width / 2, 70, 'arma3').setScale(0.3);
+  armaImagem = this.add.image(config.width / 2, 70, 'arma1').setScale(0.3);
   hudGroup.addMultiple([armaNomeText, armaImagem]);
 
   waveText = this.add.text(config.width - 20, 20, `Fase ${wave}`, {
-    fontFamily: 'cinzel',
+    fontFamily: 'Cinzel',
     fontSize: '24px',
     color: '#FFFFFF',
     stroke: '#000000',
@@ -168,41 +175,6 @@ function create() {
     }
   });
 }
-  
-  hudGroup = this.add.group();
-
-  // Texto do nome da arma (com borda e glitch RGB estilo cyberpunk)
-  armaNomeText = this.add.text(config.width / 2, 20, 'pistolinha', {
-    fontFamily: 'Arial Black',
-    fontSize: '28px',
-    color: '#FFD700',
-    stroke: '#000000',
-    strokeThickness: 4,
-    shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 4, stroke: true, fill: true }
-  }).setOrigin(0.5, 0);
-
-  // Caixa translúcida atrás do texto da arma (glitch RGB)
-  const box = this.add.rectangle(config.width / 2, 40, 300, 70, 0x111111, 0.3).setOrigin(0.5, 0);
-  box.setStrokeStyle(2, 0x00ffff, 0.7);
-  hudGroup.add(box);
-
-  // Imagem da arma logo abaixo do texto, centralizada
-  armaImagem = this.add.image(config.width / 2, 70, 'arma3').setScale(0.3);
-
-  hudGroup.addMultiple([armaNomeText, armaImagem]);
-
-  this.time.addEvent({
-    delay: 60000,
-    loop: true,
-    callback: () => {
-      enemies.getChildren().forEach(enemy => {
-        if (!enemy.active) return;
-        const bullet = enemyBullets.create(enemy.x, enemy.y, 'bullet').setScale(0.01);
-        const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
-        this.physics.velocityFromRotation(angle, 150, bullet.body.velocity);
-      });
-    }
-  });
 
 function spawnArmas() {
   const tipos = Object.keys(tiposDeArmas);
@@ -224,7 +196,6 @@ function pegarArma(arma) {
 
   arma.destroy();
 
-  // Atualiza a HUD com nome e imagem da arma
   const nomeArmasMap = {
     arma1: 'Pistolinha',
     arma2: 'Fúria de Eryon',
@@ -240,17 +211,15 @@ function pegarArma(arma) {
     fontStyle: 'bold',
     stroke: '#000',
     strokeThickness: 3
-  }).setOrigin(0.5).setDepth(99).setScrollFactor(0).setAlpha(0.9).setDepth(99)
-  .setInteractive()
-  .on('pointerdown', txt => txt.destroy())
-  .setDuration?.(2000); // Se quiser, some depois de um tempo (pode precisar de tween)
+  }).setOrigin(0.5).setDepth(99).setScrollFactor(0).setAlpha(0.9)
+    .setInteractive()
+    .on('pointerdown', txt => txt.destroy());
 }
 
 function atualizarHUDarma(nomeArma, keyImagem) {
   armaNomeText.setText(nomeArma);
   armaImagem.setTexture(keyImagem);
 }
-
 
 function update(time) {
   if (!player.active) return;
@@ -280,16 +249,6 @@ function update(time) {
     showingCards = true;
     showCardChoices.call(this);
   }
-//aquiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
-if (this.bullets && this.bullets.children) {
-  this.bullets.children.each(function(bullet) {
-    if (bullet.active && bullet.update) {
-      bullet.update();
-    }
-  }, this);
-}
-
-
 }
 
 function shootRadial() {
@@ -298,267 +257,90 @@ function shootRadial() {
 
   for (let i = 0; i < count; i++) {
     const angle = Phaser.Math.DegToRad((360 / count) * i);
-    const vx = Math.cos(angle) * speed;
-    const vy = Math.sin(angle) * speed;
-
-    if (!player.active) return;
-
-    const bullet1 = bullets.create(player.x, player.y, 'bullet').setScale(0.02);
-    bullet1.body.velocity.set(vx, vy);
-
-    if (playerStats.doubleBullets) {
-      const offset = 10;
-      const bullet2 = bullets.create(player.x + offset, player.y + offset, 'bullet').setScale(0.03);
-      bullet2.body.velocity.set(vx, vy);
-    }
-  }
-}
-
-function spawnWave() {
-  const count = 5 + wave * 2;
-  for (let i = 0; i < count; i++) {
-    const x = Phaser.Math.Between(100, 1200);
-    const y = Phaser.Math.Between(50, 540);
-    const enemy = this.physics.add.sprite(x, y, 'enemy').setScale(0.05);
-    enemy.health = 3 + wave;
-    enemies.add(enemy);
+    const bullet = bullets.create(player.x, player.y, 'bullet').setScale(0.01);
+    this.physics.velocityFromRotation(angle, speed, bullet.body.velocity);
   }
 }
 
 function showCardChoices() {
-  const choices = [
-    { title: "⚡ Bala Braba", desc: "Dano +50%, cadência -50%", color: 0xff5e5b, effect: () => {
-      playerStats.bulletDamage *= 1.5;
-      playerStats.fireRate *= 1.5;
-    }},
-    { title: "🛡️ Escudo de prata", desc: "Ganha escudo que absorve um tiro", color: 0x00bbf9, effect: () => {
-      playerStats.hasShield = true;
-      this.cameras.main.setZoom(0.7);
-    }},
-    { title: "👻 Espírito Pit", desc: "Aliado que destrói inimigos por 10s", color: 0x9b5de5, effect: () => {
-      if (!playerStats.spiritAllyActive) {
-        summonSpiritAlly.call(this);
-        playerStats.spiritAllyActive = true;
-      }
-    }},
-    { title: "🎯 Tiros Duplos", desc: "Cada disparo gera 2 balas paralelas", color: 0xf15bb5, effect: () => {
-      playerStats.doubleBullets = true;
-    }},
-    { title: "🌪️ Dispersão", desc: "Aumenta tiros para 24 balas por disparo", color: 0x00f5d4, effect: () => {
-      playerStats.spreadUpgrade = true;
-    }},
-    { title: "⚡ Dash Rápido", desc: "Ative dash com tecla Z, cooldown 3s", color: 0xffc300, effect: () => {
-      playerStats.dashAvailable = true;
-    }}
+  const cardOptions = [
+    { nome: 'Escudo da Favela', desc: 'Proteção que te salva da morte uma vez', efeito: () => { playerStats.hasShield = true; } },
+    { nome: 'Tiro Duplo', desc: 'Dispara duas vezes mais balas', efeito: () => { playerStats.doubleBullets = true; } },
+    { nome: 'Bênção do Espírito', desc: 'Espírito aliado ajuda no ataque', efeito: ativarSpiritAlly },
+    { nome: 'Upgrade do Spread', desc: 'Dispara balas em círculo maior', efeito: () => { playerStats.spreadUpgrade = true; } },
+    { nome: 'Dash da Quebrada', desc: 'Corrida rápida para escapar', efeito: () => { playerStats.dashAvailable = true; } }
   ];
 
-  const shuffled = Phaser.Utils.Array.Shuffle(choices);
-  const deck = shuffled.slice(0, 3);
-
   cardsGroup = this.add.group();
-  const overlay = this.add.rectangle(650, 295, 1300, 590, 0x000000, 0.7).setDepth(10);
 
-  deck.forEach((choice, i) => {
-    const x = 350 + i * 300;
+  const startX = 200;
+  const startY = 200;
+  const gap = 180;
 
-    const card = this.add.rectangle(x, 250, 180, 220, choice.color)
-      .setStrokeStyle(3, 0xffffff)
-      .setDepth(11)
-      .setInteractive()
-      .setAlpha(0);
+  cardOptions.forEach((card, i) => {
+    const cardContainer = this.add.container(startX + i * gap, startY);
 
-    this.tweens.add({
-      targets: card,
-      alpha: 1,
-      scale: { from: 1, to: 1.05 },
-      yoyo: true,
-      repeat: -1,
-      duration: 800,
-      ease: 'Sine.easeInOut'
-    });
+    const cardBg = this.add.rectangle(0, 0, 150, 200, 0x222222, 0.8).setStrokeStyle(2, 0x00ffff);
+    const cardNome = this.add.text(0, -70, card.nome, { fontSize: '18px', color: '#fff' }).setOrigin(0.5);
+    const cardDesc = this.add.text(0, 10, card.desc, { fontSize: '14px', color: '#ddd', wordWrap: { width: 140 } }).setOrigin(0.5);
 
-    const title = this.add.text(x, 190, choice.title, {
-      fontSize: '22px',
-      color: '#000',
-      fontFamily: 'Arial Black'
-    }).setOrigin(0.5).setDepth(11);
+    cardContainer.add([cardBg, cardNome, cardDesc]);
+    cardContainer.setSize(150, 200);
+    cardContainer.setInteractive();
 
-    const desc = this.add.text(x, 250, choice.desc, {
-      fontSize: '16px',
-      color: '#111',
-      wordWrap: { width: 160 }
-    }).setOrigin(0.5).setDepth(11);
-
-    card.on('pointerover', () => card.setStrokeStyle(4, 0xffff00));
-    card.on('pointerout', () => card.setStrokeStyle(3, 0xffffff));
-    card.on('pointerdown', () => {
+    cardContainer.on('pointerdown', () => {
+      card.efeito();
       cardsGroup.clear(true, true);
-      overlay.destroy();
-      choice.effect.call(this);
       showingCards = false;
       wave++;
+      waveText.setText(`Fase ${wave}`);
       spawnWave.call(this);
     });
 
-    cardsGroup.addMultiple([card, title, desc]);
+    cardsGroup.add(cardContainer);
   });
 }
 
-function summonSpiritAlly() {
-  if (spiritAlly && spiritAlly.active) return;
+function ativarSpiritAlly() {
+  if (spiritAlly) spiritAlly.destroy();
 
-  spiritAlly = this.physics.add.sprite(player.x + 40, player.y, 'player').setTint(0x00ffff).setScale(0.15);
-  spiritAlly.setDepth(5);
+  spiritAlly = this.physics.add.sprite(player.x, player.y, 'player').setScale(0.03).setAlpha(0.7);
+  playerStats.spiritAllyActive = true;
 
   this.time.addEvent({
-    delay: 100,
-    loop: true,
+    delay: 15000,
     callback: () => {
-      if (!spiritAlly.active) return;
-      const closestEnemy = enemies.getChildren()
-        .filter(e => e.active)
-        .sort((a, b) => Phaser.Math.Distance.Between(spiritAlly.x, spiritAlly.y, a.x, a.y) - Phaser.Math.Distance.Between(spiritAlly.x, spiritAlly.y, b.x, b.y))[0];
-
-      if (closestEnemy) {
-        this.physics.moveToObject(spiritAlly, closestEnemy, 300);
-      }
+      if (spiritAlly) spiritAlly.destroy();
+      playerStats.spiritAllyActive = false;
     }
-  });
-
-  this.physics.add.overlap(spiritAlly, enemies, (s, e) => {
-    if (e.active && s.active) e.destroy();
-  });
-
-  this.time.delayedCall(10000, () => {
-    if (spiritAlly) spiritAlly.destroy();
-    playerStats.spiritAllyActive = false;
   });
 }
 
 function dashPlayer() {
-  if (playerStats.dashCooldown) return;
-
-  const dashDistance = 150;
-  let vx = 0, vy = 0;
-
-  if (cursors.left.isDown) vx = -dashDistance;
-  else if (cursors.right.isDown) vx = dashDistance;
-  if (cursors.up.isDown) vy = -dashDistance;
-  else if (cursors.down.isDown) vy = dashDistance;
-
-  if (vx === 0 && vy === 0) return;
-
-  player.setVelocity(vx * 5, vy * 5);
-  this.time.delayedCall(100, () => player.setVelocity(0));
   playerStats.dashCooldown = true;
-
-  this.time.delayedCall(3000, () => {
-    playerStats.dashCooldown = false;
+  this.tweens.add({
+    targets: player,
+    x: player.x + (cursors.left.isDown ? -150 : cursors.right.isDown ? 150 : 0),
+    y: player.y + (cursors.up.isDown ? -150 : cursors.down.isDown ? 150 : 0),
+    duration: 150,
+    ease: 'Power2',
+    onComplete: () => {
+      playerStats.dashCooldown = false;
+    }
   });
 }
 
-function spawnArmas() {
-  const tipos = Object.keys(tiposDeArmas);
-
-  for (let i = 0; i < 3; i++) {
-    const tipo = Phaser.Utils.Array.GetRandom(tipos);
+function spawnWave() {
+  for (let i = 0; i < wave * 3; i++) {
     const x = Phaser.Math.Between(100, 1200);
     const y = Phaser.Math.Between(100, 500);
-    const arma = armas.create(x, y, tipo).setScale(0.2);
-    arma.tipo = tipo;
+    const enemy = enemies.create(x, y, 'enemy').setScale(0.05);
+    enemy.health = 3 + wave;
+    enemy.setCollideWorldBounds(true);
   }
 }
-function pegarArma(arma) {
-  const props = tiposDeArmas[arma.tipo];
-
-  playerStats.bulletDamage = props.dano;
-  playerStats.fireRate = props.fireRate;
-
-  arma.destroy();
-
-  // Feedback visual se quiser
-  this.add.text(player.x, player.y - 30, `Pegou ${arma.tipo.toUpperCase()}!`, {
-    fontSize: '18px',
-    color: '#FFD700',
-    fontStyle: 'bold'
-  }).setOrigin(0.5).setDepth(99).setScrollFactor(0);
-}
-function atualizarHUDarma(nomeArma, keyImagem) {
-  armaNomeText.setText(nomeArma);
-  armaImagem.setTexture(keyImagem);
-}
-function pegarArma(arma) {
-  const props = tiposDeArmas[arma.tipo];
-
-  playerStats.bulletDamage = props.dano;
-  playerStats.fireRate = props.fireRate;
-
-  arma.destroy();
-
-  // Atualiza a HUD com o nome e imagem da arma atual
-  const nomeArmasMap = {
-    arma1: 'Pistolinha',
-    arma2: 'Fúria de eryon',
-    arma3: 'Lança-Raio '
-  };
-
-  atualizarHUDarma(nomeArmasMap[arma.tipo], arma.tipo);
-
-  // Feedback visual se quiser
-  this.add.text(player.x, player.y - 30, `Pegou ${nomeArmasMap[arma.tipo]}!`, {
-    fontSize: '18px',
-    color: '#FFD700',
-    fontStyle: 'bold'
-  }).setOrigin(0.5).setDepth(99).setScrollFactor(0);
-}
-//reinciar
-this.input.keyboard.on('keydown-SPACE', () => {
-  if (!player.active) {
-    this.cameras.main.fadeOut(500, 0, 0, 0);
-    this.time.delayedCall(500, () => {
-      this.scene.restart();
-    });
-  }
-});
-//texto para weve onda ou fase do jogo
-card.on('pointerdown', () => {
-  cardsGroup.clear(true, true);
-  overlay.destroy();
-  choice.effect.call(this);
-  showingCards = false;
-  wave++;
-  waveText.setText(`Fase ${wave}`);
-  spawnWave.call(this);
-});
-
-this.balas = this.physics.add.group({
-  classType: Phaser.GameObjects.Image,
-  runChildUpdate: true
-});
-function dispararBala(x, y, velocidadeX, velocidadeY) {
-  const bala = this.balas.get(x, y, 'imagemDaBala');
-
-  if (bala) {
-    bala.setActive(true);
-    bala.setVisible(true);
-    bala.body.velocity.x = velocidadeX;
-    bala.body.velocity.y = velocidadeY;
-
-    // Update próprio pra sumir se sair da tela
-    bala.update = function () {
-      if (
-        this.x < 0 || this.x > this.scene.sys.canvas.width ||
-        this.y < 0 || this.y > this.scene.sys.canvas.height
-      ) {
-        this.setActive(false);
-        this.setVisible(false);
-        this.destroy(); // se quiser destruir pra liberar memória
-      }
-    };
-  }
-}
-
 
 </script>
+
 </body>
 </html>
