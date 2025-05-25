@@ -18,7 +18,6 @@
   </style>
 </head>
 <body>
-  
 <script>
 const config = {
   type: Phaser.AUTO,
@@ -69,7 +68,6 @@ let playerStats = {
   speedBoost: false,         // Velocidade turbinada
   bulletPiercing: false      // Bala atravessa inimigos?
 };
-
 
 const tiposDeArmas = {
   arma1: { dano: 1, fireRate: 3000 }, // Pistola 
@@ -232,6 +230,35 @@ function atualizarHUDarma(nomeArma, keyImagem) {
   armaImagem.setTexture(keyImagem);
 }
 
+function update(time) {
+  if (!player.active) return;
+
+  let vx = 0, vy = 0;
+  if (cursors.left.isDown) vx = -1;
+  else if (cursors.right.isDown) vx = 1;
+
+  if (cursors.up.isDown) vy = -1;
+  else if (cursors.down.isDown) vy = 1;
+
+  const norm = Math.hypot(vx, vy) || 1;
+  player.setVelocity((vx / norm) * playerSpeed, (vy / norm) * playerSpeed);
+
+  if (time > lastShoot + playerStats.fireRate) {
+    shootRadial.call(this);
+    lastShoot = time;
+  }
+
+  enemies.getChildren().forEach(enemy => {
+    if (!enemy.active) return;
+    const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
+    this.physics.velocityFromRotation(angle, 100, enemy.body.velocity);
+  });
+
+  if (enemies.countActive() === 0 && !showingCards) {
+    showingCards = true;
+    showCardChoices.call(this);
+  }
+}
 
 function shootRadial() { 
   const count = playerStats.spreadUpgrade ? 24 : 12;
