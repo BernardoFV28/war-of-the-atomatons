@@ -134,6 +134,16 @@ function create() {
         p.clearTint();
       }
     }
+    bullets.children.each(function(bullet) {
+  if (bullet.active) {
+    if (this.time.now - bullet.spawnTime > bullet.lifespan) {
+      bullet.setActive(false);
+      bullet.setVisible(false);
+      bullet.body.enable = false;
+    }
+  }
+}, this);
+
   });
 
   hudGroup = this.add.group();
@@ -183,7 +193,7 @@ function spawnArmas() {
     const tipo = Phaser.Utils.Array.GetRandom(tipos);
     const x = Phaser.Math.Between(100, 1200);
     const y = Phaser.Math.Between(100, 500);
-    const arma = armas.create(x, y, tipo).setScale(0.2);
+    const arma = armas.create(x, y, tipo).setScale(0.01);
     arma.tipo = tipo;
   }
 }
@@ -328,6 +338,21 @@ function dashPlayer() {
       playerStats.dashCooldown = false;
     }
   });
+}
+function shootBullet(x, y, velocityX, velocityY) {
+  const bullet = bullets.get(x, y); // pega uma bala do pool
+
+  if (bullet) {
+    bullet.setActive(true);
+    bullet.setVisible(true);
+    bullet.body.enable = true;
+
+    bullet.setVelocity(velocityX, velocityY);
+
+    // Depois de 2 segundos, destrói a bala
+    bullet.lifespan = 2000; // 2 segundos em milissegundos
+    bullet.spawnTime = this.time.now; // registra o tempo de criação
+  }
 }
 
 function spawnWave() {
