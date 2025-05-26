@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V.1.0.6</title>
+  <title>War of the Automatons V.1.2.5</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -21,7 +21,7 @@
 <script>
 const config = {
   type: Phaser.AUTO,
-  width: 1390,
+  width: 1200,
   height: 600,
   backgroundColor: '#000000',
   physics: {
@@ -161,10 +161,10 @@ function create() {
   }).setOrigin(0.5, 0);
 
   const box = this.add.rectangle(config.width / 2, 40, 300, 70, 0x111111, 0.3).setOrigin(0.5, 0);
-  box.setStrokeStyle(2, 0x00ffff, 0.7);
+  box.setStrokeStyle(2, 0x00ffff, 0.1);
   hudGroup.add(box);
 
-  armaImagem = this.add.image(config.width / 2, 70, 'arma1').setScale(0.01);
+  armaImagem = this.add.image(config.width / 2, 70, 'arma1').setScale(0.1);
   hudGroup.addMultiple([armaNomeText, armaImagem]);
 
   waveText = this.add.text(config.width - 20, 20, `Fase ${wave}`, {
