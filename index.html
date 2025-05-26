@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V.1.2.5</title>
+  <title>War of the Automatons V.1.0.6</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -21,7 +21,7 @@
 <script>
 const config = {
   type: Phaser.AUTO,
-  width: 1400,
+  width: 1390,
   height: 600,
   backgroundColor: '#000000',
   physics: {
@@ -43,10 +43,12 @@ let player, cursors;
 let bullets, enemies, enemyBullets, armas;
 let lastShoot = 0;
 let showingCards = false;
-let wave = 1;
-let cardsGroup;
-let playerSpeed = 200;
-let spiritAlly = null;
+let wave = 1;//onda
+let cardsGroup;//grupo de cartas
+let playerSpeed = 220;//velocidade
+let spiritAlly = null; //aliado
+let playerCards = []; // Cartas que o jogador pegou
+let cardsHUDGroup; // Grupo visual do HUD de cartas
 
 let playerStats = {
   life: 3,                    // Coraçãozin tá firme
@@ -78,6 +80,7 @@ const tiposDeArmas = {
 const game = new Phaser.Game(config);
 
 function preload() {
+  this.load.image('cardBg', 'assets/card.png');
   this.load.image('player', 'assets/player.png');
   this.load.image('enemy', 'assets/enemy.png');
   this.load.image('bullet', 'assets/bullet.png');
@@ -146,6 +149,7 @@ function create() {
   });
 
   hudGroup = this.add.group();
+  cardsHUDGroup = this.add.group(); // Grupo que vai mostrar as cartas
 
   armaNomeText = this.add.text(config.width / 2, 20, 'Pistolinha', {
     fontFamily: 'Cinzel',
@@ -192,7 +196,7 @@ function spawnArmas() {
     const tipo = Phaser.Utils.Array.GetRandom(tipos);
     const x = Phaser.Math.Between(100, 1200);
     const y = Phaser.Math.Between(100, 500);
-    const arma = armas.create(x, y, tipo).setScale(0.2);
+    const arma = armas.create(x, y, tipo).setScale(0.02);
     arma.tipo = tipo;
   }
 }
@@ -220,7 +224,7 @@ function pegarArma(arma) {
     fontStyle: 'bold',
     stroke: '#000',
     strokeThickness: 3
-  }).setOrigin(0.5).setDepth(99).setScrollFactor(0).setAlpha(0.9)
+  }).setOrigin(0.5).setDepth(99).setScrollFactor(0).setAlpha(0.7)
     .setInteractive()
     .on('pointerdown', txt => txt.destroy());
 }
@@ -228,6 +232,22 @@ function pegarArma(arma) {
 function atualizarHUDarma(nomeArma, keyImagem) {
   armaNomeText.setText(nomeArma);
   armaImagem.setTexture(keyImagem);
+}
+
+function atualizarHUDCartas(scene) {
+  cardsHUDGroup.clear(true, true); // Limpa antes de redesenhar
+
+  playerCards.forEach((card, index) => {
+    const bg = scene.add.rectangle(50 + index * 60, 140, 50, 70, card.cor || 0x999999, 0.8)
+      .setStrokeStyle(2, 0xffffff);
+    const title = scene.add.text(50 + index * 60, 140, card.nome[0], {
+      fontSize: '24px',
+      color: '#fff'
+    }).setOrigin(0.5);
+
+    cardsHUDGroup.add(bg);
+    cardsHUDGroup.add(title);
+  });
 }
 
 function update(time) {
@@ -267,6 +287,12 @@ function shootRadial() {
   for (let i = 0; i < count; i++) {
     const angle = Phaser.Math.DegToRad((360 / count) * i);
     const bullet = bullets.create(player.x, player.y, 'bullet').setScale(0.02);
+
+    // Destrói após 1 segundo
+    this.time.delayedCall(1000, () => {
+      if (bullet && bullet.active) bullet.destroy();
+    });
+
     this.physics.velocityFromRotation(angle, speed, bullet.body.velocity);
   }
 }
@@ -275,10 +301,10 @@ function showCardChoices() {
   const cardOptions = [
     { nome: 'Escudo de Ivirik', desc: 'Proteção que te salva da morte uma vez', cor: 0xffc107, efeito: () => { playerStats.hasShield = true; } },
     { nome: 'Tiro Duplo', desc: 'Dispara duas vezes mais balas', cor: 0x4caf50, efeito: () => { playerStats.doubleBullets = true; } },
-    { nome: 'Bênção do Espírito', desc: 'Espírito aliado ajuda no ataque', cor: 0x00bcd4, efeito: ativarSpiritAlly },
+    { nome: 'Bênção do dr Anomoi', desc: 'um automato te ajuda no ataque', cor: 0x00bcd4, efeito: ativarSpiritAlly },
     { nome: 'Upgrade do Spread', desc: 'Dispara balas em círculo maior', cor: 0x9c27b0, efeito: () => { playerStats.spreadUpgrade = true; } },
     { nome: 'Dash ', desc: 'Corrida rápida para escapar', cor: 0xf44336, efeito: () => { playerStats.dashAvailable = true; } },
-    { nome: 'Projétil Perfurante', desc: 'Balas atravessam inimigos', cor: 0x03a9f4, efeito: () => { playerStats.piercingShots = true; } },
+    { nome: 'Projétil Perfurante', desc: 'Balas atravessam inimigos de forma avassaladora', cor: 0x03a9f4, efeito: () => { playerStats.piercingShots = true; } },
     { nome: 'Recuperação Instantânea', desc: 'Recupera 2 de vida', cor: 0x8bc34a, efeito: () => { player.health = Math.min(player.health + 2, player.maxHealth); } },
     { nome: 'Fúria de Metalion', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.damageBoost = true; setTimeout(() => { playerStats.damageBoost = false; }, 15000); } },
     { nome: 'Vida Fantasma', desc: 'Sobrevive com 1 de vida ao morrer', cor: 0x673ab7, efeito: () => { playerStats.phantomLife = true; } },
@@ -298,13 +324,15 @@ function showCardChoices() {
     const x = startX + (i - 1) * gap;
     const y = startY;
 
-    const container = this.add.container(x, y);
-
-    const bg = this.add.rectangle(0, 0, 160, 240, card.cor, 0.8).setStrokeStyle(4, 0xffffff);
+      const container = this.add.container(x, y);
+  const bgImage = this.add.image(0, 0, 'cardBg').setDisplaySize(160, 240);
+  //bgImage.setTint(card.cor); Aplica uma cor por cima se quiser, opcional
+  
     const title = this.add.text(0, -80, card.nome, { fontSize: '20px', color: '#fff', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
     const desc = this.add.text(0, 0, card.desc, { fontSize: '14px', color: '#eee', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
 
-    container.add([bg, title, desc]);
+    container.add([bgImage, title, desc]);
+
     container.setSize(160, 240);
     container.setInteractive();
 
@@ -335,6 +363,10 @@ function showCardChoices() {
         onComplete: () => {
           card.efeito();
           cardsGroup.clear(true, true);
+
+          playerCards.push(card);// teste1
+          atualizarHUDCartas(this);//teste2
+
           showingCards = false;
           wave++;
           waveText.setText(`Fase ${wave}`);
@@ -342,6 +374,7 @@ function showCardChoices() {
         }
       });
     });
+
 
     cardsGroup.add(container);
   });
