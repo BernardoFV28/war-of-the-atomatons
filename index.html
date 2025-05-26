@@ -164,7 +164,7 @@ function create() {
   box.setStrokeStyle(2, 0x00ffff, 0.1);
   hudGroup.add(box);
 
-  armaImagem = this.add.image(config.width / 2, 70, 'arma1').setScale(0.1);
+  armaImagem = this.add.image(config.width / 2, 70, 'arma1').setScale(0.08);
   hudGroup.addMultiple([armaNomeText, armaImagem]);
 
   waveText = this.add.text(config.width - 20, 20, `Fase ${wave}`, {
@@ -196,7 +196,7 @@ function spawnArmas() {
     const tipo = Phaser.Utils.Array.GetRandom(tipos);
     const x = Phaser.Math.Between(100, 1200);
     const y = Phaser.Math.Between(100, 500);
-    const arma = armas.create(x, y, tipo).setScale(0.02);
+    const arma = armas.create(x, y, tipo).setScale(0.09);
     arma.tipo = tipo;
   }
 }
