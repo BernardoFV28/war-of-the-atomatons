@@ -21,8 +21,8 @@
 <script>
 const config = {
   type: Phaser.AUTO,
-  width: 1200,
-  height: 600,
+  width: 1300,
+  height: 580,
   backgroundColor: '#000000',
   physics: {
     default: 'arcade',
@@ -229,7 +229,7 @@ function create() {
   box.setStrokeStyle(2, 0x00ffff, 0.1);
   hudGroup.add(box);
 
-  armaImagem = this.add.image(config.width / 2, 70, 'arma1').setScale(0.09);
+  armaImagem = this.add.image(config.width / 2, 70, 'arma1').setScale(0.1);
   hudGroup.addMultiple([armaNomeText, armaImagem]);
 
   waveText = this.add.text(config.width - 20, 20, `Fase ${wave}`, {
@@ -246,7 +246,7 @@ function create() {
     callback: () => {
       enemies.getChildren().forEach(enemy => {
         if (!enemy.active) return;
-        const bullet = enemyBullets.create(enemy.x, enemy.y, 'bullet').setScale(0.01);
+        const bullet = enemyBullets.create(enemy.x, enemy.y, 'bullet').setScale(0.03);
         const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
         this.physics.velocityFromRotation(angle, 150, bullet.body.velocity);
       });
