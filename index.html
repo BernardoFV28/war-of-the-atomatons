@@ -443,7 +443,7 @@ function create() {
   // Cria um background de tiles
   const worldWidth = 2000; // Largura do mundo
   const worldHeight = 2000; // Altura do mundo
-  this.add.tileSprite(0, 0, worldWidth, worldHeight, 'tile').setOrigin(0, 0);
+  this.add.tileSprite(0, 0, worldWidth, worldHeight, 'tile').setOrigin(0, 0).setScrollFactor(0); // Adicionado .setScrollFactor(0)
   this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
 
   // Player
