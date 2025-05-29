@@ -85,7 +85,7 @@ const weapons = {
     name: 'Escopeta',
     damage: 1.5,
     fireRate: 700,
-    bulletSpeed: 400,
+    bulletSpeed: 300,
     ammo: 30,
     pellets: 5, // Para escopeta
     bulletSprite: 'bullet', // Could use a specific shotgun pellet sprite if you have one
@@ -93,9 +93,9 @@ const weapons = {
   },
   laser: {
     name: 'Laser',
-    damage: 2,
+    damage: 3,
     fireRate: 150,
-    bulletSpeed: 700,
+    bulletSpeed: 200,
     ammo: 100,
     isLaser: true, // Flag para projéteis de laser
     bulletSprite: 'laser_bullet',
@@ -411,31 +411,29 @@ function preload() {
   this.load.image('health_pickup', 'assets/health_pickup.png');
   this.load.image('ammo_pickup', 'assets/ammo.png');
   this.load.image('weapon_pickup', 'assets/weapon_pickup.png');
-  this.load.image('laser_bullet', 'assets/laser_bullet.png'); // Para projéteis de laser
+  this.load.image('laser_bullet', 'assets/ammo.png'); // Para projéteis de laser
   this.load.image('rocket', 'assets/rocket.png'); // Para foguetes
   this.load.image('explosion', 'assets/explosion.png'); // Para explosões (pode ser usado como fallback se spritesheet não carregar)
   this.load.image('tile', 'assets/fundogame.png'); // Tile para o fundo
 
   // Sprites de armas (se tiver ícones específicos)
-  this.load.image('pistol_icon', 'assets/pistol_icon.png');
+  this.load.image('pistol_icon', 'assets/pistolinha.png');
   this.load.image('machinegun_icon', 'assets/metralha.png'); // Alterado para 'metralha.png'
-  this.load.image('shotgun_icon', 'assets/shotgun_icon.png'); // Certifique-se que o .png está correto
-  this.load.image('laser_icon', 'assets/laser_icon.png');
+  this.load.image('shotgun_icon', 'assets/lancaraio.png'); // Certifique-se que o .png está correto
+  this.load.image('laser_icon', 'assets/ammo.png');
   this.load.image('rocketlauncher_icon', 'assets/lancarrio.png'); // Alterado para 'lancarrio.png'
 
   // Sprites de power-ups para as cartas
-  this.load.image('heart_powerup', 'assets/heart_powerup.png');
-  this.load.image('speed_powerup', 'assets/speed_powerup.png');
-  this.load.image('firerate_powerup', 'assets/firerate_powerup.png');
-  this.load.image('damage_powerup', 'assets/damage_powerup.png');
-  this.load.image('multishot_powerup', 'assets/multishot_powerup.png');
-  this.load.image('grenade_powerup', 'assets/grenade_powerup.png');
+  this.load.image('heart_powerup', 'assets/cora.png');
+  this.load.image('speed_powerup', 'assets/cora.png');
+  this.load.image('firerate_powerup', 'assets/ammo.png');
+  this.load.image('damage_powerup', 'assets/boss_robot.png');
+  this.load.image('multishot_powerup', 'assets/ammo.png');
+  this.load.image('grenade_powerup', 'assets/grenade.png');
 
   this.load.image('heart_full', 'assets/cora.png'); // Coração cheio
   this.load.image('cardBg', 'assets/cardBg.png'); // Fundo para as cartas no pop-up e HUD
 
-  // Carrega spritesheets para animações (se houver)
-  this.load.spritesheet('explosion_ss', 'assets/explosion_spritesheet.png', { frameWidth: 64, frameHeight: 64 });
 }
 
 function create() {
@@ -451,7 +449,7 @@ function create() {
   // Player
   player = this.physics.add.sprite(config.width / 2, config.height / 2, 'player').setCollideWorldBounds(true).setOrigin(0.5, 0.5);
   player.setDamping(true).setDrag(0.99); // Adiciona inércia ao movimento
-  player.body.setSize(player.width * 0.7, player.height * 0.7); // Ajusta o corpo de física para ser menor que a imagem
+  player.body.setSize(player.width * 0.07, player.height * 0.07); // Ajusta o corpo de física para ser menor que a imagem
   player.body.setOffset(player.width * 0.15, player.height * 0.15); // Centraliza o corpo ajustado
 
   cursors = this.input.keyboard.createCursorKeys();
@@ -510,14 +508,7 @@ function create() {
     loop: true
   });
 
-  // Cria as animações de explosão
-  this.anims.create({
-    key: 'explode',
-    frames: this.anims.generateFrameNumbers('explosion_ss', { start: 0, end: 15 }),
-    frameRate: 24,
-    repeat: 0,
-    hideOnComplete: true
-  });
+
 
   startWave();
 }
@@ -702,7 +693,7 @@ function hitPlayer(player, enemy) {
           maxLife: 5,
           speed: 200,
           fireRate: 300,
-          bulletSpeed: 500,
+          bulletSpeed: 700,
           bulletDamage: 1,
           currentWeapon: 'pistol',
           canShoot: true
