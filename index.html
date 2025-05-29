@@ -43,7 +43,6 @@ let bullets, enemyBullets;
 let enemies;
 let score = 0;
 let scoreText;
-let vidaText; // Removido, usando HUD de corações agora
 let currentWave = 1;
 let enemiesPerWave = 5;
 let spawnTimer;
@@ -70,7 +69,8 @@ const weapons = {
     fireRate: 300,
     bulletSpeed: 500,
     ammo: Infinity,
-    sprite: 'pistol_icon'
+    bulletSprite: 'bullet', // Default bullet
+    icon: 'pistol_icon'
   },
   machinegun: {
     name: 'Metralhadora',
@@ -78,7 +78,8 @@ const weapons = {
     fireRate: 100,
     bulletSpeed: 600,
     ammo: 150,
-    sprite: 'machinegun_icon'
+    bulletSprite: 'bullet', // Default bullet
+    icon: 'machinegun_icon'
   },
   shotgun: {
     name: 'Escopeta',
@@ -86,8 +87,9 @@ const weapons = {
     fireRate: 700,
     bulletSpeed: 400,
     ammo: 30,
-    sprite: 'shotgun_icon',
-    pellets: 5 // Para escopeta
+    pellets: 5, // Para escopeta
+    bulletSprite: 'bullet', // Could use a specific shotgun pellet sprite if you have one
+    icon: 'shotgun_icon'
   },
   laser: {
     name: 'Laser',
@@ -95,8 +97,9 @@ const weapons = {
     fireRate: 150,
     bulletSpeed: 700,
     ammo: 100,
-    sprite: 'laser_icon',
-    isLaser: true // Flag para projéteis de laser
+    isLaser: true, // Flag para projéteis de laser
+    bulletSprite: 'laser_bullet',
+    icon: 'laser_icon'
   },
   rocketlauncher: {
     name: 'Lança-Foguetes',
@@ -104,8 +107,9 @@ const weapons = {
     fireRate: 1000,
     bulletSpeed: 300,
     ammo: 10,
-    sprite: 'rocketlauncher_icon',
-    isExplosive: true // Flag para explosões
+    isExplosive: true, // Flag para explosões
+    bulletSprite: 'rocket',
+    icon: 'rocketlauncher_icon'
   }
 };
 
@@ -123,7 +127,7 @@ let cards = {
       scene.hud.updateHearts(); // Atualiza o HUD de corações
     },
     cor: 0x4CAF50, // Verde
-    sprite: 'heart_powerup' // Exemplo de sprite
+    sprite: 'heart_powerup'
   },
   speedBoost: {
     nome: 'Super Velocidade',
@@ -135,7 +139,7 @@ let cards = {
       });
     },
     cor: 0x2196F3, // Azul
-    sprite: 'speed_powerup' // Exemplo de sprite
+    sprite: 'speed_powerup'
   },
   fireRateBoost: {
     nome: 'Tiro Rápido',
@@ -148,7 +152,7 @@ let cards = {
       });
     },
     cor: 0xFF9800, // Laranja
-    sprite: 'firerate_powerup' // Exemplo de sprite
+    sprite: 'firerate_powerup'
   },
   damageBoost: {
     nome: 'Dano Brutal',
@@ -160,9 +164,9 @@ let cards = {
       });
     },
     cor: 0xF44336, // Vermelho
-    sprite: 'damage_powerup' // Exemplo de sprite
+    sprite: 'damage_powerup'
   },
-  multiShot: {
+  multishot: {
     nome: 'Tiro Múltiplo',
     descricao: 'Atira 3 balas em um pequeno arco.',
     efeito: (scene) => {
@@ -172,7 +176,7 @@ let cards = {
       });
     },
     cor: 0x9C27B0, // Roxo
-    sprite: 'multishot_powerup' // Exemplo de sprite
+    sprite: 'multishot_powerup'
   },
   grenade: {
     nome: 'Granada',
@@ -182,7 +186,7 @@ let cards = {
       console.log('Granada ativada!');
     },
     cor: 0x607D8B, // Cinza
-    sprite: 'grenade_powerup' // Exemplo de sprite
+    sprite: 'grenade_powerup'
   }
 };
 
@@ -207,7 +211,7 @@ class HUD extends Phaser.Scene {
   }
 
   preload() {
-    // Já carregado na cena principal, mas se fosse independente, carregaria aqui
+    // No images to preload in HUD, main scene handles it
   }
 
   create() {
@@ -220,13 +224,9 @@ class HUD extends Phaser.Scene {
     hudGroup.add(scoreText);
     hudGroup.add(waveText);
 
-    // Adiciona o HUD da arma
-    armaImagem = this.add.image(10, 40, weapons[playerStats.currentWeapon].sprite)
-      .setOrigin(0, 0)
-      .setScale(0.7)
-      .setScrollFactor(0)
-      .setDepth(1);
-    armaNomeText = this.add.text(armaImagem.x + armaImagem.width * armaImagem.scaleX + 5, 45, weapons[playerStats.currentWeapon].name, { fontSize: '18px', fill: '#fff' }).setScrollFactor(0);
+    // Adiciona o HUD da arma (agora com imagem)
+    armaImagem = this.add.image(10 + 16, 40 + 16, weapons[playerStats.currentWeapon].icon).setScale(0.8).setScrollFactor(0).setDepth(1);
+    armaNomeText = this.add.text(armaImagem.x + armaImagem.displayWidth / 2 + 5, armaImagem.y - armaImagem.displayHeight / 2 + 5, weapons[playerStats.currentWeapon].name, { fontSize: '18px', fill: '#fff' }).setScrollFactor(0);
     this.ammoText = this.add.text(armaNomeText.x, armaNomeText.y + 20, '', { fontSize: '16px', fill: '#fff' }).setScrollFactor(0);
     hudGroup.add(armaImagem);
     hudGroup.add(armaNomeText);
@@ -260,10 +260,7 @@ class HUD extends Phaser.Scene {
 
     for (let i = 0; i < playerStats.maxLife; i++) {
       const x = startX + i * (this.heartSize + 5); // 5px de espaçamento
-      const heart = this.add.image(x, startY, 'heart_full')
-        .setScrollFactor(0)
-        .setScale(this.heartSize / 16) // Ajusta a escala para o tamanho desejado
-        .setOrigin(0, 0);
+      const heart = this.add.image(x + this.heartSize / 2, startY + this.heartSize / 2, 'heart_full').setScale(0.8).setScrollFactor(0).setOrigin(0.5);
       this.heartsGroup.add(heart);
     }
     // Atualiza o estado visual dos corações
@@ -277,12 +274,11 @@ class HUD extends Phaser.Scene {
     }
   }
 
-
   update() {
     // Atualiza corações conforme vida do player
     for (let i = 0; i < this.heartsGroup.getLength(); i++) {
       const heart = this.heartsGroup.getChildren()[i];
-      if (i < playerStats.life) { // Use playerStats.life
+      if (i < playerStats.life) {
         heart.setAlpha(1);
       } else {
         heart.setAlpha(0.3);
@@ -335,7 +331,8 @@ class HUD extends Phaser.Scene {
 
   updateWeaponHUD(weaponName, ammo) {
     armaNomeText.setText(weaponName);
-    armaImagem.setTexture(weapons[playerStats.currentWeapon].sprite);
+    armaImagem.setTexture(weapons[playerStats.currentWeapon].icon); // Update weapon icon
+
     if (ammo !== Infinity) {
       this.ammoText.setText(`Munição: ${ammo}`);
     } else {
@@ -369,7 +366,6 @@ class HUD extends Phaser.Scene {
     bossNameText.setVisible(false);
   }
 
-  // Otimizado: Recebe as cartas ativas e redesenha o HUD
   atualizarHUDCartas(activeCardCounts) {
     cardsHUDGroup.clear(true, true); // Limpa antes de redesenhar
 
@@ -380,28 +376,15 @@ class HUD extends Phaser.Scene {
       const card = cards[cardName];
       if (!card) continue; // Garante que a carta existe
 
-      const bgImage = this.add.image(currentX, startY, 'cardBg')
-        .setDisplaySize(50, 70) // Ajusta o tamanho da imagem de fundo da carta
-        .setOrigin(0.5, 0.5)
-        .setScrollFactor(0)
-        .setTint(card.cor || 0x999999) // Aplica a cor na imagem de fundo da carta
-        .setAlpha(0.8);
+      // Draw card background using 'cardBg' image
+      const bgImage = this.add.image(currentX, startY, 'cardBg').setScale(0.8).setScrollFactor(0);
       cardsHUDGroup.add(bgImage);
 
-      // Adiciona uma borda para destaque
-      const border = this.add.rectangle(currentX, startY, 50, 70)
-        .setStrokeStyle(2, 0xffffff)
-        .setScrollFactor(0);
-      cardsHUDGroup.add(border);
-
-
-      const title = this.add.text(currentX, startY - 20, card.nome[0], {
-        fontSize: '24px',
-        color: '#fff',
-        fixedWidth: 50, // Garante que o texto não ultrapasse
-        align: 'center'
-      }).setOrigin(0.5).setScrollFactor(0);
-      cardsHUDGroup.add(title);
+      // Add icon to the card
+      if (card.sprite) {
+        const icon = this.add.image(currentX, startY - 20, card.sprite).setScale(0.5).setScrollFactor(0); // Adjust scale as needed
+        cardsHUDGroup.add(icon);
+      }
 
       const countText = this.add.text(currentX, startY + 15, activeCardCounts[cardName], {
         fontSize: '18px',
@@ -421,24 +404,24 @@ let game = new Phaser.Game(config);
 function preload() {
   this.load.image('player', 'assets/player.png');
   this.load.image('bullet', 'assets/bullet.png');
-  this.load.image('enemy1', 'assets/enemy1.png');
-  this.load.image('enemy2', 'assets/enemy2.png');
-  this.load.image('enemy3', 'assets/enemy3.png');
-  this.load.image('boss1', 'assets/boss1.png');
+  this.load.image('enemy1', 'assets/enemy_robot.png'); // Inimigo normal
+  this.load.image('enemy2', 'assets/enemy_fast.png'); // Inimigo rápido
+  this.load.image('enemy3', 'assets/enemy_tank.png'); // Inimigo tanque
+  this.load.image('boss1', 'assets/boss_robot.png'); // Boss
   this.load.image('health_pickup', 'assets/health_pickup.png');
-  this.load.image('ammo_pickup', 'assets/ammo_pickup.png');
+  this.load.image('ammo_pickup', 'assets/ammo.png');
   this.load.image('weapon_pickup', 'assets/weapon_pickup.png');
   this.load.image('laser_bullet', 'assets/laser_bullet.png'); // Para projéteis de laser
   this.load.image('rocket', 'assets/rocket.png'); // Para foguetes
-  this.load.image('explosion', 'assets/explosion.png'); // Para explosões
-  this.load.image('tile', 'assets/tile.png'); // Tile para o fundo
+  this.load.image('explosion', 'assets/explosion.png'); // Para explosões (pode ser usado como fallback se spritesheet não carregar)
+  this.load.image('tile', 'assets/fundogame.png'); // Tile para o fundo
 
   // Sprites de armas (se tiver ícones específicos)
   this.load.image('pistol_icon', 'assets/pistol_icon.png');
-  this.load.image('machinegun_icon', 'assets/machinegun_icon.png');
-  this.load.image('shotgun_icon', 'assets/shotgun_icon');
+  this.load.image('machinegun_icon', 'assets/metralha.png'); // Alterado para 'metralha.png'
+  this.load.image('shotgun_icon', 'assets/shotgun_icon.png'); // Certifique-se que o .png está correto
   this.load.image('laser_icon', 'assets/laser_icon.png');
-  this.load.image('rocketlauncher_icon', 'assets/rocketlauncher_icon.png');
+  this.load.image('rocketlauncher_icon', 'assets/lancarrio.png'); // Alterado para 'lancarrio.png'
 
   // Sprites de power-ups para as cartas
   this.load.image('heart_powerup', 'assets/heart_powerup.png');
@@ -448,7 +431,7 @@ function preload() {
   this.load.image('multishot_powerup', 'assets/multishot_powerup.png');
   this.load.image('grenade_powerup', 'assets/grenade_powerup.png');
 
-  this.load.image('heart_full', 'assets/heart_full.png'); // Coração cheio
+  this.load.image('heart_full', 'assets/cora.png'); // Coração cheio
   this.load.image('cardBg', 'assets/cardBg.png'); // Fundo para as cartas no pop-up e HUD
 
   // Carrega spritesheets para animações (se houver)
@@ -465,8 +448,11 @@ function create() {
   this.add.tileSprite(0, 0, worldWidth, worldHeight, 'tile').setOrigin(0, 0);
   this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
 
-  player = this.physics.add.sprite(config.width / 2, config.height / 2, 'player').setCollideWorldBounds(true);
+  // Player
+  player = this.physics.add.sprite(config.width / 2, config.height / 2, 'player').setCollideWorldBounds(true).setOrigin(0.5, 0.5);
   player.setDamping(true).setDrag(0.99); // Adiciona inércia ao movimento
+  player.body.setSize(player.width * 0.7, player.height * 0.7); // Ajusta o corpo de física para ser menor que a imagem
+  player.body.setOffset(player.width * 0.15, player.height * 0.15); // Centraliza o corpo ajustado
 
   cursors = this.input.keyboard.createCursorKeys();
   this.input.keyboard.on('keydown-SPACE', fireBullet, this);
@@ -477,39 +463,31 @@ function create() {
   this.input.keyboard.on('keydown-FIVE', () => switchWeapon('rocketlauncher'), this);
   this.input.keyboard.on('keydown-E', showLevelUpChoices, this); // Key for Level Up/Card choice
 
+  // Bullets group
   bullets = this.physics.add.group({
-    defaultKey: 'bullet',
-    maxSize: 50 // Limita o número de balas para performance
+    defaultKey: 'bullet', // Default sprite key for bullets
+    maxSize: 50, // Max bullets in pool
+    runChildUpdate: true
   });
 
   enemyBullets = this.physics.add.group({
-    defaultKey: 'bullet',
-    maxSize: 50 // Limita o número de balas dos inimigos
+    defaultKey: 'bullet', // Assuming enemies use the same bullet sprite for now
+    maxSize: 50,
+    runChildUpdate: true
   });
 
-  enemies = this.physics.add.group();
-  powerUpGroup = this.physics.add.group(); // Inicializa o grupo de power-ups
+  enemies = this.physics.add.group({
+    runChildUpdate: true // Allows individual enemy updates (e.g., movement)
+  });
+
+  powerUpGroup = this.physics.add.group({
+    runChildUpdate: true
+  });
 
   this.physics.add.collider(player, enemies, hitPlayer, null, this);
-  this.physics.add.collider(bullets, enemies, hitEnemy, null, this);
-  this.physics.add.collider(player, powerUpGroup, collectPowerUp, null, this);
-  this.physics.add.collider(enemyBullets, player, hitPlayerByEnemyBullet, null, this);
-
-  // Colisão entre balas de player e inimigos
-  this.physics.add.overlap(bullets, enemies, (bullet, enemy) => {
-    bullet.destroy();
-    enemy.health -= playerStats.bulletDamage * weapons[playerStats.currentWeapon].damage;
-    if (enemy.health <= 0) {
-      enemy.destroy();
-      score += 10;
-      this.hud.updateScore(score);
-      enemiesAlive--;
-      if (enemy.isBoss) {
-        this.hud.hideBossHealthBar();
-        this.time.delayedCall(1000, showLevelUpChoices, [], this); // Após 1 segundo, mostra escolha de carta
-      }
-    }
-  });
+  this.physics.add.overlap(bullets, enemies, hitEnemy, null, this); // Changed to overlap for more accurate hits
+  this.physics.add.overlap(player, powerUpGroup, collectPowerUp, null, this); // Changed to overlap for pickups
+  this.physics.add.overlap(enemyBullets, player, hitPlayerByEnemyBullet, null, this); // Changed to overlap
 
   // Câmera segue o jogador
   this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
@@ -530,6 +508,15 @@ function create() {
     },
     callbackScope: this,
     loop: true
+  });
+
+  // Cria as animações de explosão
+  this.anims.create({
+    key: 'explode',
+    frames: this.anims.generateFrameNumbers('explosion_ss', { start: 0, end: 15 }),
+    frameRate: 24,
+    repeat: 0,
+    hideOnComplete: true
   });
 
   startWave();
@@ -565,7 +552,7 @@ function update() {
   let minDistance = Infinity;
 
   enemies.children.each(function (enemy) {
-    if (enemy.active && !enemy.isBoss) {
+    if (enemy.active && !enemy.isBoss && enemy.health > 0) { // Only show for active, non-boss, alive enemies
       const distance = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
       if (distance < minDistance) {
         minDistance = distance;
@@ -582,14 +569,15 @@ function update() {
 
   // Lógica para inimigos
   enemies.children.each(function (enemy) {
-    if (enemy.active) {
+    if (enemy.active && enemy.health > 0) {
       this.physics.moveToObject(enemy, player, enemy.speed); // Inimigos se movem em direção ao jogador
 
       // Inimigos atirando (exemplo básico)
       if (enemy.canShoot && enemy.lastShot + enemy.fireRate < this.time.now) {
-        let enemyBullet = enemyBullets.get(enemy.x, enemy.y);
+        let enemyBullet = enemyBullets.get(enemy.x, enemy.y, 'bullet'); // Get a bullet from the pool
         if (enemyBullet) {
           enemyBullet.setActive(true).setVisible(true);
+          enemyBullet.setTint(0xFFFF00); // Yellow tint for enemy bullets
           this.physics.moveToObject(enemyBullet, player, enemy.bulletSpeed);
           enemy.lastShot = this.time.now;
         }
@@ -600,13 +588,13 @@ function update() {
   // Limpa balas fora da tela
   bullets.children.each(function (bullet) {
     if (bullet.active && !this.physics.world.bounds.contains(bullet.x, bullet.y)) {
-      bullet.destroy();
+      bullets.killAndHide(bullet);
     }
   }, this);
 
   enemyBullets.children.each(function (bullet) {
     if (bullet.active && !this.physics.world.bounds.contains(bullet.x, bullet.y)) {
-      bullet.destroy();
+      enemyBullets.killAndHide(bullet);
     }
   }, this);
 }
@@ -627,29 +615,32 @@ function fireBullet() {
   if (activePowerUps.multiShot && !weapon.pellets && !weapon.isLaser && !weapon.isExplosive) {
     // Tiro múltiplo (power-up)
     for (let i = -1; i <= 1; i++) {
-      let bullet = bullets.get(startX, startY);
+      let bullet = bullets.get(startX, startY, weapon.bulletSprite);
       if (bullet) {
         let angle = player.rotation + i * 0.2; // Pequeno arco
         bullet.setActive(true).setVisible(true);
+        bullet.setRotation(angle); // Rotate bullet to match direction
         this.physics.velocityFromRotation(angle - Math.PI / 2, weapon.bulletSpeed, bullet.body.velocity);
       }
     }
   } else if (weapon.pellets) {
     // Escopeta (múltiplos projéteis)
     for (let i = 0; i < weapon.pellets; i++) {
-      let bullet = bullets.get(startX, startY);
+      let bullet = bullets.get(startX, startY, weapon.bulletSprite);
       if (bullet) {
         let angleOffset = Phaser.Math.Between(-15, 15) * Phaser.Math.DEG_TO_RAD; // Espalhamento
         let angle = player.rotation + angleOffset;
         bullet.setActive(true).setVisible(true);
+        bullet.setRotation(angle); // Rotate bullet to match direction
         this.physics.velocityFromRotation(angle - Math.PI / 2, weapon.bulletSpeed, bullet.body.velocity);
       }
     }
   } else if (weapon.isLaser) {
     // Laser
-    let bullet = bullets.get(startX, startY, 'laser_bullet'); // Usa sprite de laser
+    let bullet = bullets.get(startX, startY, weapon.bulletSprite);
     if (bullet) {
       bullet.setActive(true).setVisible(true);
+      bullet.setRotation(player.rotation); // Rotate laser to match player direction
       this.physics.velocityFromRotation(player.rotation - Math.PI / 2, weapon.bulletSpeed, bullet.body.velocity);
       // Efeito de laser
       this.add.tween({
@@ -662,7 +653,7 @@ function fireBullet() {
     }
   } else if (weapon.isExplosive) {
     // Foguete
-    let rocket = bullets.get(startX, startY, 'rocket'); // Usa sprite de foguete
+    let rocket = bullets.get(startX, startY, weapon.bulletSprite);
     if (rocket) {
       rocket.setActive(true).setVisible(true);
       this.physics.velocityFromRotation(player.rotation - Math.PI / 2, weapon.bulletSpeed, rocket.body.velocity);
@@ -670,10 +661,11 @@ function fireBullet() {
       rocket.setRotation(player.rotation); // Rotação do foguete
     }
   } else {
-    // Tiro normal
-    let bullet = bullets.get(startX, startY);
+    // Tiro normal (pistol/machinegun)
+    let bullet = bullets.get(startX, startY, weapon.bulletSprite);
     if (bullet) {
       bullet.setActive(true).setVisible(true);
+      bullet.setRotation(player.rotation); // Rotate bullet to match direction
       this.physics.velocityFromRotation(player.rotation - Math.PI / 2, weapon.bulletSpeed, bullet.body.velocity);
     }
   }
@@ -691,69 +683,12 @@ function fireBullet() {
 }
 
 function hitPlayer(player, enemy) {
-  if (player.invincible) return; // Se o jogador estiver invencível, não sofre dano
-
-  playerStats.life--;
-  this.hud.updateHearts(); // Atualiza o HUD de corações
-
-  if (playerStats.life <= 0) {
-    // Game Over
-    this.physics.pause();
-    player.setTint(0xff0000);
-    this.add.text(this.cameras.main.scrollX + config.width / 2, this.cameras.main.scrollY + config.height / 2, 'GAME OVER', { fontSize: '64px', fill: '#ff0000' }).setOrigin(0.5);
-    this.time.addEvent({
-      delay: 2000,
-      callback: () => {
-        this.scene.restart();
-        this.scene.launch('HUD'); // Relança o HUD
-        // Resetar stats do player para um novo jogo
-        playerStats = {
-          life: 5,
-          maxLife: 5,
-          speed: 200,
-          fireRate: 300,
-          bulletSpeed: 500,
-          bulletDamage: 1,
-          currentWeapon: 'pistol',
-          canShoot: true
-        };
-        score = 0;
-        currentWave = 1;
-        enemiesPerWave = 5;
-        enemiesAlive = 0;
-        enemiesToSpawn = 0;
-        playerWeapons = {
-          pistol: true,
-          machinegun: false,
-          shotgun: false,
-          laser: false,
-          rocketlauncher: false
-        };
-        activePowerUps = {};
-        activeCardCount = {};
-      },
-      callbackScope: this
-    });
-  } else {
-    // Aplica invencibilidade temporária
-    player.setTint(0xff0000); // Fica vermelho quando leva dano
-    player.invincible = true;
-    this.time.delayedCall(1000, () => {
-      player.clearTint();
-      player.invincible = false;
-    });
-  }
-}
-
-function hitPlayerByEnemyBullet(player, bullet) {
-  bullet.destroy();
   if (player.invincible) return;
 
-  playerStats.life -= 1; // Bala inimiga tira 1 de vida
-  this.hud.updateHearts(); // Atualiza o HUD de corações
+  playerStats.life--;
+  this.hud.updateHearts();
 
   if (playerStats.life <= 0) {
-    // Game Over (mesma lógica de hitPlayer)
     this.physics.pause();
     player.setTint(0xff0000);
     this.add.text(this.cameras.main.scrollX + config.width / 2, this.cameras.main.scrollY + config.height / 2, 'GAME OVER', { fontSize: '64px', fill: '#ff0000' }).setOrigin(0.5);
@@ -790,7 +725,6 @@ function hitPlayerByEnemyBullet(player, bullet) {
       callbackScope: this
     });
   } else {
-    // Aplica invencibilidade temporária
     player.setTint(0xff0000);
     player.invincible = true;
     this.time.delayedCall(1000, () => {
@@ -800,17 +734,67 @@ function hitPlayerByEnemyBullet(player, bullet) {
   }
 }
 
+function hitPlayerByEnemyBullet(player, bullet) {
+  enemyBullets.killAndHide(bullet);
+  if (player.invincible) return;
+
+  playerStats.life -= 1;
+  this.hud.updateHearts();
+
+  if (playerStats.life <= 0) {
+    this.physics.pause();
+    player.setTint(0xff0000);
+    this.add.text(this.cameras.main.scrollX + config.width / 2, this.cameras.main.scrollY + config.height / 2, 'GAME OVER', { fontSize: '64px', fill: '#ff0000' }).setOrigin(0.5);
+    this.time.addEvent({
+      delay: 2000,
+      callback: () => {
+        this.scene.restart();
+        this.scene.launch('HUD');
+        playerStats = {
+          life: 5,
+          maxLife: 5,
+          speed: 200,
+          fireRate: 300,
+          bulletSpeed: 500,
+          bulletDamage: 1,
+          currentWeapon: 'pistol',
+          canShoot: true
+        };
+        score = 0;
+        currentWave = 1;
+        enemiesPerWave = 5;
+        enemiesAlive = 0;
+        enemiesToSpawn = 0;
+        playerWeapons = {
+          pistol: true,
+          machinegun: false,
+          shotgun: false,
+          laser: false,
+          rocketlauncher: false
+        };
+        activePowerUps = {};
+        activeCardCount = {};
+      },
+      callbackScope: this
+    });
+  } else {
+    player.setTint(0xff0000);
+    player.invincible = true;
+    this.time.delayedCall(1000, () => {
+      player.clearTint();
+      player.invincible = false;
+    });
+  }
+}
 
 function hitEnemy(bullet, enemy) {
   if (weapons[playerStats.currentWeapon].isExplosive && bullet.texture.key === 'rocket') {
-    // Se for um foguete, ele explode
     createExplosion.call(this, bullet.x, bullet.y);
-    bullet.destroy();
-    // Afeta inimigos próximos
+    bullets.killAndHide(bullet); // Deactivate and hide rocket
     enemies.children.each(function (e) {
       const distance = Phaser.Math.Distance.Between(bullet.x, bullet.y, e.x, e.y);
-      if (distance < 100) { // Raio da explosão
-        e.health -= bullet.damage; // Dano do foguete
+      if (distance < 100 && e.active && e.health > 0) { // Check active and not destroyed, and alive
+        e.health -= bullet.damage;
         if (e.health <= 0) {
           e.destroy();
           score += 10;
@@ -819,28 +803,33 @@ function hitEnemy(bullet, enemy) {
           if (e.isBoss) {
             this.hud.hideBossHealthBar();
             this.time.delayedCall(1000, showLevelUpChoices, [], this);
+          } else {
+            if (Phaser.Math.RND.between(1, 100) <= 20) {
+              spawnPowerUp.call(this, e.x, e.y);
+            }
           }
         }
       }
     }, this);
   } else {
-    bullet.destroy();
+    bullets.killAndHide(bullet); // For other bullets, simply kill and hide the bullet
     enemy.health -= playerStats.bulletDamage * weapons[playerStats.currentWeapon].damage;
   }
 
 
-  if (enemy.health <= 0) {
-    if (Phaser.Math.RND.between(1, 100) <= 20) { // 20% de chance de drop de pickup
-      spawnPowerUp.call(this, enemy.x, enemy.y);
-    }
-    enemy.destroy();
+  if (enemy.health <= 0 && enemy.active) { // Ensure enemy is active (not already destroyed in same frame)
+    enemy.destroy(); // Destroy the enemy sprite
     score += 10;
     this.hud.updateScore(score);
     enemiesAlive--;
 
     if (enemy.isBoss) {
       this.hud.hideBossHealthBar();
-      this.time.delayedCall(1000, showLevelUpChoices, [], this); // Após 1 segundo, mostra escolha de carta
+      this.time.delayedCall(1000, showLevelUpChoices, [], this);
+    } else {
+      if (Phaser.Math.RND.between(1, 100) <= 20) {
+        spawnPowerUp.call(this, enemy.x, enemy.y);
+      }
     }
   }
 }
@@ -848,7 +837,7 @@ function hitEnemy(bullet, enemy) {
 function spawnEnemy() {
   if (enemiesToSpawn > 0) {
     let x, y;
-    let spawnEdge = Phaser.Math.RND.between(0, 3); // 0: top, 1: right, 2: bottom, 3: left
+    let spawnEdge = Phaser.Math.RND.between(0, 3);
 
     if (spawnEdge === 0) { // Top
       x = Phaser.Math.RND.between(0, this.physics.world.bounds.width);
@@ -864,37 +853,58 @@ function spawnEnemy() {
       y = Phaser.Math.RND.between(0, this.physics.world.bounds.height);
     }
 
-    let enemyType = Phaser.Math.RND.between(1, 3); // 1, 2 ou 3 para diferentes inimigos
+    let enemyType = Phaser.Math.RND.between(1, 3);
     let enemy;
+    let enemySpriteKey;
+    let enemyWidth, enemyHeight; // To store original image dimensions
 
     if (enemyType === 1) {
-      enemy = enemies.create(x, y, 'enemy1').setCollideWorldBounds(true);
+      enemySpriteKey = 'enemy1'; // Normal enemy
+      enemyWidth = 32; enemyHeight = 32; // Assuming original image size
+    } else if (enemyType === 2) {
+      enemySpriteKey = 'enemy2'; // Fast enemy
+      enemyWidth = 32; enemyHeight = 32;
+    } else {
+      enemySpriteKey = 'enemy3'; // Tank enemy
+      enemyWidth = 48; enemyHeight = 48;
+    }
+
+    enemy = enemies.get(x, y, enemySpriteKey);
+    if (!enemy) { // If pool is empty for this key, create new
+      enemy = this.physics.add.sprite(x, y, enemySpriteKey);
+      enemies.add(enemy);
+    }
+    enemy.setActive(true).setVisible(true);
+    enemy.setCollideWorldBounds(true);
+    enemy.setOrigin(0.5, 0.5); // Ensure origin is centered
+
+    if (enemyType === 1) {
       enemy.health = 5;
       enemy.maxHealth = 5;
       enemy.speed = 100;
       enemy.canShoot = false;
+      enemy.body.setSize(enemyWidth * 0.8, enemyHeight * 0.8);
     } else if (enemyType === 2) {
-      enemy = enemies.create(x, y, 'enemy2').setCollideWorldBounds(true);
       enemy.health = 8;
       enemy.maxHealth = 8;
       enemy.speed = 80;
-      enemy.canShoot = true; // Este inimigo atira
+      enemy.canShoot = true;
       enemy.fireRate = 1500;
       enemy.lastShot = 0;
       enemy.bulletSpeed = 300;
+      enemy.body.setSize(enemyWidth * 0.8, enemyHeight * 0.8);
     } else {
-      enemy = enemies.create(x, y, 'enemy3').setCollideWorldBounds(true);
       enemy.health = 12;
       enemy.maxHealth = 12;
       enemy.speed = 60;
       enemy.canShoot = false;
+      enemy.body.setSize(enemyWidth * 0.8, enemyHeight * 0.8);
     }
+    enemy.body.setOffset((enemyWidth - enemy.body.width) / 2, (enemyHeight - enemy.body.height) / 2); // Center adjusted body
 
-    enemy.setTint(0x808080); // Cor cinza para inimigos normais
     enemiesToSpawn--;
     enemiesAlive++;
   } else if (enemiesAlive === 0 && enemiesToSpawn === 0) {
-    // Todos os inimigos da onda foram eliminados ou não há mais para spawnar
     endWave.call(this);
   }
 }
@@ -902,31 +912,34 @@ function spawnEnemy() {
 function startWave() {
   this.hud.updateWave(currentWave);
   enemiesToSpawn = enemiesPerWave;
-  enemiesAlive = 0; // Reset para a nova onda
-
-  if (currentWave % 5 === 0) { // A cada 5 ondas, um boss
+  enemiesAlive = 0;
+  if (currentWave % 5 === 0) {
     spawnBoss.call(this);
   }
-  // Aumenta o número de inimigos para a próxima onda
   enemiesPerWave += 2;
 }
 
 function endWave() {
   currentWave++;
-  this.time.delayedCall(2000, startWave, [], this); // Inicia próxima onda após 2 segundos
+  this.time.delayedCall(2000, startWave, [], this);
 }
 
 function spawnBoss() {
-  const boss = enemies.create(this.physics.world.bounds.width / 2, 100, 'boss1').setCollideWorldBounds(true);
-  boss.isBoss = true; // Flag para identificar o boss
-  boss.health = 50 * currentWave; // Vida do boss escala com a onda
+  const boss = this.physics.add.sprite(this.physics.world.bounds.width / 2, 100, 'boss1');
+  boss.setCollideWorldBounds(true);
+  boss.setOrigin(0.5, 0.5); // Center the boss sprite
+  enemies.add(boss); // Add to the enemies group
+
+  boss.body.setSize(boss.width * 0.8, boss.height * 0.8); // Adjust body size
+  boss.body.setOffset(boss.width * 0.1, boss.height * 0.1); // Center adjusted body
+
+  boss.isBoss = true;
+  boss.health = 50 * currentWave;
   boss.maxHealth = boss.health;
   boss.speed = 50;
   boss.name = `Mega-Autômato [Onda ${currentWave}]`;
-  boss.setTint(0x8B0000); // Cor vermelha escura para o boss
-
   this.hud.showBossHealthBar(boss);
-  enemiesAlive++; // Boss também conta como inimigo vivo
+  enemiesAlive++;
 }
 
 function switchWeapon(newWeapon) {
@@ -937,63 +950,69 @@ function switchWeapon(newWeapon) {
     playerStats.bulletSpeed = weapons[newWeapon].bulletSpeed;
     this.hud.updateWeaponHUD(weapons[newWeapon].name, weapons[newWeapon].ammo);
   } else {
-    // Mensagem de "Arma não desbloqueada"
     console.log(`Arma ${weapons[newWeapon].name} não desbloqueada!`);
   }
 }
 
 function spawnPowerUp(x, y) {
-  const powerUpTypes = ['health_pickup', 'ammo_pickup', 'weapon_pickup'];
-  const chosenType = Phaser.Math.RND.pick(powerUpTypes);
-  const powerUp = powerUpGroup.create(x, y, chosenType);
-  powerUp.setCollideWorldBounds(true);
-  powerUp.setBounce(0.6); // Efeito de quique
+  const powerUpTypes = [
+    { key: 'health_pickup', type: 'health' },
+    { key: 'ammo_pickup', type: 'ammo' },
+    { key: 'weapon_pickup', type: 'weapon' }
+  ];
+  const chosenPowerUp = Phaser.Math.RND.pick(powerUpTypes);
 
-  // Adiciona um tween para fazer o power-up piscar ou flutuar
+  let powerUp = powerUpGroup.get(x, y, chosenPowerUp.key);
+  if (!powerUp) {
+    powerUp = this.physics.add.sprite(x, y, chosenPowerUp.key);
+    powerUpGroup.add(powerUp);
+  } else {
+    powerUp.setActive(true).setVisible(true).setPosition(x, y);
+  }
+
+  powerUp.type = chosenPowerUp.type; // Assign type for easy lookup
+  powerUp.setCollideWorldBounds(true);
+  powerUp.setBounce(0.6);
+  powerUp.setOrigin(0.5, 0.5); // Center the sprite
+
   this.tweens.add({
     targets: powerUp,
-    y: powerUp.y - 10, // Flutua para cima
+    y: powerUp.y - 10,
     duration: 800,
     ease: 'Sine.easeInOut',
     yoyo: true,
-    repeat: -1 // Infinito
+    repeat: -1
   });
 }
 
 function collectPowerUp(player, powerUp) {
-  if (powerUp.texture.key === 'health_pickup') {
+  if (powerUp.type === 'health') {
     playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
     this.hud.updateHearts();
-  } else if (powerUp.texture.key === 'ammo_pickup') {
-    // Recarrega munição de uma arma aleatória ou da atual
+  } else if (powerUp.type === 'ammo') {
     const currentWeaponObj = weapons[playerStats.currentWeapon];
     if (currentWeaponObj.ammo !== Infinity) {
-      currentWeaponObj.ammo += 50; // Exemplo: adiciona 50 balas
+      currentWeaponObj.ammo += 50;
       this.hud.updateWeaponHUD(currentWeaponObj.name, currentWeaponObj.ammo);
     } else {
-      // Se a arma atual for infinita, recarrega uma arma aleatória não infinita
       const availableWeapons = Object.keys(weapons).filter(key => weapons[key].ammo !== Infinity && playerWeapons[key]);
       if (availableWeapons.length > 0) {
         const randomWeaponKey = Phaser.Math.RND.pick(availableWeapons);
         weapons[randomWeaponKey].ammo += 50;
-        // Se a arma recarregada for a atual, atualiza o HUD
         if (randomWeaponKey === playerStats.currentWeapon) {
           this.hud.updateWeaponHUD(weapons[randomWeaponKey].name, weapons[randomWeaponKey].ammo);
         }
       }
     }
-  } else if (powerUp.texture.key === 'weapon_pickup') {
-    // Desbloqueia uma arma aleatória que o jogador ainda não tem
+  } else if (powerUp.type === 'weapon') {
     const unownedWeapons = Object.keys(playerWeapons).filter(key => !playerWeapons[key]);
     if (unownedWeapons.length > 0) {
       const newWeaponKey = Phaser.Math.RND.pick(unownedWeapons);
       playerWeapons[newWeaponKey] = true;
-      // Exemplo: dá 50 munição inicial para a nova arma
       if (weapons[newWeaponKey].ammo !== Infinity) {
         weapons[newWeaponKey].ammo = 50;
       }
-      this.hud.updateWeaponHUD(weapons[playerStats.currentWeapon].name, weapons[playerStats.currentWeapon].ammo); // Atualiza para exibir a nova arma
-      // Mensagem de arma desbloqueada
+      this.hud.updateWeaponHUD(weapons[playerStats.currentWeapon].name, weapons[playerStats.currentWeapon].ammo);
       this.add.text(player.x, player.y - 50, `Arma ${weapons[newWeaponKey].name} desbloqueada!`, { fontSize: '20px', fill: '#00ff00' })
         .setOrigin(0.5)
         .setDepth(1)
@@ -1008,68 +1027,62 @@ function collectPowerUp(player, powerUp) {
           }
         });
     } else {
-      // Se já tem todas as armas, pode dar munição extra ou vida
       playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
       this.hud.updateHearts();
     }
   }
-  powerUp.destroy();
+  powerUpGroup.killAndHide(powerUp);
 }
 
 function createExplosion(x, y) {
-  const explosion = this.add.sprite(x, y, 'explosion_ss').play('explode');
+  const explosion = this.add.sprite(x, y, 'explosion_ss');
+  explosion.play('explode');
+  explosion.setOrigin(0.5, 0.5);
+  // Optional: Make explosion not interactive
+  explosion.setDepth(5); // Ensure explosion is on top
   explosion.on('animationcomplete', () => {
     explosion.destroy();
   });
 }
 
-// Cria animação de explosão no create da cena principal
-this.anims.create({
-  key: 'explode',
-  frames: this.anims.generateFrameNumbers('explosion_ss', { start: 0, end: 15 }),
-  frameRate: 24,
-  hideOnComplete: true
-});
-
 function showLevelUpChoices() {
-  this.physics.pause(); // Pausa o jogo
-  playerStats.canShoot = false; // Impede o jogador de atirar
+  this.physics.pause();
+  playerStats.canShoot = false;
 
   const choicesPanel = this.add.container(this.cameras.main.scrollX + config.width / 2, this.cameras.main.scrollY + config.height / 2);
   choicesPanel.setDepth(100);
 
   const panelBg = this.add.graphics();
   panelBg.fillStyle(0x000000, 0.8);
-  panelBg.fillRect(-350, -150, 700, 300); // Fundo para as 3 cartas
+  panelBg.fillRect(-350, -150, 700, 300);
   choicesPanel.add(panelBg);
 
   this.add.text(0, -120, 'Escolha uma Melhoria!', { fontSize: '32px', fill: '#fff' }).setOrigin(0.5).setDepth(1).setContainer(choicesPanel);
 
   const availableCards = Object.keys(cards);
-  currentCardChoices = []; // Limpa escolhas anteriores
+  currentCardChoices = [];
 
-  // Escolhe 3 cartas aleatórias e únicas
   while (currentCardChoices.length < 3 && availableCards.length > 0) {
     const randomIndex = Phaser.Math.RND.between(0, availableCards.length - 1);
     const chosenCardName = availableCards[randomIndex];
     currentCardChoices.push(chosenCardName);
-    availableCards.splice(randomIndex, 1); // Remove para evitar repetição
+    availableCards.splice(randomIndex, 1);
   }
 
-  const cardSpacing = 200; // Espaçamento entre as cartas
-  let startX = -cardSpacing; // Posição inicial para centralizar 3 cartas
+  const cardSpacing = 200;
+  let startX = -cardSpacing;
 
   currentCardChoices.forEach((cardName, index) => {
     const card = cards[cardName];
     const xPos = startX + index * cardSpacing;
 
-    const bgImage = this.add.image(xPos, 0, 'cardBg')
-      .setDisplaySize(160, 240)
-      .setTint(card.cor || 0xADD8E6) // Cor da carta
-      .setInteractive({ useHandCursor: true })
+    // Draw card background using 'cardBg' image
+    const bgImage = this.add.image(xPos, 0, 'cardBg').setScale(0.8);
+    bgImage.setInteractive({ useHandCursor: true })
       .on('pointerover', function () { this.setTint(0xAAAAAA); }) // Efeito hover
-      .on('pointerout', function () { this.setTint(card.cor || 0xADD8E6); })
+      .on('pointerout', function () { this.setTint(0xFFFFFF); }) // Volta à cor original da imagem
       .on('pointerdown', () => selecionarCarta.call(this, cardName, choicesPanel)); // Chama a função ao clicar
+
 
     const title = this.add.text(xPos, -90, card.nome, { fontSize: '22px', fill: '#fff', align: 'center', wordWrap: { width: 140 } })
       .setOrigin(0.5);
@@ -1094,14 +1107,13 @@ function selecionarCarta(cardName, choicesPanel) {
 
   // Aplica o efeito da carta
   const card = cards[cardName];
-  card.efeito(this); // Passa a cena atual para a função de efeito
+  card.efeito(this);
 
-  // Adiciona a carta selecionada ao contador de cartas ativas
   activeCardCount[cardName] = (activeCardCount[cardName] || 0) + 1;
-  this.hud.atualizarHUDCartas(activeCardCount); // Atualiza o HUD das cartas
+  this.hud.atualizarHUDCartas(activeCardCount);
 
-  this.physics.resume(); // Volta o jogo
-  playerStats.canShoot = true; // Permite o jogador atirar
+  this.physics.resume();
+  playerStats.canShoot = true;
 }
 </script>
 </body>
