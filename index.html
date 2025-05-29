@@ -15,7 +15,6 @@
       display: block;
       margin: auto;}
   </style>
-    
 </head>
 <body>
 <script>
@@ -42,13 +41,19 @@ let armaImagem;
 let player, cursors;
 let bullets, enemies, enemyBullets, armas;
 let lastShoot = 0;
-let showingCards = false;
+let showingCards = false; // Flag to indicate if card choices are active
+let showingLevelUpChoices = false; // Flag for level up choices
 let wave = 1; //onda
 let cardsGroup; //grupo de cartas
-let playerSpeed = 400; //velocidade
+let playerSpeed = 400; //velocidade inicial do jogador
 let spiritAlly = null; //aliado
 let playerCards = []; // Cartas que o jogador pegou
 let cardsHUDGroup; // Grupo visual do HUD de cartas
+
+// NEW: Player Level and XP related variables
+let xpText;
+let levelText;
+let levelUpChoicesGroup;
 
 
 let playerStats = {
@@ -62,17 +67,26 @@ let playerStats = {
   doubleBullets: false,      // Dois tiros de uma vez?
   dashAvailable: false,      // Pode usar dash?
   dashCooldown: false,       // Tá em cooldown?
-  slowEnemies: false,        // Inimigos lentos (efeito de carta)
+  slowEnemies: false,        // Inimigos lentos (efeito de carta) - NOT USED YET
   reviveOnce: false,         // Ressuscita uma vez?
   increasedDropRate: false,  // Mais chance de drop de arma?
   tripleBullets: false,      // Três tiros, modo overpowered
-
   healOnKill: false,         // Cura ao matar?
   damageAura: false,         // Aura de dano por perto
-  speedBoost: false,         // Velocidade turbinada
+  speedBoost: false,         // Velocidade turbinada - NOT USED YET
   bulletPiercing: false,      // Bala atravessa inimigos?
   thorns: false,              // Dano nos inimigos ao ser atingido
-  reflectDamage: false        // Reflete dano de volta
+  reflectDamage: false,       // Reflete dano de volta (needs proper implementation)
+  homingBullets: false,       // Balas teleguiadas (needs proper implementation)
+
+  // NEW RPG STATS
+  level: 1,
+  xp: 0,
+  xpToNextLevel: 10, // Initial XP for level 2
+  atkVelocityBonus: 1, // Multiplier for fireRate (e.g., 0.9 for 10% faster)
+  lifeBonus: 0,        // Flat bonus to maxLife
+  defenseBonus: 0,     // Percentage damage reduction (e.g., 0.1 for 10% reduction)
+  playerSpeedBonus: 0, // Flat bonus to playerSpeed
 };
 
 const tiposDeArmas = {
@@ -87,19 +101,22 @@ const enemyTypes = {
     texture: 'enemy',
     baseHealth: 4,
     speed: 100,
-    scale: 0.06
+    scale: 0.06,
+    xpReward: 5
   },
   fast: {
     texture: 'enemy_fast',
     baseHealth: 4,
     speed: 180,
-    scale: 0.06
+    scale: 0.06,
+    xpReward: 7
   },
   tank: {
     texture: 'enemy_tank',
     baseHealth: 9,
     speed: 70,
-    scale: 0.08
+    scale: 0.08,
+    xpReward: 10
   }
 };
 // --- FIM NOVAS DEFINIÇÕES DE INIMIGOS ---
@@ -129,8 +146,8 @@ function create() {
   this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1);
 
   player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true).setScale(0.05);
-  player.health = playerStats.life; // Initialize player's health
-  player.maxHealth = playerStats.maxLife; // Initialize player's max health
+  player.health = playerStats.life; // Initialize player's health (redundant but kept for consistency)
+  player.maxHealth = playerStats.maxLife; // Initialize player's max health (redundant but kept for consistency)
 
   this.hud = new HUD(this, player); // Initialize HUD after player
 
@@ -154,9 +171,22 @@ function create() {
   });
 
   this.input.keyboard.on('keydown-SPACE', () => {
-    if (!player.active) {
+    if (!player.active && !showingCards && !showingLevelUpChoices) { // Only restart if not in card/level up screen
       this.time.delayedCall(500, () => {
         this.scene.restart();
+        // Reset player stats for a new game
+        playerStats = {
+          life: 3, maxLife: 3, bulletDamage: 1, fireRate: 3000, hasShield: false,
+          spiritAllyActive: false, spreadUpgrade: false, doubleBullets: false,
+          dashAvailable: false, dashCooldown: false, slowEnemies: false,
+          reviveOnce: false, increasedDropRate: false, tripleBullets: false,
+          healOnKill: false, damageAura: false, speedBoost: false, bulletPiercing: false,
+          thorns: false, reflectDamage: false, homingBullets: false,
+          level: 1, xp: 0, xpToNextLevel: 10,
+          atkVelocityBonus: 1, lifeBonus: 0, defenseBonus: 0, playerSpeedBonus: 0
+        };
+        wave = 1;
+        playerCards = [];
       });
     }
   });
@@ -175,6 +205,8 @@ function create() {
           playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
           this.hud.update();
         }
+        // NEW: Grant XP on enemy defeat
+        gainXP.call(this, e.xpReward || 0); // Use xpReward from enemy type
       } else if (playerStats.bulletPiercing) {
         // Add particle effect for piercing bullets
         const particles = this.add.particles('bullet');
@@ -194,8 +226,11 @@ function create() {
   this.physics.add.overlap(player, enemies, (p, e) => { // Player-enemy collision
     if (p.active && e.active) {
       e.destroy(); // Enemy is destroyed on collision
+      // Apply defenseBonus to damage taken
+      const damageTaken = Math.max(1 - playerStats.defenseBonus, 0.1); // At least 10% damage
+      
       if (!playerStats.hasShield) {
-        playerStats.life--;
+        playerStats.life -= damageTaken;
         this.hud.update();
         p.setTint(0xff0000);
         this.time.delayedCall(100, () => p.clearTint());
@@ -216,8 +251,11 @@ function create() {
   this.physics.add.overlap(enemyBullets, player, (b, p) => {
     if (b.active && p.active) {
       b.destroy();
+      // Apply defenseBonus to damage taken
+      const damageTaken = Math.max(1 - playerStats.defenseBonus, 0.1); // At least 10% damage
+
       if (!playerStats.hasShield) {
-        playerStats.life--; // Decrement player life
+        playerStats.life -= damageTaken; // Decrement player life
         this.hud.update(); // Update HUD
         p.setTint(0xff0000);
         this.time.delayedCall(100, () => p.clearTint());
@@ -231,10 +269,12 @@ function create() {
         p.clearTint();
       }
       if (playerStats.reflectDamage) { // Reflect damage effect
-        // Potentially find the enemy that shot the bullet and apply damage back
-        // For simplicity, let's just log it or apply a generic damage to a random enemy
-        // A more robust implementation would involve tracking which enemy fired which bullet
-        console.log("Damage reflected!");
+        // A simple reflection: damage a random active enemy
+        const randomEnemy = Phaser.Utils.Array.GetRandom(enemies.getChildren().filter(e => e.active));
+        if (randomEnemy) {
+          randomEnemy.health -= playerStats.bulletDamage * 0.5; // Reflect 50% of player's damage
+          if (randomEnemy.health <= 0) randomEnemy.destroy();
+        }
       }
     }
   });
@@ -242,6 +282,7 @@ function create() {
   // Initialize HUD and related text/images
   hudGroup = this.add.group();
   cardsHUDGroup = this.add.group(); // Grupo que vai mostrar as cartas
+  levelUpChoicesGroup = this.add.group(); // Group for level up choices
 
   armaNomeText = this.add.text(config.width / 2, 20, 'Pistolinha', {
     fontFamily: 'Cinzel',
@@ -267,6 +308,22 @@ function create() {
     strokeThickness: 4
   }).setOrigin(1, 0);
 
+  // NEW: XP and Level HUD
+  levelText = this.add.text(20, config.height - 50, `Nível: ${playerStats.level}`, {
+    fontFamily: 'Cinzel',
+    fontSize: '20px',
+    color: '#FFF',
+    stroke: '#000',
+    strokeThickness: 3
+  }).setOrigin(0, 0);
+  xpText = this.add.text(20, config.height - 20, `XP: ${playerStats.xp} / ${playerStats.xpToNextLevel}`, {
+    fontFamily: 'Cinzel',
+    fontSize: '16px',
+    color: '#FFD700',
+    stroke: '#000',
+    strokeThickness: 2
+  }).setOrigin(0, 0);
+
   // Boss Health Bar UI elements (initially hidden)
   this.bossHealthBarBg = this.add.graphics().setDepth(100);
   this.bossHealthBarFill = this.add.graphics().setDepth(101);
@@ -282,11 +339,11 @@ function create() {
   this.bossNameText.setVisible(false);
 
   this.time.addEvent({
-    delay: 9000,
+    delay: 9000, // Reduced delay for faster enemy shooting
     loop: true,
     callback: () => {
       enemies.getChildren().forEach(enemy => {
-        if (!enemy.active) return;
+        if (!enemy.active || enemy.isBoss) return; // Bosses handle their own shooting
         const bullet = enemyBullets.create(enemy.x, enemy.y, 'bullet').setScale(0.03);
         const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
         this.physics.velocityFromRotation(angle, 150, bullet.body.velocity);
@@ -299,7 +356,6 @@ function spawnArmas() {
   const tipos = Object.keys(tiposDeArmas);
 
   for (let i = 0; i < 3; i++) {
-    const tipo = Phaser.Utils.Array.GetRandom(tipos);
     const x = Phaser.Math.Between(100, config.width - 100); // Adjust spawn range
     const y = Phaser.Math.Between(100, config.height - 100); // Adjust spawn range
     const arma = armas.create(x, y, tipo).setScale(0.02);
@@ -311,7 +367,7 @@ function pegarArma(arma) {
   const props = tiposDeArmas[arma.tipo];
 
   playerStats.bulletDamage = props.dano;
-  playerStats.fireRate = props.fireRate;
+  playerStats.fireRate = props.fireRate * playerStats.atkVelocityBonus; // Apply ATK Velocity Bonus
 
   arma.destroy();
 
@@ -350,14 +406,22 @@ function atualizarHUDCartas(scene) {
   });
 
   let xOffset = 50;
+  // Make sure cards don't go off screen for too many cards, wrap or scroll needed for many cards
+  const maxCardsPerRow = Math.floor((config.width - 100) / 60); // Approx.
+  let row = 0;
+  let cardIndex = 0;
+
   for (const cardName in cardCounts) {
     const count = cardCounts[cardName];
     const card = playerCards.find(c => c.nome === cardName); // Find the original card object to get its color
     if (!card) continue; // Should not happen
 
-    const bg = scene.add.rectangle(xOffset, 140, 50, 70, card.cor || 0x999999, 0.8)
+    const currentX = 50 + (cardIndex % maxCardsPerRow) * 60;
+    const currentY = 140 + row * 80; // New row every maxCardsPerRow cards
+
+    const bg = scene.add.rectangle(currentX, currentY, 50, 70, card.cor || 0x999999, 0.8)
       .setStrokeStyle(2, 0xffffff);
-    const title = scene.add.text(xOffset, 140, card.nome[0], {
+    const title = scene.add.text(currentX, currentY - 10, card.nome[0], { // Adjusted Y for better centering
       fontSize: '24px',
       color: '#fff'
     }).setOrigin(0.5);
@@ -366,7 +430,7 @@ function atualizarHUDCartas(scene) {
     cardsHUDGroup.add(title);
 
     if (count > 1) {
-      const countText = scene.add.text(xOffset, 165, `x${count}`, {
+      const countText = scene.add.text(currentX, currentY + 25, `x${count}`, { // Adjusted Y below the card
         fontSize: '16px',
         color: '#FFD700',
         stroke: '#000',
@@ -374,14 +438,19 @@ function atualizarHUDCartas(scene) {
       }).setOrigin(0.5);
       cardsHUDGroup.add(countText);
     }
-    xOffset += 60; // Move to the next position
+    cardIndex++;
+    if (cardIndex % maxCardsPerRow === 0) {
+        row++; // Move to next row
+    }
   }
 }
 
 function update(time) {
   this.hud.update();
+  levelText.setText(`Nível: ${playerStats.level}`);
+  xpText.setText(`XP: ${playerStats.xp} / ${playerStats.xpToNextLevel}`);
 
-  if (!player.active) return;
+  if (!player.active || showingCards || showingLevelUpChoices) return; // Pause game logic if choices are active
 
   let vx = 0, vy = 0;
   if (cursors.left.isDown) vx = -1;
@@ -391,9 +460,9 @@ function update(time) {
   else if (cursors.down.isDown) vy = 1;
 
   const norm = Math.hypot(vx, vy) || 1;
-  player.setVelocity((vx / norm) * playerSpeed, (vy / norm) * playerSpeed);
+  player.setVelocity((vx / norm) * (playerSpeed + playerStats.playerSpeedBonus), (vy / norm) * (playerSpeed + playerStats.playerSpeedBonus));
 
-  if (time > lastShoot + playerStats.fireRate) {
+  if (time > lastShoot + (playerStats.fireRate * playerStats.atkVelocityBonus)) { // Apply ATK Velocity Bonus
     shootRadial.call(this);
     lastShoot = time;
   }
@@ -410,6 +479,16 @@ function update(time) {
         enemy.health -= 0.01; // Small continuous damage
         if (enemy.health <= 0) enemy.destroy();
       }
+    }
+    
+    // NEW: Homing bullets logic (simple version)
+    if (playerStats.homingBullets && enemy.active) {
+        bullets.getChildren().forEach(bullet => {
+            if (bullet.active && bullet.trackingTarget === enemy) { // Ensure bullet is tracking this specific enemy
+                const angleToEnemy = Phaser.Math.Angle.Between(bullet.x, bullet.y, enemy.x, enemy.y);
+                this.physics.velocityFromRotation(angleToEnemy, bullet.speed || 700, bullet.body.velocity);
+            }
+        });
     }
   });
 
@@ -456,12 +535,126 @@ function update(time) {
     this.bossNameText.setVisible(false);
   }
 
-
-  if (enemies.countActive() === 0 && !showingCards) {
-    showingCards = true;
-    showCardChoices.call(this);
+  // Check for wave completion only if no choices are being shown
+  if (enemies.countActive() === 0 && !showingCards && !showingLevelUpChoices) {
+    // Check for level up first
+    if (playerStats.xp >= playerStats.xpToNextLevel) {
+        levelUp.call(this);
+    } else {
+        // If not leveled up, proceed with card choices
+        showingCards = true;
+        showCardChoices.call(this);
+    }
   }
 }
+
+// NEW: XP and Leveling Functions
+function gainXP(amount) {
+  playerStats.xp += amount;
+  xpText.setText(`XP: ${playerStats.xp} / ${playerStats.xpToNextLevel}`);
+}
+
+function levelUp() {
+  playerStats.level++;
+  playerStats.xp -= playerStats.xpToNextLevel; // Carry over excess XP
+  playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5); // Increase XP needed for next level
+
+  levelText.setText(`Nível: ${playerStats.level}`);
+  xpText.setText(`XP: ${playerStats.xp} / ${playerStats.xpToNextLevel}`);
+
+  // Refill health on level up (optional, but common in RPGs)
+  playerStats.life = playerStats.maxLife; 
+  this.hud.update();
+
+  showingLevelUpChoices = true;
+  showLevelUpChoices.call(this);
+}
+
+function showLevelUpChoices() {
+    const statOptions = [
+        { name: 'Velocidade de Ataque', desc: '+10% Velocidade de Ataque (Reduz recarga)', effect: () => { playerStats.atkVelocityBonus *= 0.9; pegarArma.call(this, {tipo: player.currentWeapon || 'arma1'}); } }, // Update current weapon fire rate
+        { name: 'Vida Máxima', desc: '+1 Vida Máxima', effect: () => { playerStats.maxLife += 1; playerStats.life = playerStats.maxLife; this.hud.createHearts(); this.hud.update(); } },
+        { name: 'Defesa', desc: '+5% Redução de Dano', effect: () => { playerStats.defenseBonus = Math.min(playerStats.defenseBonus + 0.05, 0.5); } }, // Max 50% defense
+        { name: 'Velocidade de Movimento', desc: '+50 Velocidade de Movimento', effect: () => { playerStats.playerSpeedBonus += 50; } },
+    ];
+
+    Phaser.Utils.Array.Shuffle(statOptions);
+    const selectedStatChoices = statOptions.slice(0, 3); // Choose 3 random stat options
+
+    // Add an option to get a card instead of stats
+    selectedStatChoices.push({
+        name: 'Carta Aleatória', desc: 'Escolha uma carta aleatória (como no fim da onda)', effect: () => {
+            levelUpChoicesGroup.clear(true, true);
+            showingLevelUpChoices = false;
+            showingCards = true; // Set flag to true for card choice
+            showCardChoices.call(this); // Go directly to card choices
+            return; // Skip normal wave logic
+        }
+    });
+
+    levelUpChoicesGroup = this.add.group();
+
+    const startX = this.cameras.main.centerX;
+    const startY = this.cameras.main.centerY;
+    const gap = 220;
+
+    selectedStatChoices.forEach((choice, i) => {
+        const x = startX + (i - (selectedStatChoices.length -1)/2) * gap; // Center the choices
+        const y = startY;
+
+        const container = this.add.container(x, y);
+        const bgImage = this.add.image(0, 0, 'cardBg').setDisplaySize(160, 240).setTint(0xADD8E6); // Light blue tint for stat choices
+
+        const title = this.add.text(0, -80, choice.name, { fontSize: '20px', color: '#000', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
+        const desc = this.add.text(0, 0, choice.desc, { fontSize: '14px', color: '#333', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
+
+        container.add([bgImage, title, desc]);
+
+        container.setSize(160, 240);
+        container.setInteractive();
+
+        this.tweens.add({
+            targets: container,
+            y: y - 20,
+            yoyo: true,
+            repeat: -1,
+            duration: 1000,
+            ease: 'Sine.easeInOut'
+        });
+
+        container.on('pointerover', () => {
+            container.setScale(1.1);
+        });
+
+        container.on('pointerout', () => {
+            container.setScale(1);
+        });
+
+        container.on('pointerdown', () => {
+            this.tweens.add({
+                targets: container,
+                scale: 0.9,
+                duration: 100,
+                yoyo: true,
+                ease: 'Power1',
+                onComplete: () => {
+                    choice.effect();
+                    levelUpChoicesGroup.clear(true, true);
+                    showingLevelUpChoices = false;
+                    // If the choice was not to pick a card, proceed to next wave
+                    if (choice.name !== 'Carta Aleatória') {
+                        wave++;
+                        waveText.setText(`Fase ${wave}`);
+                        spawnWave.call(this);
+                    }
+                }
+            });
+        });
+
+        levelUpChoicesGroup.add(container);
+    });
+}
+
 
 function handlePlayerDeath(p) {
   if (playerStats.reviveOnce) {
@@ -502,10 +695,29 @@ function shootRadial() {
     const criarBala = (angleOffset = 0) => {
       const angle = baseAngle + angleOffset;
       const bullet = bullets.create(player.x, player.y, 'bullet').setScale(0.02);
+      bullet.speed = speed; // Store speed for homing bullets
 
-      this.time.delayedCall(1000, () => {
+      this.time.delayedCall(1000, () => { // Bullets self-destruct after 1 sec
         if (bullet && bullet.active) bullet.destroy();
       });
+
+      // NEW: Homing bullet target assignment
+      if (playerStats.homingBullets) {
+        let closestEnemy = null;
+        let minDist = Infinity;
+        enemies.getChildren().forEach(enemy => {
+            if (enemy.active) {
+                const dist = Phaser.Math.Distance.Between(bullet.x, bullet.y, enemy.x, enemy.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestEnemy = enemy;
+                }
+            }
+        });
+        if (closestEnemy) {
+            bullet.trackingTarget = closestEnemy; // Assign target for homing
+        }
+      }
 
       this.physics.velocityFromRotation(angle, speed, bullet.body.velocity);
     };
@@ -540,26 +752,14 @@ function showCardChoices() {
     { nome: 'Fúria de Metalion', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.bulletDamage += 1; this.time.delayedCall(15000, () => playerStats.bulletDamage -= 1); } }, 
     { nome: 'Vida Fantasma', desc: 'Sobrevive com 1 de vida ao morrer', cor: 0x673ab7, efeito: () => { playerStats.reviveOnce = true; } }, 
     { nome: 'Energético da Meia-Noite', desc: 'Velocidade de movimento aumentada em 50% por 10s', cor: 0xffeb3b, efeito: () => {
-    const originalSpeed = playerSpeed;
+    const originalPlayerSpeed = playerSpeed;
         playerSpeed *= 1.5;
-        this.time.delayedCall(10000, () => playerSpeed = originalSpeed);
+        this.time.delayedCall(10000, () => playerSpeed = originalPlayerSpeed);
       } },
 
       { nome: 'Aura Letal', desc: 'Causa dano contínuo nos inimigos próximos', cor: 0xcd201f, efeito: () => {
         playerStats.damageAura = true;
-        this.time.addEvent({
-          delay: 1000,
-          loop: true,
-          callback: () => {
-            enemies.getChildren().forEach(e => {
-              const dist = Phaser.Math.Distance.Between(player.x, player.y, e.x, e.y);
-              if (e.active && dist < 100) {
-                e.health -= 1;
-                if (e.health <= 0) e.destroy();
-              }
-            });
-          }
-        });
+        // The continuous damage logic is handled in the update loop
       } },
 
       { nome: 'Velocidade Neuronal', desc: 'Recarga de tiro 2x mais rápida por 10s', cor: 0x03a9f4, efeito: () => {
@@ -591,9 +791,11 @@ function showCardChoices() {
     { nome: 'Fortalecimento Estrutural', desc: 'Aumenta sua vida máxima em 1', cor: 0x9E9E9E, efeito: () => { playerStats.maxLife += 1; playerStats.life = playerStats.maxLife; this.hud.createHearts(); this.hud.update(); } },
     { nome: 'Punição Lenta', desc: 'Deixa inimigos mais lentos por 5s', cor: 0x2196F3, efeito: () => { 
         enemies.getChildren().forEach(enemy => {
+            // Store original speed to restore it correctly
+            enemy.originalSpeed = enemy.originalSpeed || enemy.speed;
             enemy.speed *= 0.5; // Halve enemy speed
             this.time.delayedCall(5000, () => {
-                enemy.speed *= 2; // Restore original speed
+                enemy.speed = enemy.originalSpeed; // Restore original speed
             });
         });
     }},
@@ -623,9 +825,8 @@ function showCardChoices() {
     }}
   ];
 
-
   Phaser.Utils.Array.Shuffle(cardOptions);
-  const selectedCards = cardOptions.slice(0, 3);
+  const selectedCards = cardOptions.slice(0, 3); // Always show 3 cards
 
   cardsGroup = this.add.group();
 
@@ -735,7 +936,7 @@ function spawnWave() {
       }
       // Ensure that 'tank' has a chance to override 'fast' if both conditions met
       if (wave >= 7 && rand < 60) {
-        enemyTypeKey = Phaser.Math.Between(0, 1) === 0 ? 'fast' : 'tank';
+        enemyTypeKey = Phaser.Utils.Array.GetRandom(['fast', 'tank']);
       }
       
       const typeProps = enemyTypes[enemyTypeKey];
@@ -744,6 +945,7 @@ function spawnWave() {
       enemy.health = typeProps.baseHealth + Math.floor(wave / 2); // Vida base + escalonamento pela wave
       enemy.maxHealth = enemy.health;
       enemy.speed = typeProps.speed + Math.floor(wave * 2); // Velocidade base + escalonamento pela wave
+      enemy.xpReward = typeProps.xpReward; // Store XP reward
       enemy.setCollideWorldBounds(true);
       enemy.enemyTypeKey = enemyTypeKey; // Store the type for potential future use (e.g., specific behaviors)
     }
@@ -758,16 +960,19 @@ function spawnBoss() {
   const x = config.width / 2;
   const y = config.height / 4;
   
-  // Boss stats scale with wave number
-  const bossHealthMultiplier = 1 + (wave / 5) * 2; // 2x stronger every 5 waves
-  const bossSpeedMultiplier = 1 + (wave / 10) * 0.5; // Slightly faster
-  const bossDamageMultiplier = 1 + (wave / 10) * 0.5; // More damage
+  // Boss stats scale with wave number (every 5 waves)
+  // Example: Wave 5 = multiplier 1, Wave 10 = multiplier 2, Wave 15 = multiplier 3
+  const bossMultiplier = (wave / 5); 
+  const bossHealthMultiplier = 1 + bossMultiplier * 2; // 2x stronger every 5 waves
+  const bossSpeedMultiplier = 1 + bossMultiplier * 0.5; // Slightly faster
+  const bossDamageMultiplier = 1 + bossMultiplier * 0.5; // More damage
 
   const boss = enemies.create(x, y, 'boss').setScale(0.2); // Adjust scale as needed
   boss.isBoss = true;
   boss.health = 50 * bossHealthMultiplier; 
   boss.maxHealth = boss.health;
   boss.speed = 80 * bossSpeedMultiplier;
+  boss.xpReward = 50 * bossMultiplier; // Boss gives more XP
   boss.setCollideWorldBounds(true);
   boss.enemyTypeKey = 'boss';
 
