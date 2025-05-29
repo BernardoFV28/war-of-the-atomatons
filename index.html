@@ -60,7 +60,7 @@ let playerStats = {
   life: 3,                    // Coraçãozin tá firme
   maxLife: 3,                 // Adicionado para referência de vida máxima
   bulletDamage: 1,           // Dano padrão da bala
-  fireRate: 3000,            // Delay entre tiros
+  baseFireRate: 3000,            // Base delay entre tiros (from current weapon)
   hasShield: false,          // Tem escudo ou não
   spiritAllyActive: false,   // Espírito aliado tá junto?
   spreadUpgrade: false,      // Tiro espalhado desbloqueado?
@@ -87,6 +87,7 @@ let playerStats = {
   lifeBonus: 0,        // Flat bonus to maxLife
   defenseBonus: 0,     // Percentage damage reduction (e.g., 0.1 for 10% reduction)
   playerSpeedBonus: 0, // Flat bonus to playerSpeed
+  currentFireRateModifier: 1 // For temporary fire rate boosts like "Velocidade Neuronal"
 };
 
 const tiposDeArmas = {
@@ -146,10 +147,7 @@ function create() {
   this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1);
 
   player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true).setScale(0.05);
-  player.health = playerStats.life; // Initialize player's health (redundant but kept for consistency)
-  player.maxHealth = playerStats.maxLife; // Initialize player's max health (redundant but kept for consistency)
-
-  this.hud = new HUD(this, player); // Initialize HUD after player
+  // Removed player.health and player.maxHealth assignments here as playerStats is the source of truth
 
   bullets = this.physics.add.group();
   enemies = this.physics.add.group();
@@ -158,128 +156,7 @@ function create() {
 
   cursors = this.input.keyboard.createCursorKeys();
 
-  spawnArmas.call(this);
-
-  this.physics.add.overlap(player, armas, (player, arma) => {
-    pegarArma.call(this, arma);
-  });
-
-  this.input.keyboard.on('keydown-Z', () => {
-    if (playerStats.dashAvailable && !playerStats.dashCooldown) {
-      dashPlayer.call(this);
-    }
-  });
-
-  this.input.keyboard.on('keydown-SPACE', () => {
-    if (!player.active && !showingCards && !showingLevelUpChoices) { // Only restart if not in card/level up screen
-      this.time.delayedCall(500, () => {
-        this.scene.restart();
-        // Reset player stats for a new game
-        playerStats = {
-          life: 3, maxLife: 3, bulletDamage: 1, fireRate: 3000, hasShield: false,
-          spiritAllyActive: false, spreadUpgrade: false, doubleBullets: false,
-          dashAvailable: false, dashCooldown: false, slowEnemies: false,
-          reviveOnce: false, increasedDropRate: false, tripleBullets: false,
-          healOnKill: false, damageAura: false, speedBoost: false, bulletPiercing: false,
-          thorns: false, reflectDamage: false, homingBullets: false,
-          level: 1, xp: 0, xpToNextLevel: 10,
-          atkVelocityBonus: 1, lifeBonus: 0, defenseBonus: 0, playerSpeedBonus: 0
-        };
-        wave = 1;
-        playerCards = [];
-      });
-    }
-  });
-
-  spawnWave.call(this);
-
-  this.physics.add.overlap(bullets, enemies, (b, e) => {
-    if (b.active && e.active) {
-      if (!playerStats.bulletPiercing) b.destroy();
-
-      e.health = (e.health || 1) - playerStats.bulletDamage;
-
-      if (e.health <= 0) {
-        e.destroy();
-        if (playerStats.healOnKill) { // healOnKill check
-          playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
-          this.hud.update();
-        }
-        // NEW: Grant XP on enemy defeat
-        gainXP.call(this, e.xpReward || 0); // Use xpReward from enemy type
-      } else if (playerStats.bulletPiercing) {
-        // Add particle effect for piercing bullets
-        const particles = this.add.particles('bullet');
-        particles.createEmitter({
-          x: e.x,
-          y: e.y,
-          speed: { min: -50, max: 50 },
-          scale: { start: 0.05, end: 0 },
-          lifespan: 300,
-          blendMode: 'ADD',
-          quantity: 6
-        });
-      }
-    }
-  });
-
-  this.physics.add.overlap(player, enemies, (p, e) => { // Player-enemy collision
-    if (p.active && e.active) {
-      e.destroy(); // Enemy is destroyed on collision
-      // Apply defenseBonus to damage taken
-      const damageTaken = Math.max(1 - playerStats.defenseBonus, 0.1); // At least 10% damage
-      
-      if (!playerStats.hasShield) {
-        playerStats.life -= damageTaken;
-        this.hud.update();
-        p.setTint(0xff0000);
-        this.time.delayedCall(100, () => p.clearTint());
-        if (playerStats.life <= 0) {
-          handlePlayerDeath.call(this, p);
-        }
-      } else {
-        playerStats.hasShield = false;
-        p.clearTint();
-      }
-      if (playerStats.thorns && e.active) { // Thorns effect
-        e.health -= 1; // Or a specific thorn damage
-        if (e.health <= 0) e.destroy();
-      }
-    }
-  });
-
-  this.physics.add.overlap(enemyBullets, player, (b, p) => {
-    if (b.active && p.active) {
-      b.destroy();
-      // Apply defenseBonus to damage taken
-      const damageTaken = Math.max(1 - playerStats.defenseBonus, 0.1); // At least 10% damage
-
-      if (!playerStats.hasShield) {
-        playerStats.life -= damageTaken; // Decrement player life
-        this.hud.update(); // Update HUD
-        p.setTint(0xff0000);
-        this.time.delayedCall(100, () => p.clearTint());
-
-        if (playerStats.life <= 0) {
-          handlePlayerDeath.call(this, p);
-        }
-      } else {
-        playerStats.hasShield = false;
-        this.cameras.main.setZoom(1); // Assuming this is for visual feedback of shield breaking
-        p.clearTint();
-      }
-      if (playerStats.reflectDamage) { // Reflect damage effect
-        // A simple reflection: damage a random active enemy
-        const randomEnemy = Phaser.Utils.Array.GetRandom(enemies.getChildren().filter(e => e.active));
-        if (randomEnemy) {
-          randomEnemy.health -= playerStats.bulletDamage * 0.5; // Reflect 50% of player's damage
-          if (randomEnemy.health <= 0) randomEnemy.destroy();
-        }
-      }
-    }
-  });
-
-  // Initialize HUD and related text/images
+  // Initialize HUD and related text/images before calling spawnArmas or any update
   hudGroup = this.add.group();
   cardsHUDGroup = this.add.group(); // Grupo que vai mostrar as cartas
   levelUpChoicesGroup = this.add.group(); // Group for level up choices
@@ -338,6 +215,137 @@ function create() {
   this.bossHealthBarFill.setVisible(false);
   this.bossNameText.setVisible(false);
 
+  this.hud = new HUD(this, player); // Initialize HUD after player and other HUD elements are set up
+
+  spawnArmas.call(this); // Now arma types will be correctly passed
+
+  this.physics.add.overlap(player, armas, (player, arma) => {
+    pegarArma.call(this, arma);
+  });
+
+  this.input.keyboard.on('keydown-Z', () => {
+    if (playerStats.dashAvailable && !playerStats.dashCooldown) {
+      dashPlayer.call(this);
+    }
+  });
+
+  this.input.keyboard.on('keydown-SPACE', () => {
+    if (!player.active && !showingCards && !showingLevelUpChoices) { // Only restart if not in card/level up screen
+      this.time.delayedCall(500, () => {
+        // Clear existing UI elements for a clean restart
+        this.hud.heartsGroup.clear(true, true);
+        hudGroup.clear(true, true); // Clear main HUD group
+        cardsHUDGroup.clear(true, true); // Clear cards HUD
+        levelUpChoicesGroup.clear(true, true); // Clear level up choices
+
+        this.scene.restart();
+        // Reset player stats for a new game
+        playerStats = {
+          life: 3, maxLife: 3, bulletDamage: 1, baseFireRate: 3000, hasShield: false,
+          spiritAllyActive: false, spreadUpgrade: false, doubleBullets: false,
+          dashAvailable: false, dashCooldown: false, slowEnemies: false,
+          reviveOnce: false, increasedDropRate: false, tripleBullets: false,
+          healOnKill: false, damageAura: false, speedBoost: false, bulletPiercing: false,
+          thorns: false, reflectDamage: false, homingBullets: false,
+          level: 1, xp: 0, xpToNextLevel: 10,
+          atkVelocityBonus: 1, lifeBonus: 0, defenseBonus: 0, playerSpeedBonus: 0,
+          currentFireRateModifier: 1
+        };
+        wave = 1;
+        playerCards = [];
+      });
+    }
+  });
+
+  spawnWave.call(this);
+
+  this.physics.add.overlap(bullets, enemies, (b, e) => {
+    if (b.active && e.active) {
+      if (!playerStats.bulletPiercing) b.destroy();
+
+      e.health = (e.health || 0) - playerStats.bulletDamage; // Ensure health is a number, default to 0 for safety
+
+      if (e.health <= 0) {
+        e.destroy();
+        if (playerStats.healOnKill) { // healOnKill check
+          playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
+          this.hud.update();
+        }
+        // NEW: Grant XP on enemy defeat
+        gainXP.call(this, e.xpReward || 0); // Use xpReward from enemy type
+      } else if (playerStats.bulletPiercing) {
+        // Add particle effect for piercing bullets
+        const particles = this.add.particles('bullet');
+        particles.createEmitter({
+          x: e.x,
+          y: e.y,
+          speed: { min: -50, max: 50 },
+          scale: { start: 0.05, end: 0 },
+          lifespan: 300,
+          blendMode: 'ADD',
+          quantity: 6
+        });
+      }
+    }
+  });
+
+  this.physics.add.overlap(player, enemies, (p, e) => { // Player-enemy collision
+    if (p.active && e.active) {
+      e.destroy(); // Enemy is destroyed on collision
+      // Apply defenseBonus to damage taken (base damage is 1 per collision)
+      const damageTaken = Math.max(1 * (1 - playerStats.defenseBonus), 0.1); 
+      
+      if (!playerStats.hasShield) {
+        playerStats.life -= damageTaken;
+        this.hud.update();
+        p.setTint(0xff0000);
+        this.time.delayedCall(100, () => p.clearTint());
+        if (playerStats.life <= 0) {
+          handlePlayerDeath.call(this, p);
+        }
+      } else {
+        playerStats.hasShield = false;
+        p.clearTint();
+      }
+      if (playerStats.thorns && e.active) { // Thorns effect
+        e.health -= 1; // Or a specific thorn damage
+        if (e.health <= 0) e.destroy();
+      }
+    }
+  });
+
+  this.physics.add.overlap(enemyBullets, player, (b, p) => {
+    if (b.active && p.active) {
+      b.destroy();
+      // Apply defenseBonus to damage taken
+      const damageTaken = Math.max(1 * (1 - playerStats.defenseBonus), 0.1);
+
+      if (!playerStats.hasShield) {
+        playerStats.life -= damageTaken; // Decrement player life
+        this.hud.update(); // Update HUD
+        p.setTint(0xff0000);
+        this.time.delayedCall(100, () => p.clearTint());
+
+        if (playerStats.life <= 0) {
+          handlePlayerDeath.call(this, p);
+        }
+      } else {
+        playerStats.hasShield = false;
+        this.cameras.main.setZoom(1); // Assuming this is for visual feedback of shield breaking
+        p.clearTint();
+      }
+      if (playerStats.reflectDamage) { // Reflect damage effect
+        // A simple reflection: damage a random active enemy
+        const randomEnemy = Phaser.Utils.Array.GetRandom(enemies.getChildren().filter(e => e.active));
+        if (randomEnemy) { // Check if randomEnemy exists
+          randomEnemy.health -= playerStats.bulletDamage * 0.3; // Reflect 30% of player's damage as per card desc
+          if (randomEnemy.health <= 0) randomEnemy.destroy();
+        }
+      }
+    }
+  });
+
+
   this.time.addEvent({
     delay: 9000, // Reduced delay for faster enemy shooting
     loop: true,
@@ -358,6 +366,7 @@ function spawnArmas() {
   for (let i = 0; i < 3; i++) {
     const x = Phaser.Math.Between(100, config.width - 100); // Adjust spawn range
     const y = Phaser.Math.Between(100, config.height - 100); // Adjust spawn range
+    const tipo = Phaser.Utils.Array.GetRandom(tipos); // Randomly select a weapon type
     const arma = armas.create(x, y, tipo).setScale(0.02);
     arma.tipo = tipo;
   }
@@ -367,7 +376,8 @@ function pegarArma(arma) {
   const props = tiposDeArmas[arma.tipo];
 
   playerStats.bulletDamage = props.dano;
-  playerStats.fireRate = props.fireRate * playerStats.atkVelocityBonus; // Apply ATK Velocity Bonus
+  playerStats.baseFireRate = props.fireRate; // Store the base fire rate of the weapon
+  player.currentWeapon = arma.tipo; // Store current weapon type
 
   arma.destroy();
 
@@ -420,7 +430,8 @@ function atualizarHUDCartas(scene) {
     const currentY = 140 + row * 80; // New row every maxCardsPerRow cards
 
     const bg = scene.add.rectangle(currentX, currentY, 50, 70, card.cor || 0x999999, 0.8)
-      .setStrokeStyle(2, 0xffffff);
+      .setStrokeStyle(2, 0xffffff)
+      .setTint(card.cor || 0x999999); // Apply the card's specific color
     const title = scene.add.text(currentX, currentY - 10, card.nome[0], { // Adjusted Y for better centering
       fontSize: '24px',
       color: '#fff'
@@ -462,7 +473,7 @@ function update(time) {
   const norm = Math.hypot(vx, vy) || 1;
   player.setVelocity((vx / norm) * (playerSpeed + playerStats.playerSpeedBonus), (vy / norm) * (playerSpeed + playerStats.playerSpeedBonus));
 
-  if (time > lastShoot + (playerStats.fireRate * playerStats.atkVelocityBonus)) { // Apply ATK Velocity Bonus
+  if (time > lastShoot + (playerStats.baseFireRate * playerStats.atkVelocityBonus * playerStats.currentFireRateModifier)) { // Apply ATK Velocity Bonus and temporary modifier
     shootRadial.call(this);
     lastShoot = time;
   }
@@ -477,14 +488,22 @@ function update(time) {
       const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
       if (dist < 100) { // Aura radius
         enemy.health -= 0.01; // Small continuous damage
-        if (enemy.health <= 0) enemy.destroy();
+        if (enemy.health <= 0) {
+            enemy.destroy();
+            if (playerStats.healOnKill) { // healOnKill check if aura kills
+                playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
+                this.hud.update();
+            }
+            gainXP.call(this, enemy.xpReward || 0);
+        }
       }
     }
     
     // NEW: Homing bullets logic (simple version)
     if (playerStats.homingBullets && enemy.active) {
         bullets.getChildren().forEach(bullet => {
-            if (bullet.active && bullet.trackingTarget === enemy) { // Ensure bullet is tracking this specific enemy
+            // Check if this bullet should be homing and if its target is still valid
+            if (bullet.active && bullet.trackingTarget === enemy && enemy.active) { 
                 const angleToEnemy = Phaser.Math.Angle.Between(bullet.x, bullet.y, enemy.x, enemy.y);
                 this.physics.velocityFromRotation(angleToEnemy, bullet.speed || 700, bullet.body.velocity);
             }
@@ -592,7 +611,7 @@ function showLevelUpChoices() {
         }
     });
 
-    levelUpChoicesGroup = this.add.group();
+    levelUpChoicesGroup.clear(true, true); // Clear existing group if any
 
     const startX = this.cameras.main.centerX;
     const startY = this.cameras.main.centerY;
@@ -752,9 +771,9 @@ function showCardChoices() {
     { nome: 'Fúria de Metalion', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.bulletDamage += 1; this.time.delayedCall(15000, () => playerStats.bulletDamage -= 1); } }, 
     { nome: 'Vida Fantasma', desc: 'Sobrevive com 1 de vida ao morrer', cor: 0x673ab7, efeito: () => { playerStats.reviveOnce = true; } }, 
     { nome: 'Energético da Meia-Noite', desc: 'Velocidade de movimento aumentada em 50% por 10s', cor: 0xffeb3b, efeito: () => {
-    const originalPlayerSpeed = playerSpeed;
-        playerSpeed *= 1.5;
-        this.time.delayedCall(10000, () => playerSpeed = originalPlayerSpeed);
+    const originalPlayerSpeedBonus = playerStats.playerSpeedBonus; // Store the current bonus
+        playerStats.playerSpeedBonus += playerSpeed * 0.5; // Add 50% of base playerSpeed to bonus
+        this.time.delayedCall(10000, () => playerStats.playerSpeedBonus = originalPlayerSpeedBonus); // Restore original bonus
       } },
 
       { nome: 'Aura Letal', desc: 'Causa dano contínuo nos inimigos próximos', cor: 0xcd201f, efeito: () => {
@@ -763,9 +782,8 @@ function showCardChoices() {
       } },
 
       { nome: 'Velocidade Neuronal', desc: 'Recarga de tiro 2x mais rápida por 10s', cor: 0x03a9f4, efeito: () => {
-        const originalRate = playerStats.fireRate;
-        playerStats.fireRate /= 2;
-        this.time.delayedCall(10000, () => playerStats.fireRate = originalRate);
+        playerStats.currentFireRateModifier /= 2; // Halve the modifier (makes fire rate faster)
+        this.time.delayedCall(10000, () => playerStats.currentFireRateModifier *= 2); // Restore modifier
       } },
 
       { nome: 'Hack dos Fragmentos', desc: 'Chance dobrada de aparecer armas nas próximas ondas', cor: 0x607d8b, efeito: () => {
@@ -792,10 +810,13 @@ function showCardChoices() {
     { nome: 'Punição Lenta', desc: 'Deixa inimigos mais lentos por 5s', cor: 0x2196F3, efeito: () => { 
         enemies.getChildren().forEach(enemy => {
             // Store original speed to restore it correctly
-            enemy.originalSpeed = enemy.originalSpeed || enemy.speed;
+            enemy.originalSpeed = enemy.originalSpeed || enemy.speed; // Ensure originalSpeed exists
             enemy.speed *= 0.5; // Halve enemy speed
             this.time.delayedCall(5000, () => {
-                enemy.speed = enemy.originalSpeed; // Restore original speed
+                // Only restore if the enemy is still active and exists
+                if (enemy && enemy.active) { 
+                    enemy.speed = enemy.originalSpeed; // Restore original speed
+                }
             });
         });
     }},
@@ -809,7 +830,14 @@ function showCardChoices() {
             const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
             if (dist < explosionRadius) {
                 enemy.health -= 5; // Fixed explosion damage
-                if (enemy.health <= 0) enemy.destroy();
+                if (enemy.health <= 0) {
+                    enemy.destroy();
+                    if (playerStats.healOnKill) { // healOnKill check if explosion kills
+                        playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
+                        this.hud.update();
+                    }
+                    gainXP.call(this, enemy.xpReward || 0); // Grant XP on explosion kill
+                }
             }
         });
         // Visual feedback for explosion
@@ -839,7 +867,7 @@ function showCardChoices() {
     const y = startY;
 
     const container = this.add.container(x, y);
-    const bgImage = this.add.image(0, 0, 'cardBg').setDisplaySize(160, 240);
+    const bgImage = this.add.image(0, 0, 'cardBg').setDisplaySize(160, 240).setTint(card.cor); // Apply card color
   
     const title = this.add.text(0, -80, card.nome, { fontSize: '20px', color: '#fff', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
     const desc = this.add.text(0, 0, card.desc, { fontSize: '14px', color: '#eee', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
@@ -907,7 +935,6 @@ function ativarSpiritAlly() {
     callbackScope: this 
   });
 }
-
 // --- LÓGICA ATUALIZADA DO SPAWN DE ONDA ---
 function spawnWave() {
   // Clear existing enemies and enemy bullets before spawning a new wave
@@ -925,18 +952,34 @@ function spawnWave() {
 
       let enemyTypeKey = 'normal'; // Tipo de inimigo padrão
 
-      // Aumenta a chance de inimigos mais rápidos e tanques com o tempo
-      // Re-evaluate these chances for better scaling
-      const rand = Phaser.Math.Between(0, 100);
-      if (wave >= 3 && rand < (30 + wave * 3)) { // Increased chance for fast enemies
-        enemyTypeKey = 'fast';
+      // Define probabilities for each enemy type based on wave
+      let normalChance = 100;
+      let fastChance = 0;
+      let tankChance = 0;
+
+      if (wave >= 3) {
+          normalChance -= (5 + wave * 2); // Reduce normal chance
+          fastChance += (5 + wave * 2); // Increase fast chance
       }
-      if (wave >= 5 && rand < (20 + wave * 2)) { // Increased chance for tank enemies
-        enemyTypeKey = 'tank';
+      if (wave >= 5) {
+          normalChance -= (5 + wave * 1.5); // Further reduce normal
+          tankChance += (5 + wave * 1.5); // Increase tank chance
       }
-      // Ensure that 'tank' has a chance to override 'fast' if both conditions met
-      if (wave >= 7 && rand < 60) {
-        enemyTypeKey = Phaser.Utils.Array.GetRandom(['fast', 'tank']);
+
+      // Clamp chances to ensure they are within valid range (0-100)
+      normalChance = Phaser.Math.Clamp(normalChance, 0, 100);
+      fastChance = Phaser.Math.Clamp(fastChance, 0, 100 - normalChance); 
+      tankChance = Phaser.Math.Clamp(tankChance, 0, 100 - normalChance - fastChance); 
+
+      const totalChance = normalChance + fastChance + tankChance;
+      const normalizedRand = Phaser.Math.Between(0, totalChance); 
+
+      if (normalizedRand < normalChance) {
+          enemyTypeKey = 'normal';
+      } else if (normalizedRand < normalChance + fastChance) {
+          enemyTypeKey = 'fast';
+      } else {
+          enemyTypeKey = 'tank';
       }
       
       const typeProps = enemyTypes[enemyTypeKey];
@@ -1027,8 +1070,7 @@ class HUD {
     this.scene = scene;
     this.player = player;
 
-    this.maxHealth = playerStats.maxLife; // Use playerStats.maxLife
-    this.currentHealth = playerStats.life; // Use playerStats.life
+    // Removed this.maxHealth and this.currentHealth here, directly use playerStats
 
     this.heartSize = 30;
     this.heartSpacing = 10;
