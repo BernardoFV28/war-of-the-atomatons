@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V.1.2.7 - Multi-Enemy Update</title>
+  <title>War of the Automatons V.2.0 - Addictive Edition</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -10,14 +10,18 @@
       margin: 0;
       overflow: hidden;
       background: #0a0000ce;
+      font-family: 'Press Start 2P', cursive; /* Optional: Pixel font for retro feel */
     }
     canvas {
       display: block;
-      margin: auto;}
+      margin: auto;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap'); /* Optional: Import pixel font */
   </style>
 </head>
 <body>
 <script>
+// Main game configuration
 const config = {
   type: Phaser.AUTO,
   width: 1300,
@@ -27,289 +31,1211 @@ const config = {
     default: 'arcade',
     arcade: { debug: false }
   },
-  scene: {
-    preload,
-    create,
-    update
-  }
+  scene: [GameScene, HUD] // Separate scenes for game logic and HUD
 };
 
-// Variáveis globais para o jogo
-let waveText;
-let hudGroup;
-let armaNomeText;
-let armaImagem;
+// Global game variables (accessible across scenes via game.scene.get('GameScene').variableName)
 let player, cursors;
 let bullets, enemyBullets;
-let enemies; // Grupo de inimigos
+let enemies; // Group for all enemies
 let score = 0;
-let scoreText;
 let currentWave = 1;
 let enemiesPerWave = 5;
-let spawnTimer; // Timer para spawn de inimigos
-let enemiesAlive = 0; // Inimigos ativos na cena
-let enemiesToSpawn = 0; // Inimigos restantes para spawnar na onda
-let bossHealthBarBg, bossHealthBarFill; // Barra de vida do boss
-let bossNameText;
+let spawnTimer;
+let enemiesAlive = 0;
+let enemiesToSpawn = 0;
+let level = 1;
+let xp = 0;
+let xpToNextLevel = 100;
+let levelUpPending = false;
+let boss; // Reference to the current boss
 
-// Estado inicial do jogador (será resetado no Game Over)
+// Player initial stats (will be reset on Game Over)
 let playerStats = {
   life: 5,
   maxLife: 5,
   speed: 200,
-  fireRate: 300, // milissegundos entre tiros
+  fireRate: 300, // milliseconds between shots
   bulletSpeed: 500,
   bulletDamage: 1,
   currentWeapon: 'pistol',
-  canShoot: true // Flag para controlar o ritmo de tiro
+  canShoot: true, // Flag to control firing rate
+  xpMultiplier: 1, // How much XP player gains
+  damageReduction: 0, // Reduces incoming damage (0-1)
+  bulletPenetration: false, // Bullets can hit multiple enemies
+  lifesteal: 0 // Percentage of damage dealt converted to health
 };
 
-// Definições das armas
+// Weapon definitions
 const weapons = {
   pistol: {
-    name: 'Pistola',
+    name: 'Pistol',
     damage: 1,
     fireRate: 300,
     bulletSpeed: 500,
-    ammo: Infinity, // Munição infinita
+    ammo: Infinity,
     bulletSprite: 'bullet',
-    icon: 'pistol_icon'
+    icon: 'pistol_icon',
+    sound: 'pistol_sound'
   },
   machinegun: {
-    name: 'Metralhadora',
+    name: 'Machinegun',
     damage: 0.5,
     fireRate: 100,
     bulletSpeed: 600,
     ammo: 150,
     bulletSprite: 'bullet',
-    icon: 'machinegun_icon'
+    icon: 'machinegun_icon',
+    sound: 'machinegun_sound'
   },
   shotgun: {
-    name: 'Escopeta',
+    name: 'Shotgun',
     damage: 1.5,
     fireRate: 700,
     bulletSpeed: 300,
     ammo: 30,
-    pellets: 5, // Número de projéteis para escopeta
+    pellets: 5, // Number of projectiles for shotgun
     bulletSprite: 'bullet',
-    icon: 'shotgun_icon'
+    icon: 'shotgun_icon',
+    sound: 'shotgun_sound'
   },
   laser: {
     name: 'Laser',
     damage: 3,
     fireRate: 150,
-    bulletSpeed: 200,
+    bulletSpeed: 800, // Increased laser speed
     ammo: 100,
-    isLaser: true, // Flag para projéteis de laser
+    isLaser: true,
     bulletSprite: 'laser_bullet',
-    icon: 'laser_icon'
+    icon: 'laser_icon',
+    sound: 'laser_sound'
   },
   rocketlauncher: {
-    name: 'Lança-Foguetes',
+    name: 'Rocket Launcher',
     damage: 5,
     fireRate: 1000,
     bulletSpeed: 300,
     ammo: 10,
-    isExplosive: true, // Flag para explosões
+    isExplosive: true,
+    explosionRadius: 100, // Radius of explosion damage
     bulletSprite: 'rocket',
-    icon: 'rocketlauncher_icon'
+    icon: 'rocketlauncher_icon',
+    sound: 'rocket_sound'
   }
 };
 
-// Power-ups ativos (temporários)
+// Active temporary power-ups
 let activePowerUps = {};
-let powerUpDuration = 10000; // 10 segundos
-let powerUpGroup; // Grupo para os power-ups no jogo
+let powerUpDuration = 10000; // 10 seconds
 
-// Definições das cartas de melhoria
-let cards = {
-  lifeBoost: {
-    nome: 'Vida Extra',
-    descricao: 'Aumenta sua vida máxima em 1.',
-    efeito: (scene) => {
-      playerStats.maxLife++;
-      playerStats.life = playerStats.maxLife; // Cura total
-      scene.hud.updateHearts();
-    },
-    cor: 0x4CAF50,
-    sprite: 'heart_powerup'
-  },
-  speedBoost: {
-    nome: 'Super Velocidade',
-    descricao: 'Aumenta a velocidade do jogador por 10s.',
-    efeito: (scene) => {
-      playerStats.speed += 50;
-      activePowerUps.speedBoost = true;
-      scene.time.delayedCall(powerUpDuration, () => {
-        playerStats.speed -= 50;
-        delete activePowerUps.speedBoost;
-      });
-    },
-    cor: 0x2196F3,
-    sprite: 'speed_powerup'
-  },
-  fireRateBoost: {
-    nome: 'Tiro Rápido',
-    descricao: 'Diminui o tempo entre os tiros por 10s.',
-    efeito: (scene) => {
-      playerStats.fireRate -= 50;
-      if (playerStats.fireRate < 50) playerStats.fireRate = 50; // Limite mínimo
-      activePowerUps.fireRateBoost = true;
-      scene.time.delayedCall(powerUpDuration, () => {
-        playerStats.fireRate += 50;
-        delete activePowerUps.fireRateBoost;
-      });
-    },
-    cor: 0xFF9800,
-    sprite: 'firerate_powerup'
-  },
-  damageBoost: {
-    nome: 'Dano Brutal',
-    descricao: 'Aumenta o dano das suas balas por 10s.',
-    efeito: (scene) => {
-      playerStats.bulletDamage += 0.5;
-      activePowerUps.damageBoost = true;
-      scene.time.delayedCall(powerUpDuration, () => {
-        playerStats.bulletDamage -= 0.5;
-        delete activePowerUps.damageBoost;
-      });
-    },
-    cor: 0xF44336,
-    sprite: 'damage_powerup'
-  },
-  multishot: {
-    nome: 'Tiro Múltiplo',
-    descricao: 'Atira 3 balas em um pequeno arco por 10s.',
-    efeito: (scene) => {
-      activePowerUps.multiShot = true;
-      scene.time.delayedCall(powerUpDuration, () => {
-        delete activePowerUps.multiShot;
-      });
-    },
-    cor: 0x9C27B0,
-    sprite: 'multishot_powerup'
-  },
-  grenade: {
-    nome: 'Granada',
-    descricao: 'Joga uma granada que explode.',
-    efeito: (scene) => {
-      // Lógica da granada seria implementada aqui (requer implementação de um objeto granada e sua explosão)
-      console.log('Granada ativada! (Funcionalidade a ser implementada)');
-    },
-    cor: 0x607D8B,
-    sprite: 'grenade_powerup'
-  }
-};
-
-// Armas que o jogador possui
+// Player's owned weapons
 let playerWeapons = {
-  pistol: true, // Começa com a pistola
+  pistol: true,
   machinegun: false,
   shotgun: false,
   laser: false,
   rocketlauncher: false
 };
 
-let currentCardChoices = []; // Escolhas de cartas no level up
-let cardsHUDGroup; // Grupo para o HUD das cartas ativas
-let activeCardCount = {}; // Contador de cartas ativas (para exibir no HUD)
+// Card definitions (now more like permanent upgrades for skill tree)
+const cards = {
+  lifeBoost: {
+    name: 'Extra Life',
+    description: 'Increases your max life by 1 and fully heals.',
+    effect: (scene) => {
+      playerStats.maxLife++;
+      playerStats.life = playerStats.maxLife;
+      scene.hud.updateHearts();
+    },
+    sprite: 'heart_powerup',
+    rarity: 'common'
+  },
+  speedBoostPermanent: {
+    name: 'Permanent Speed',
+    description: 'Permanently increases player speed by 20.',
+    effect: (scene) => {
+      playerStats.speed += 20;
+    },
+    sprite: 'speed_powerup',
+    rarity: 'common'
+  },
+  fireRateBoostPermanent: {
+    name: 'Rapid Fire',
+    description: 'Permanently decreases fire rate by 20ms.',
+    effect: (scene) => {
+      playerStats.fireRate -= 20;
+      if (playerStats.fireRate < 50) playerStats.fireRate = 50;
+    },
+    sprite: 'firerate_powerup',
+    rarity: 'common'
+  },
+  damageBoostPermanent: {
+    name: 'Raw Damage',
+    description: 'Permanently increases bullet damage by 0.2.',
+    effect: (scene) => {
+      playerStats.bulletDamage += 0.2;
+    },
+    sprite: 'damage_powerup',
+    rarity: 'common'
+  },
+  xpBoost: {
+    name: 'XP Enthusiast',
+    description: 'Increases XP gain by 10%.',
+    effect: (scene) => {
+      playerStats.xpMultiplier += 0.1;
+    },
+    sprite: 'xp_powerup',
+    rarity: 'uncommon'
+  },
+  damageReduction: {
+    name: 'Reinforced Plating',
+    description: 'Reduces incoming damage by 5%.',
+    effect: (scene) => {
+      playerStats.damageReduction = Math.min(playerStats.damageReduction + 0.05, 0.5); // Max 50% reduction
+    },
+    sprite: 'shield_powerup',
+    rarity: 'uncommon'
+  },
+  bulletPenetration: {
+    name: 'Piercing Rounds',
+    description: 'Your bullets now pierce through enemies.',
+    effect: (scene) => {
+      playerStats.bulletPenetration = true;
+    },
+    sprite: 'piercing_powerup',
+    rarity: 'rare'
+  },
+  lifesteal: {
+    name: 'Vampiric Shots',
+    description: 'Heal for 2% of damage dealt.',
+    effect: (scene) => {
+      playerStats.lifesteal = Math.min(playerStats.lifesteal + 0.02, 0.2); // Max 20% lifesteal
+    },
+    sprite: 'lifesteal_powerup',
+    rarity: 'rare'
+  },
+  explosiveBullets: {
+    name: 'Explosive Touch',
+    description: 'Your bullets have a small chance to explode on impact.',
+    effect: (scene) => {
+      // Logic for explosive bullets will be handled in hitEnemy
+      // This card essentially "unlocks" a passive effect
+      playerStats.hasExplosiveBullets = true;
+    },
+    sprite: 'explosion_powerup',
+    rarity: 'rare'
+  }
+};
 
-// Classe HUD para gerenciar a interface do usuário
-class HUD extends Phaser.Scene {
+let activeCardCount = {}; // Counter for active cards (for HUD display)
+
+// Game Scene
+class GameScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'HUD', active: true });
-    this.enemy = null; // Inimigo atualmente visado para barra de vida individual
-    this.heartSize = 32; // Tamanho dos corações no HUD
+    super({ key: 'GameScene' });
   }
 
   preload() {
-    // A cena principal (default) já carrega as imagens, então não é necessário aqui.
+    this.load.image('player', 'assets/player.png');
+    this.load.image('bullet', 'assets/bullet.png');
+    this.load.image('enemy1', 'assets/enemy_robot.png'); // Basic
+    this.load.image('enemy2', 'assets/enemy_fast.png'); // Fast, shoots
+    this.load.image('enemy3', 'assets/enemy_tank.png'); // Tanky, slow
+    this.load.image('enemy4', 'assets/enemy_shield.png'); // Shielded enemy
+    this.load.image('enemy5', 'assets/enemy_spawner.png'); // Spawns smaller enemies
+    this.load.image('boss1', 'assets/boss_robot.png'); // Main Boss
+
+    this.load.image('health_pickup', 'assets/health_pickup.png');
+    this.load.image('ammo_pickup', 'assets/ammo.png');
+    this.load.image('weapon_pickup', 'assets/weapon_pickup.png');
+    this.load.image('laser_bullet', 'assets/laser_bullet.png'); // Dedicated laser bullet sprite
+    this.load.image('rocket', 'assets/rocket.png');
+    this.load.spritesheet('explosion_ss', 'assets/explosion_spritesheet.png', { frameWidth: 64, frameHeight: 64 });
+    this.load.image('tile', 'assets/tile.png'); // Background tile
+
+    // Weapon icons for HUD
+    this.load.image('pistol_icon', 'assets/pistolinha.png');
+    this.load.image('machinegun_icon', 'assets/metralha.png');
+    this.load.image('shotgun_icon', 'assets/lancaraio.png');
+    this.load.image('laser_icon', 'assets/laser_icon.png');
+    this.load.image('rocketlauncher_icon', 'assets/lancarrio.png');
+
+    // Card/Power-up icons
+    this.load.image('heart_powerup', 'assets/cora.png');
+    this.load.image('speed_powerup', 'assets/speed_powerup.png');
+    this.load.image('firerate_powerup', 'assets/firerate_powerup.png');
+    this.load.image('damage_powerup', 'assets/damage_powerup.png');
+    this.load.image('multishot_powerup', 'assets/multishot_powerup.png');
+    this.load.image('grenade_powerup', 'assets/grenade.png'); // Example, not implemented as a card effect yet
+    this.load.image('xp_powerup', 'assets/xp_powerup.png');
+    this.load.image('shield_powerup', 'assets/shield_powerup.png');
+    this.load.image('piercing_powerup', 'assets/piercing_powerup.png');
+    this.load.image('lifesteal_powerup', 'assets/lifesteal_powerup.png');
+    this.load.image('explosion_powerup', 'assets/explosion_powerup.png');
+
+    this.load.image('heart_full', 'assets/cora.png'); // Full heart for HUD
+    this.load.image('cardBg', 'assets/cardBg.png'); // Background for cards
+
+    // Sound effects
+    this.load.audio('pistol_sound', 'assets/sounds/pistol.wav');
+    this.load.audio('machinegun_sound', 'assets/sounds/machinegun.wav');
+    this.load.audio('shotgun_sound', 'assets/sounds/shotgun.wav');
+    this.load.audio('laser_sound', 'assets/sounds/laser.wav');
+    this.load.audio('rocket_sound', 'assets/sounds/rocket.wav');
+    this.load.audio('hit_enemy_sound', 'assets/sounds/hit_enemy.wav');
+    this.load.audio('enemy_death_sound', 'assets/sounds/enemy_death.wav');
+    this.load.audio('player_hit_sound', 'assets/sounds/player_hit.wav');
+    this.load.audio('pickup_sound', 'assets/sounds/pickup.wav');
+    this.load.audio('level_up_sound', 'assets/sounds/level_up.wav');
+    this.load.audio('game_over_sound', 'assets/sounds/game_over.wav');
+    this.load.audio('boss_roar_sound', 'assets/sounds/boss_roar.wav');
+    this.load.audio('background_music', 'assets/sounds/background_music.mp3'); // Loopable background music
   }
 
   create() {
-    const mainScene = this.scene.get('default'); // Pega referência para a cena principal
+    this.hud = this.scene.get('HUD');
+    this.scene.launch('HUD'); // Ensure HUD is launched and ready
 
-    // Elementos de texto do HUD
-    scoreText = this.add.text(10, 10, 'Pontos: 0', { fontSize: '20px', fill: '#fff' }).setScrollFactor(0);
-    waveText = this.add.text(this.game.config.width - 10, 10, 'Onda: 1', { fontSize: '20px', fill: '#fff' }).setOrigin(1, 0).setScrollFactor(0);
+    // World dimensions
+    const worldWidth = 2000;
+    const worldHeight = 2000;
 
-    hudGroup = this.add.group();
-    hudGroup.add(scoreText);
-    hudGroup.add(waveText);
+    // Tiled background
+    this.add.tileSprite(0, 0, config.width, config.height, 'tile')
+      .setOrigin(0, 0)
+      .setScrollFactor(0); // Fixed to camera
 
-    // HUD da arma (ícone e nome)
-    armaImagem = this.add.image(10 + 16, 40 + 16, weapons[playerStats.currentWeapon].icon).setScale(0.8).setScrollFactor(0).setDepth(1);
-    armaNomeText = this.add.text(armaImagem.x + armaImagem.displayWidth / 2 + 5, armaImagem.y - armaImagem.displayHeight / 2 + 5, weapons[playerStats.currentWeapon].name, { fontSize: '18px', fill: '#fff' }).setScrollFactor(0);
-    this.ammoText = this.add.text(armaNomeText.x, armaNomeText.y + 20, '', { fontSize: '16px', fill: '#fff' }).setScrollFactor(0);
-    hudGroup.add(armaImagem);
-    hudGroup.add(armaNomeText);
-    hudGroup.add(this.ammoText);
+    this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
 
-    // HUD de corações (vida do jogador)
+    // Player setup
+    player = this.physics.add.sprite(config.width / 2, config.height / 2, 'player')
+      .setCollideWorldBounds(true)
+      .setOrigin(0.5, 0.5)
+      .setDepth(1); // Ensure player is above background
+    player.setScale(0.4);
+    player.setDamping(true).setDrag(0.99);
+    player.body.setSize(player.width * 0.8, player.height * 0.8);
+    player.body.setOffset(player.width * 0.1, player.height * 0.1);
+    player.lastShotTime = 0; // Initialize last shot time for player
+
+    cursors = this.input.keyboard.createCursorKeys();
+    this.input.keyboard.on('keydown-SPACE', this.fireBullet, this);
+    this.input.on('pointerdown', this.fireBullet, this); // Fire with mouse click
+    this.input.keyboard.on('keydown-ONE', () => this.switchWeapon('pistol'));
+    this.input.keyboard.on('keydown-TWO', () => this.switchWeapon('machinegun'));
+    this.input.keyboard.on('keydown-THREE', () => this.switchWeapon('shotgun'));
+    this.input.keyboard.on('keydown-FOUR', () => this.switchWeapon('laser'));
+    this.input.keyboard.on('keydown-FIVE', () => this.switchWeapon('rocketlauncher'));
+    this.input.keyboard.on('keydown-E', () => { if (levelUpPending) this.showLevelUpChoices(); }); // Manual level up screen for debugging
+
+    // Bullet groups
+    bullets = this.physics.add.group({
+      defaultKey: 'bullet',
+      maxSize: 50,
+      runChildUpdate: true
+    });
+    enemyBullets = this.physics.add.group({
+      defaultKey: 'bullet',
+      maxSize: 50,
+      runChildUpdate: true
+    });
+
+    // Enemy and power-up groups
+    enemies = this.physics.add.group({ runChildUpdate: true });
+    this.powerUpGroup = this.physics.add.group({ runChildUpdate: true });
+
+    // Collisions and Overlaps
+    this.physics.add.collider(player, enemies, this.hitPlayer, null, this);
+    this.physics.add.overlap(bullets, enemies, this.hitEnemy, null, this);
+    this.physics.add.overlap(player, this.powerUpGroup, this.collectPowerUp, null, this);
+    this.physics.add.overlap(enemyBullets, player, this.hitPlayerByEnemyBullet, null, this);
+    this.physics.add.collider(enemies, enemies); // Enemies can collide with each other
+
+    // Camera setup
+    this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
+    this.cameras.main.startFollow(player, true, 0.05, 0.05);
+
+    // Spawn timer for enemies
+    spawnTimer = this.time.addEvent({
+      delay: 2000,
+      callback: this.spawnEnemy,
+      callbackScope: this,
+      loop: true
+    });
+
+    // HUD update timer for cards
+    this.time.addEvent({
+      delay: 1000,
+      callback: () => {
+        this.hud.updateActiveCardsHUD(activeCardCount);
+      },
+      callbackScope: this,
+      loop: true
+    });
+
+    // Explosion animation
+    this.anims.create({
+      key: 'explode',
+      frames: this.anims.generateFrameNumbers('explosion_ss', { start: 0, end: 15 }),
+      frameRate: 24,
+      repeat: 0,
+      hideOnComplete: true
+    });
+
+    // Background music
+    this.backgroundMusic = this.sound.add('background_music', { loop: true, volume: 0.5 });
+    this.backgroundMusic.play();
+
+    this.startWave(); // Start the first wave
+  }
+
+  update(time, delta) {
+    // Player movement
+    player.setVelocity(0);
+
+    if (cursors.left.isDown) { player.setVelocityX(-playerStats.speed); }
+    else if (cursors.right.isDown) { player.setVelocityX(playerStats.speed); }
+    if (cursors.up.isDown) { player.setVelocityY(-playerStats.speed); }
+    else if (cursors.down.isDown) { player.setVelocityY(playerStats.speed); }
+
+    // Normalize diagonal movement
+    player.body.velocity.normalize().scale(playerStats.speed);
+
+    // Player rotation towards mouse pointer
+    let angle = Phaser.Math.Angle.Between(player.x, player.y, this.input.activePointer.x + this.cameras.main.scrollX, this.input.activePointer.y + this.cameras.main.scrollY);
+    player.setRotation(angle + Math.PI / 2);
+
+    // Enemy AI: movement and shooting
+    enemies.children.each(function (enemy) {
+      if (enemy.active && enemy.health > 0) {
+        // Move towards player
+        this.physics.moveToObject(enemy, player, enemy.speed);
+
+        // Enemy shooting
+        if (enemy.canShoot && enemy.lastShot + enemy.fireRate < time) {
+          let enemyBullet = enemyBullets.get(enemy.x, enemy.y, 'bullet');
+          if (enemyBullet) {
+            enemyBullet.setActive(true).setVisible(true);
+            enemyBullet.setTint(0xFFFF00); // Yellow bullet for enemies
+            this.physics.moveToObject(enemyBullet, player, enemy.bulletSpeed);
+            enemy.lastShot = time;
+            // Play enemy shoot sound if available
+            // this.sound.play('enemy_shoot_sound', { volume: 0.3 });
+          }
+        }
+        // Specific AI for shielded enemies (enemy4)
+        if (enemy.enemyType === 'enemy4') {
+          // Shielded enemies might try to stay at a certain distance or have a frontal shield
+          // For simplicity, they just move slower but have more health
+          enemy.setTint(0x00FF00); // Green tint for shielded enemies
+        }
+        // Specific AI for spawner enemies (enemy5)
+        if (enemy.enemyType === 'enemy5' && enemy.lastSpawn + enemy.spawnRate < time) {
+          this.spawnMiniEnemy(enemy.x, enemy.y);
+          enemy.lastSpawn = time;
+        }
+      }
+    }, this);
+
+    // Update individual enemy health bar in HUD
+    let closestEnemy = null;
+    let minDistance = Infinity;
+    enemies.children.each(function (enemy) {
+      if (enemy.active && !enemy.isBoss && enemy.health > 0) {
+        const distance = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestEnemy = enemy;
+        }
+      }
+    }, this);
+    if (closestEnemy) {
+      this.hud.setEnemy(closestEnemy);
+    } else {
+      this.hud.hideEnemyHealthBar();
+    }
+
+    // Clean up off-screen bullets
+    bullets.children.each(function (bullet) {
+      if (bullet.active && !this.physics.world.bounds.contains(bullet.x, bullet.y)) {
+        bullets.killAndHide(bullet);
+      }
+    }, this);
+    enemyBullets.children.each(function (bullet) {
+      if (bullet.active && !this.physics.world.bounds.contains(bullet.x, bullet.y)) {
+        enemyBullets.killAndHide(bullet);
+      }
+    }, this);
+  }
+
+  fireBullet() {
+    if (!playerStats.canShoot) return;
+    const weapon = weapons[playerStats.currentWeapon];
+    if (weapon.ammo <= 0 && weapon.ammo !== Infinity) {
+      // Play a 'no ammo' sound or visual cue
+      // this.sound.play('no_ammo_sound');
+      return;
+    }
+
+    const bulletOffset = 30;
+    const dx = Math.cos(player.rotation - Math.PI / 2);
+    const dy = Math.sin(player.rotation - Math.PI / 2);
+    const startX = player.x + dx * bulletOffset;
+    const startY = player.y + dy * bulletOffset;
+
+    // Play weapon sound
+    if (weapon.sound) {
+      this.sound.play(weapon.sound, { volume: 0.2 });
+    }
+
+    // Multi-shot power-up (if active and not shotgun/laser/rocket)
+    if (activePowerUps.multiShot && !weapon.pellets && !weapon.isLaser && !weapon.isExplosive) {
+      for (let i = -1; i <= 1; i++) {
+        let bullet = bullets.get(startX, startY, weapon.bulletSprite);
+        if (bullet) {
+          let angle = player.rotation + i * 0.2;
+          bullet.setActive(true).setVisible(true).setRotation(angle);
+          this.physics.velocityFromRotation(angle - Math.PI / 2, weapon.bulletSpeed, bullet.body.velocity);
+          bullet.damage = playerStats.bulletDamage * weapon.damage;
+          bullet.setTint(0x00FF00); // Green tint for multishot bullets
+        }
+      }
+    } else if (weapon.pellets) { // Shotgun logic
+      for (let i = 0; i < weapon.pellets; i++) {
+        let bullet = bullets.get(startX, startY, weapon.bulletSprite);
+        if (bullet) {
+          let angleOffset = Phaser.Math.Between(-15, 15) * Phaser.Math.DEG_TO_RAD;
+          let angle = player.rotation + angleOffset;
+          bullet.setActive(true).setVisible(true).setRotation(angle);
+          this.physics.velocityFromRotation(angle - Math.PI / 2, weapon.bulletSpeed, bullet.body.velocity);
+          bullet.damage = playerStats.bulletDamage * weapon.damage;
+        }
+      }
+    } else if (weapon.isLaser) { // Laser logic
+      let bullet = bullets.get(startX, startY, weapon.bulletSprite);
+      if (bullet) {
+        bullet.setActive(true).setVisible(true).setRotation(player.rotation);
+        this.physics.velocityFromRotation(player.rotation - Math.PI / 2, weapon.bulletSpeed, bullet.body.velocity);
+        bullet.damage = playerStats.bulletDamage * weapon.damage;
+        this.tweens.add({
+          targets: bullet,
+          alpha: { from: 1, to: 0.5 },
+          duration: weapon.fireRate / 2,
+          yoyo: true,
+          repeat: 0
+        });
+      }
+    } else if (weapon.isExplosive) { // Rocket logic
+      let rocket = bullets.get(startX, startY, weapon.bulletSprite);
+      if (rocket) {
+        rocket.setActive(true).setVisible(true);
+        this.physics.velocityFromRotation(player.rotation - Math.PI / 2, weapon.bulletSpeed, rocket.body.velocity);
+        rocket.damage = playerStats.bulletDamage * weapon.damage;
+        rocket.setRotation(player.rotation);
+      }
+    } else { // Normal bullet logic
+      let bullet = bullets.get(startX, startY, weapon.bulletSprite);
+      if (bullet) {
+        bullet.setActive(true).setVisible(true).setRotation(player.rotation);
+        this.physics.velocityFromRotation(player.rotation - Math.PI / 2, weapon.bulletSpeed, bullet.body.velocity);
+        bullet.damage = playerStats.bulletDamage * weapon.damage;
+      }
+    }
+
+    // Update ammo
+    if (weapon.ammo !== Infinity) {
+      weapon.ammo--;
+      this.hud.updateWeaponHUD(weapon.name, weapon.ammo);
+    }
+
+    // Cooldown
+    playerStats.canShoot = false;
+    this.time.delayedCall(playerStats.fireRate, () => {
+      playerStats.canShoot = true;
+    });
+  }
+
+  hitPlayer(player, enemy) {
+    if (player.invincible) return;
+
+    let damageTaken = 1 * (1 - playerStats.damageReduction);
+    playerStats.life -= damageTaken;
+    this.hud.updateHearts();
+    this.sound.play('player_hit_sound', { volume: 0.5 });
+
+    // Visual feedback for player hit
+    this.cameras.main.flash(100, 255, 0, 0); // Red flash
+
+    if (playerStats.life <= 0) {
+      this.gameOver();
+    } else {
+      player.setTint(0xff0000);
+      player.invincible = true;
+      this.time.delayedCall(1000, () => {
+        player.clearTint();
+        player.invincible = false;
+      });
+    }
+    // Enemies also take damage from colliding with player (minor self-damage or recoil)
+    enemy.health -= 0.5;
+    if (enemy.health <= 0) {
+      this.handleEnemyDeath(enemy);
+    }
+  }
+
+  hitPlayerByEnemyBullet(player, bullet) {
+    enemyBullets.killAndHide(bullet);
+    if (player.invincible) return;
+
+    let damageTaken = 1 * (1 - playerStats.damageReduction);
+    playerStats.life -= damageTaken;
+    this.hud.updateHearts();
+    this.sound.play('player_hit_sound', { volume: 0.5 });
+
+    this.cameras.main.flash(100, 255, 0, 0); // Red flash
+
+    if (playerStats.life <= 0) {
+      this.gameOver();
+    } else {
+      player.setTint(0xff0000);
+      player.invincible = true;
+      this.time.delayedCall(1000, () => {
+        player.clearTint();
+        player.invincible = false;
+      });
+    }
+  }
+
+  hitEnemy(bullet, enemy) {
+    this.sound.play('hit_enemy_sound', { volume: 0.1 });
+
+    // Apply lifesteal
+    if (playerStats.lifesteal > 0) {
+      let lifestealAmount = bullet.damage * playerStats.lifesteal;
+      playerStats.life = Math.min(playerStats.maxLife, playerStats.life + lifestealAmount);
+      this.hud.updateHearts();
+    }
+
+    // Rocket explosion logic
+    if (bullet.texture.key === 'rocket') {
+      this.createExplosion(bullet.x, bullet.y);
+      bullets.killAndHide(bullet);
+      enemies.children.each(function (e) {
+        if (e.active && e.health > 0) {
+          const distance = Phaser.Math.Distance.Between(bullet.x, bullet.y, e.x, e.y);
+          if (distance < weapons.rocketlauncher.explosionRadius) {
+            e.health -= bullet.damage;
+            if (e.health <= 0) {
+              this.handleEnemyDeath(e);
+            }
+          }
+        }
+      }, this);
+    } else {
+      // Direct damage
+      enemy.health -= bullet.damage;
+
+      // Explosive bullets card effect
+      if (playerStats.hasExplosiveBullets && Phaser.Math.RND.between(1, 100) <= 10) { // 10% chance to explode
+        this.createExplosion(bullet.x, bullet.y, 50); // Smaller explosion radius
+        enemies.children.each(function (e) {
+          if (e.active && e.health > 0 && e !== enemy) { // Don't damage the primary target again
+            const distance = Phaser.Math.Distance.Between(bullet.x, bullet.y, e.x, e.y);
+            if (distance < 50) { // Small explosion radius
+              e.health -= bullet.damage * 0.5; // Half damage for splash
+              if (e.health <= 0) {
+                this.handleEnemyDeath(e);
+              }
+            }
+          }
+        }, this);
+      }
+
+      // If not piercing, kill bullet
+      if (!playerStats.bulletPenetration) {
+        bullets.killAndHide(bullet);
+      }
+    }
+
+    if (enemy.health <= 0 && enemy.active) {
+      this.handleEnemyDeath(enemy);
+    }
+  }
+
+  handleEnemyDeath(enemy) {
+    this.sound.play('enemy_death_sound', { volume: 0.2 });
+    this.createExplosion(enemy.x, enemy.y, 30); // Small explosion on death
+    enemy.destroy();
+    score += enemy.scoreValue || 10;
+    this.hud.updateScore(score);
+    enemiesAlive--;
+
+    // Grant XP
+    this.addXp(enemy.xpValue || 10);
+
+    if (enemy.isBoss) {
+      this.hud.hideBossHealthBar();
+      this.time.delayedCall(1000, this.showLevelUpChoices, [], this);
+    } else {
+      // Power-up spawn chance
+      if (Phaser.Math.RND.between(1, 100) <= 20) {
+        this.spawnPowerUp(enemy.x, enemy.y);
+      }
+    }
+
+    if (enemiesAlive === 0 && enemiesToSpawn === 0 && !boss) {
+      this.endWave();
+    }
+  }
+
+  addXp(amount) {
+    xp += amount * playerStats.xpMultiplier;
+    this.hud.updateXp(xp, xpToNextLevel);
+    if (xp >= xpToNextLevel) {
+      this.levelUp();
+    }
+  }
+
+  levelUp() {
+    level++;
+    xp -= xpToNextLevel; // Carry over excess XP
+    xpToNextLevel = Math.floor(xpToNextLevel * 1.5); // XP required for next level increases
+    this.hud.updateXp(xp, xpToNextLevel);
+    this.sound.play('level_up_sound', { volume: 0.7 });
+
+    // Show level up choices immediately if not already pending
+    if (!levelUpPending) {
+      levelUpPending = true;
+      this.time.delayedCall(500, this.showLevelUpChoices, [], this);
+    }
+  }
+
+  spawnEnemy() {
+    if (enemiesToSpawn > 0) {
+      let x, y;
+      let spawnEdge = Phaser.Math.RND.between(0, 3);
+      const camera = this.cameras.main;
+      const padding = 100;
+
+      if (spawnEdge === 0) { x = Phaser.Math.RND.between(camera.worldView.left, camera.worldView.right); y = camera.worldView.top - padding; }
+      else if (spawnEdge === 1) { x = camera.worldView.right + padding; y = Phaser.Math.RND.between(camera.worldView.top, camera.worldView.bottom); }
+      else if (spawnEdge === 2) { x = Phaser.Math.RND.between(camera.worldView.left, camera.worldView.right); y = camera.worldView.bottom + padding; }
+      else { x = camera.worldView.left - padding; y = Phaser.Math.RND.between(camera.worldView.top, camera.worldView.bottom); }
+
+      x = Phaser.Math.Clamp(x, 0, this.physics.world.bounds.width);
+      y = Phaser.Math.Clamp(y, 0, this.physics.world.bounds.height);
+
+      let enemySpriteKey;
+      let enemyConfig = {};
+      let rand = Phaser.Math.RND.between(1, 100);
+
+      // More varied enemy spawning based on wave and chance
+      if (currentWave < 3) {
+        enemySpriteKey = 'enemy1'; // Only basic enemies
+      } else if (currentWave < 6) {
+        if (rand <= 70) enemySpriteKey = 'enemy1';
+        else enemySpriteKey = 'enemy2'; // Introduce fast enemies
+      } else if (currentWave < 10) {
+        if (rand <= 50) enemySpriteKey = 'enemy1';
+        else if (rand <= 80) enemySpriteKey = 'enemy2';
+        else enemySpriteKey = 'enemy3'; // Introduce tank enemies
+      } else {
+        if (rand <= 40) enemySpriteKey = 'enemy1';
+        else if (rand <= 65) enemySpriteKey = 'enemy2';
+        else if (rand <= 80) enemySpriteKey = 'enemy3';
+        else if (rand <= 90) enemySpriteKey = 'enemy4'; // Introduce shielded
+        else enemySpriteKey = 'enemy5'; // Introduce spawner
+      }
+
+      enemyConfig = this.getEnemyConfig(enemySpriteKey, currentWave);
+
+      let enemy = enemies.get(x, y, enemySpriteKey);
+      if (!enemy) { enemy = this.physics.add.sprite(x, y, enemySpriteKey); enemies.add(enemy); }
+      else { enemy.setActive(true).setVisible(true).setPosition(x, y); }
+
+      Object.assign(enemy, enemyConfig); // Apply configuration
+      enemy.setCollideWorldBounds(true);
+      enemy.setOrigin(0.5, 0.5);
+      enemy.setScale(enemyConfig.scale);
+
+      enemy.body.setSize(enemy.width * enemy.scale * 0.8, enemy.height * enemy.scale * 0.8);
+      enemy.body.setOffset((enemy.width * enemy.scale - enemy.body.width) / 2, (enemy.height * enemy.scale - enemy.body.height) / 2);
+
+      enemiesToSpawn--;
+      enemiesAlive++;
+    } else if (enemiesAlive === 0 && enemiesToSpawn === 0 && !boss) {
+      this.endWave();
+    }
+  }
+
+  getEnemyConfig(type, wave) {
+    let config = { health: 1, maxHealth: 1, speed: 50, canShoot: false, fireRate: 0, lastShot: 0, bulletSpeed: 0, scale: 0.5, scoreValue: 10, xpValue: 10, enemyType: type };
+    const waveFactor = 1 + (wave - 1) * 0.1; // Enemies get stronger with waves
+
+    switch (type) {
+      case 'enemy1': // Basic
+        config.health = 5 * waveFactor;
+        config.maxHealth = config.health;
+        config.speed = 100 * (1 + (wave - 1) * 0.02);
+        config.scoreValue = 10 + wave * 2;
+        config.xpValue = 10 + wave;
+        break;
+      case 'enemy2': // Fast, shooting
+        config.health = 8 * waveFactor;
+        config.maxHealth = config.health;
+        config.speed = 150 * (1 + (wave - 1) * 0.02);
+        config.canShoot = true;
+        config.fireRate = 1500 - (wave * 10); // Faster shooting in later waves
+        if (config.fireRate < 500) config.fireRate = 500;
+        config.lastShot = this.time.now;
+        config.bulletSpeed = 300;
+        config.scoreValue = 15 + wave * 3;
+        config.xpValue = 15 + wave * 1.5;
+        break;
+      case 'enemy3': // Tanky
+        config.health = 20 * waveFactor;
+        config.maxHealth = config.health;
+        config.speed = 60 * (1 + (wave - 1) * 0.01);
+        config.scale = 0.6;
+        config.scoreValue = 20 + wave * 4;
+        config.xpValue = 20 + wave * 2;
+        break;
+      case 'enemy4': // Shielded (just higher health, could add visual shield)
+        config.health = 30 * waveFactor;
+        config.maxHealth = config.health;
+        config.speed = 80 * (1 + (wave - 1) * 0.015);
+        config.scoreValue = 25 + wave * 5;
+        config.xpValue = 25 + wave * 2.5;
+        break;
+      case 'enemy5': // Spawner
+        config.health = 15 * waveFactor;
+        config.maxHealth = config.health;
+        config.speed = 70 * (1 + (wave - 1) * 0.015);
+        config.canShoot = false; // Spawns instead of shooting
+        config.spawnRate = 3000 - (wave * 20); // Spawns faster in later waves
+        if (config.spawnRate < 1000) config.spawnRate = 1000;
+        config.lastSpawn = this.time.now;
+        config.scoreValue = 30 + wave * 6;
+        config.xpValue = 30 + wave * 3;
+        break;
+    }
+    return config;
+  }
+
+  spawnMiniEnemy(x, y) {
+    let miniEnemy = enemies.get(x, y, 'enemy1'); // Using enemy1 for mini-enemies
+    if (!miniEnemy) { miniEnemy = this.physics.add.sprite(x, y, 'enemy1'); enemies.add(miniEnemy); }
+    else { miniEnemy.setActive(true).setVisible(true).setPosition(x, y); }
+
+    miniEnemy.health = 2;
+    miniEnemy.maxHealth = 2;
+    miniEnemy.speed = 120;
+    miniEnemy.canShoot = false;
+    miniEnemy.scoreValue = 5;
+    miniEnemy.xpValue = 5;
+    miniEnemy.setCollideWorldBounds(true);
+    miniEnemy.setOrigin(0.5, 0.5);
+    miniEnemy.setScale(0.3); // Smaller scale for mini enemies
+    miniEnemy.body.setSize(miniEnemy.width * 0.3 * 0.8, miniEnemy.height * 0.3 * 0.8);
+    miniEnemy.body.setOffset((miniEnemy.width * 0.3 - miniEnemy.body.width) / 2, (miniEnemy.height * 0.3 - miniEnemy.body.height) / 2);
+    enemiesAlive++;
+  }
+
+
+  startWave() {
+    this.hud.updateWave(currentWave);
+    enemiesToSpawn = enemiesPerWave;
+    enemiesAlive = 0;
+    boss = null; // Reset boss reference
+
+    if (currentWave % 5 === 0) { // Boss wave every 5 waves
+      this.time.delayedCall(2000, this.spawnBoss, [], this); // Delay boss spawn
+    }
+    // Dynamic difficulty adjustment: enemiesPerWave increases, but less rapidly if player is struggling
+    // For now, simple increase
+    enemiesPerWave = Math.floor(enemiesPerWave * 1.2) + 2;
+  }
+
+  endWave() {
+    currentWave++;
+    this.time.delayedCall(2000, this.startWave, [], this);
+  }
+
+  spawnBoss() {
+    boss = this.physics.add.sprite(this.physics.world.bounds.width / 2, 100, 'boss1');
+    boss.setCollideWorldBounds(true);
+    boss.setOrigin(0.5, 0.5);
+    boss.setScale(0.8);
+    enemies.add(boss);
+
+    boss.body.setSize(boss.width * boss.scaleX * 0.8, boss.height * boss.scaleY * 0.8);
+    boss.body.setOffset((boss.width * boss.scaleX - boss.body.width) / 2, (boss.height * boss.scaleY - boss.body.height) / 2);
+
+    boss.isBoss = true;
+    boss.health = 50 * currentWave * (1 + (level * 0.1)); // Boss health scales with wave and player level
+    boss.maxHealth = boss.health;
+    boss.speed = 50 + (currentWave * 2);
+    boss.name = `Mega-Automaton [Wave ${currentWave}]`;
+    this.hud.showBossHealthBar(boss);
+    enemiesAlive++;
+    this.sound.play('boss_roar_sound', { volume: 0.7 });
+  }
+
+  switchWeapon(newWeapon) {
+    if (playerWeapons[newWeapon]) {
+      playerStats.currentWeapon = newWeapon;
+      playerStats.fireRate = weapons[newWeapon].fireRate;
+      playerStats.bulletDamage = weapons[newWeapon].damage;
+      playerStats.bulletSpeed = weapons[newWeapon].bulletSpeed;
+
+      // Reapply temporary power-up effects if active
+      if (activePowerUps.fireRateBoost) {
+        playerStats.fireRate -= 50;
+        if (playerStats.fireRate < 50) playerStats.fireRate = 50;
+      }
+      if (activePowerUps.damageBoost) {
+        playerStats.bulletDamage += 0.5;
+      }
+      this.hud.updateWeaponHUD(weapons[newWeapon].name, weapons[newWeapon].ammo);
+    } else {
+      // console.log(`Weapon ${weapons[newWeapon].name} not unlocked!`);
+      // Add visual/audio feedback for locked weapon
+      this.hud.showTemporaryMessage(`Weapon ${weapons[newWeapon].name} locked!`, '#ff0000');
+    }
+  }
+
+  spawnPowerUp(x, y) {
+    const powerUpTypes = [
+      { key: 'health_pickup', type: 'health' },
+      { key: 'ammo_pickup', type: 'ammo' },
+      { key: 'weapon_pickup', type: 'weapon' },
+      { key: 'multishot_powerup', type: 'multishot_temp' }, // New temporary power-up
+      { key: 'speed_powerup', type: 'speed_temp' },
+      { key: 'damage_powerup', type: 'damage_temp' }
+    ];
+    const chosenPowerUp = Phaser.Math.RND.pick(powerUpTypes);
+
+    let powerUp = this.powerUpGroup.get(x, y, chosenPowerUp.key);
+    if (!powerUp) { powerUp = this.physics.add.sprite(x, y, chosenPowerUp.key); this.powerUpGroup.add(powerUp); }
+    else { powerUp.setActive(true).setVisible(true).setPosition(x, y); }
+
+    powerUp.type = chosenPowerUp.type;
+    powerUp.setCollideWorldBounds(true);
+    powerUp.setBounce(0.6);
+    powerUp.setOrigin(0.5, 0.5);
+    powerUp.setScale(0.7);
+
+    this.tweens.add({
+      targets: powerUp,
+      y: powerUp.y - 10,
+      duration: 800,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1
+    });
+  }
+
+  collectPowerUp(player, powerUp) {
+    this.sound.play('pickup_sound', { volume: 0.5 });
+    if (powerUp.type === 'health') {
+      playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
+      this.hud.updateHearts();
+      this.hud.showTemporaryMessage('+1 Health!', '#00ff00');
+    } else if (powerUp.type === 'ammo') {
+      const currentWeaponObj = weapons[playerStats.currentWeapon];
+      if (currentWeaponObj.ammo !== Infinity) {
+        currentWeaponObj.ammo += 50;
+        this.hud.updateWeaponHUD(currentWeaponObj.name, currentWeaponObj.ammo);
+        this.hud.showTemporaryMessage('+50 Ammo!', '#00ff00');
+      } else {
+        const availableWeapons = Object.keys(weapons).filter(key => weapons[key].ammo !== Infinity && playerWeapons[key]);
+        if (availableWeapons.length > 0) {
+          const randomWeaponKey = Phaser.Math.RND.pick(availableWeapons);
+          weapons[randomWeaponKey].ammo += 50;
+          this.hud.showTemporaryMessage(`+50 ${weapons[randomWeaponKey].name} Ammo!`, '#00ff00');
+          if (randomWeaponKey === playerStats.currentWeapon) {
+            this.hud.updateWeaponHUD(weapons[randomWeaponKey].name, weapons[randomWeaponKey].ammo);
+          }
+        } else {
+          playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
+          this.hud.updateHearts();
+          this.hud.showTemporaryMessage('Max Ammo! +1 Health!', '#00ff00');
+        }
+      }
+    } else if (powerUp.type === 'weapon') {
+      const unownedWeapons = Object.keys(playerWeapons).filter(key => !playerWeapons[key]);
+      if (unownedWeapons.length > 0) {
+        const newWeaponKey = Phaser.Math.RND.pick(unownedWeapons);
+        playerWeapons[newWeaponKey] = true;
+        if (weapons[newWeaponKey].ammo !== Infinity) {
+          weapons[newWeaponKey].ammo = 50;
+        }
+        this.hud.updateWeaponHUD(weapons[playerStats.currentWeapon].name, weapons[playerStats.currentWeapon].ammo);
+        this.hud.showTemporaryMessage(`Weapon ${weapons[newWeaponKey].name} Unlocked!`, '#00ffff');
+      } else {
+        playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
+        this.hud.updateHearts();
+        this.hud.showTemporaryMessage('All Weapons Unlocked! +1 Health!', '#00ff00');
+      }
+    } else if (powerUp.type === 'multishot_temp') {
+      activePowerUps.multiShot = true;
+      this.hud.showTemporaryMessage('Multi-Shot Activated!', '#ffcc00');
+      this.time.delayedCall(powerUpDuration, () => {
+        delete activePowerUps.multiShot;
+        this.hud.showTemporaryMessage('Multi-Shot Expired.', '#ffcc00');
+      });
+    } else if (powerUp.type === 'speed_temp') {
+      playerStats.speed += 100; // Temporary speed boost
+      activePowerUps.speedBoost = true;
+      this.hud.showTemporaryMessage('Speed Boost Activated!', '#00aaff');
+      this.time.delayedCall(powerUpDuration, () => {
+        playerStats.speed -= 100;
+        delete activePowerUps.speedBoost;
+        this.hud.showTemporaryMessage('Speed Boost Expired.', '#00aaff');
+      });
+    } else if (powerUp.type === 'damage_temp') {
+      playerStats.bulletDamage += 1; // Temporary damage boost
+      activePowerUps.damageBoost = true;
+      this.hud.showTemporaryMessage('Damage Boost Activated!', '#ff0000');
+      this.time.delayedCall(powerUpDuration, () => {
+        playerStats.bulletDamage -= 1;
+        delete activePowerUps.damageBoost;
+        this.hud.showTemporaryMessage('Damage Boost Expired.', '#ff0000');
+      });
+    }
+    this.powerUpGroup.killAndHide(powerUp);
+  }
+
+  createExplosion(x, y, scale = 1) {
+    const explosion = this.add.sprite(x, y, 'explosion_ss');
+    explosion.play('explode');
+    explosion.setOrigin(0.5, 0.5);
+    explosion.setScale(scale);
+    explosion.setDepth(5);
+    explosion.on('animationcomplete', () => {
+      explosion.destroy();
+    });
+  }
+
+  showLevelUpChoices() {
+    this.physics.pause();
+    playerStats.canShoot = false;
+    levelUpPending = false; // Reset flag
+
+    const choicesPanel = this.add.container(this.cameras.main.scrollX + config.width / 2, this.cameras.main.scrollY + config.height / 2);
+    choicesPanel.setDepth(100);
+
+    const panelBg = this.add.graphics();
+    panelBg.fillStyle(0x000000, 0.8);
+    panelBg.fillRect(-350, -150, 700, 300);
+    choicesPanel.add(panelBg);
+
+    this.add.text(0, -120, 'Level Up! Choose an Upgrade', { fontSize: '32px', fill: '#fff' }).setOrigin(0.5).setDepth(1).setContainer(choicesPanel);
+
+    const availableCards = Object.keys(cards);
+    let currentCardChoices = [];
+
+    // Select 3 unique random cards, prioritizing rarer ones if player is high level
+    const numberOfChoices = Math.min(3, availableCards.length);
+    let tempAvailableCards = [...availableCards];
+
+    // Simple rarity logic: higher level, higher chance for rare cards
+    for (let i = 0; i < numberOfChoices; i++) {
+      let chosenCardName;
+      let rarityRoll = Phaser.Math.RND.between(1, 100);
+      let foundRare = false;
+
+      // Try to pick a rare card if level is high enough
+      if (level >= 5 && rarityRoll > 70) { // 30% chance for rare after level 5
+        const rareCards = tempAvailableCards.filter(name => cards[name].rarity === 'rare');
+        if (rareCards.length > 0) {
+          chosenCardName = Phaser.Math.RND.pick(rareCards);
+          foundRare = true;
+        }
+      }
+      if (!foundRare && level >= 3 && rarityRoll > 50) { // 50% chance for uncommon after level 3
+        const uncommonCards = tempAvailableCards.filter(name => cards[name].rarity === 'uncommon');
+        if (uncommonCards.length > 0) {
+          chosenCardName = Phaser.Math.RND.pick(uncommonCards);
+          foundRare = true; // Use foundRare to skip common selection if uncommon found
+        }
+      }
+
+      if (!foundRare) { // Default to common or if rarity roll failed
+        // Ensure not to pick already chosen card
+        let commonAndUncommonCards = tempAvailableCards.filter(name => cards[name].rarity === 'common' || cards[name].rarity === 'uncommon');
+        if (commonAndUncommonCards.length === 0 && tempAvailableCards.length > 0) {
+            commonAndUncommonCards = tempAvailableCards; // Fallback to any remaining
+        }
+        chosenCardName = Phaser.Math.RND.pick(commonAndUncommonCards);
+      }
+
+      currentCardChoices.push(chosenCardName);
+      // Remove the chosen card from the temporary array
+      const indexToRemove = tempAvailableCards.indexOf(chosenCardName);
+      if (indexToRemove > -1) {
+          tempAvailableCards.splice(indexToRemove, 1);
+      }
+    }
+
+
+    const cardSpacing = 200;
+    let startX = -((numberOfChoices - 1) * cardSpacing) / 2;
+
+    currentCardChoices.forEach((cardName, index) => {
+      const card = cards[cardName];
+      const xPos = startX + index * cardSpacing;
+
+      const bgImage = this.add.image(xPos, 0, 'cardBg').setScale(0.8);
+      bgImage.setInteractive({ useHandCursor: true })
+        .on('pointerover', function () { this.setTint(0xAAAAAA); })
+        .on('pointerout', function () { this.setTint(0xFFFFFF); })
+        .on('pointerdown', () => this.selectCard(cardName, choicesPanel));
+
+      const title = this.add.text(xPos, -90, card.name, { fontSize: '22px', fill: '#fff', align: 'center', wordWrap: { width: 140 } })
+        .setOrigin(0.5);
+      const description = this.add.text(xPos, -40, card.description, { fontSize: '14px', fill: '#ddd', align: 'center', wordWrap: { width: 140 } })
+        .setOrigin(0.5);
+
+      if (card.sprite) {
+        const icon = this.add.image(xPos, -110, card.sprite).setScale(0.8).setOrigin(0.5);
+        choicesPanel.add(icon);
+      }
+
+      choicesPanel.add(bgImage);
+      choicesPanel.add(title);
+      choicesPanel.add(description);
+    });
+  }
+
+  selectCard(cardName, choicesPanel) {
+    choicesPanel.destroy();
+    const card = cards[cardName];
+    card.effect(this);
+
+    activeCardCount[cardName] = (activeCardCount[cardName] || 0) + 1;
+    this.hud.updateActiveCardsHUD(activeCardCount);
+
+    this.physics.resume();
+    playerStats.canShoot = true;
+  }
+
+  gameOver() {
+    this.physics.pause();
+    player.setTint(0xff0000);
+    this.sound.stopAll(); // Stop all sounds
+    this.sound.play('game_over_sound', { volume: 0.8 });
+
+    const gameOverText = this.add.text(this.cameras.main.scrollX + config.width / 2, this.cameras.main.scrollY + config.height / 2, 'GAME OVER', { fontSize: '64px', fill: '#ff0000', fontFamily: 'Press Start 2P' }).setOrigin(0.5).setDepth(200);
+    const scoreSummary = this.add.text(this.cameras.main.scrollX + config.width / 2, this.cameras.main.scrollY + config.height / 2 + 80, `Final Score: ${score}\nWaves Survived: ${currentWave}`, { fontSize: '24px', fill: '#fff', align: 'center', fontFamily: 'Press Start 2P' }).setOrigin(0.5).setDepth(200);
+
+    this.time.addEvent({
+      delay: 5000,
+      callback: () => {
+        // Reset all game state variables
+        score = 0;
+        currentWave = 1;
+        enemiesPerWave = 5;
+        enemiesAlive = 0;
+        enemiesToSpawn = 0;
+        level = 1;
+        xp = 0;
+        xpToNextLevel = 100;
+        levelUpPending = false;
+        boss = null;
+        activePowerUps = {};
+        activeCardCount = {};
+
+        // Reset player stats
+        playerStats = {
+          life: 5,
+          maxLife: 5,
+          speed: 200,
+          fireRate: 300,
+          bulletSpeed: 500,
+          bulletDamage: 1,
+          currentWeapon: 'pistol',
+          canShoot: true,
+          xpMultiplier: 1,
+          damageReduction: 0,
+          bulletPenetration: false,
+          lifesteal: 0,
+          hasExplosiveBullets: false
+        };
+
+        // Reset weapon ammo and unlocked status
+        for (const weaponKey in playerWeapons) {
+          playerWeapons[weaponKey] = (weaponKey === 'pistol');
+        }
+        for (const weaponKey in weapons) {
+          if (weapons[weaponKey].ammo !== Infinity) {
+            weapons[weaponKey].ammo = (weaponKey === 'pistol') ? Infinity : 0;
+          }
+        }
+        this.scene.restart(); // Restart the game scene
+        this.hud.scene.restart(); // Restart the HUD scene
+        this.backgroundMusic.play(); // Restart background music
+      },
+      callbackScope: this
+    });
+  }
+}
+
+// HUD Scene
+class HUD extends Phaser.Scene {
+  constructor() {
+    super({ key: 'HUD' });
+    this.enemy = null;
+    this.heartSize = 32;
+    this.tempMessageTimer = null;
+  }
+
+  create() {
+    const mainScene = this.scene.get('GameScene');
+
+    // HUD elements
+    this.scoreText = this.add.text(10, 10, 'Score: 0', { fontSize: '20px', fill: '#fff', fontFamily: 'Press Start 2P' }).setScrollFactor(0);
+    this.waveText = this.add.text(this.game.config.width - 10, 10, 'Wave: 1', { fontSize: '20px', fill: '#fff', fontFamily: 'Press Start 2P' }).setOrigin(1, 0).setScrollFactor(0);
+    this.xpText = this.add.text(10, 35, 'XP: 0/100 (Level 1)', { fontSize: '16px', fill: '#0f0', fontFamily: 'Press Start 2P' }).setScrollFactor(0);
+
+    // Weapon HUD
+    this.armaImagem = this.add.image(10 + 16, 80 + 16, weapons[playerStats.currentWeapon].icon).setScale(0.8).setScrollFactor(0).setDepth(1);
+    this.armaNomeText = this.add.text(this.armaImagem.x + this.armaImagem.displayWidth / 2 + 5, this.armaImagem.y - this.armaImagem.displayHeight / 2 + 5, weapons[playerStats.currentWeapon].name, { fontSize: '18px', fill: '#fff', fontFamily: 'Press Start 2P' }).setScrollFactor(0);
+    this.ammoText = this.add.text(this.armaNomeText.x, this.armaNomeText.y + 20, '', { fontSize: '16px', fill: '#fff', fontFamily: 'Press Start 2P' }).setScrollFactor(0);
+
+    // Hearts HUD
     this.heartsGroup = this.add.group();
-    this.updateHearts(); // Atualiza a exibição dos corações
+    this.updateHearts();
 
-    // HUD para as cartas ativas (inicialmente vazio)
-    cardsHUDGroup = this.add.group();
-    // Escuta evento da cena principal para atualizar o HUD das cartas
-    mainScene.events.on('updateHUDCartas', this.atualizarHUDCartas, this);
+    // Active Cards HUD
+    this.cardsHUDGroup = this.add.group();
+    // Temporary message display
+    this.tempMessageText = this.add.text(this.game.config.width / 2, this.game.config.height * 0.2, '', { fontSize: '24px', fill: '#fff', align: 'center', fontFamily: 'Press Start 2P' }).setOrigin(0.5).setDepth(10).setScrollFactor(0);
+    this.tempMessageText.setVisible(false);
 
-    // Barra de vida do boss (inicialmente escondida)
-    bossHealthBarBg = this.add.graphics().setScrollFactor(0).setDepth(2);
-    bossHealthBarFill = this.add.graphics().setScrollFactor(0).setDepth(2);
-    bossNameText = this.add.text(this.game.config.width / 2, 70, '', { fontSize: '20px', fill: '#fff', align: 'center' }).setOrigin(0.5).setScrollFactor(0).setDepth(2);
+    // Boss Health Bar
+    this.bossHealthBarBg = this.add.graphics().setScrollFactor(0).setDepth(2);
+    this.bossHealthBarFill = this.add.graphics().setScrollFactor(0).setDepth(2);
+    this.bossNameText = this.add.text(this.game.config.width / 2, 70, '', { fontSize: '20px', fill: '#fff', align: 'center', fontFamily: 'Press Start 2P' }).setOrigin(0.5).setScrollFactor(0).setDepth(2);
     this.hideBossHealthBar();
 
-    // Barra de vida do inimigo normal (aparece ao mirar em um inimigo)
+    // Individual Enemy Health Bar
     this.enemyHealthBarBg = this.add.graphics().setScrollFactor(0).setDepth(1);
     this.enemyHealthBarFill = this.add.graphics().setScrollFactor(0).setDepth(1);
     this.enemyHealthBarBg.setVisible(false);
     this.enemyHealthBarFill.setVisible(false);
   }
 
-  // Atualiza a exibição dos corações da vida do jogador
-  updateHearts() {
-    this.heartsGroup.clear(true, true); // Limpa corações existentes
-
-    const startX = 10;
-    const startY = this.game.config.height - 40; // Perto do canto inferior esquerdo
-
-    for (let i = 0; i < playerStats.maxLife; i++) {
-      const x = startX + i * (this.heartSize + 5); // Espaçamento entre os corações
-      const heart = this.add.image(x + this.heartSize / 2, startY + this.heartSize / 2, 'heart_full').setScale(0.8).setScrollFactor(0).setOrigin(0.5);
-      this.heartsGroup.add(heart);
-    }
-    // Atualiza o estado visual (cheio/vazio) dos corações
-    for (let i = 0; i < this.heartsGroup.getLength(); i++) {
-      const heart = this.heartsGroup.getChildren()[i];
-      if (i < playerStats.life) {
-        heart.setAlpha(1); // Coração cheio
-      } else {
-        heart.setAlpha(0.3); // Coração "vazio"
-      }
-    }
-  }
-
   update() {
-    // A atualização dos corações já é chamada em updateHearts(), que por sua vez é chamada quando a vida muda.
-    // Assim, não precisamos de um loop aqui, evitando processamento desnecessário a cada frame.
-
-    // Atualiza barra de vida do inimigo (se tiver algum inimigo ativo na mira)
+    // Update individual enemy health bar
     if (this.enemy && this.enemy.active && !this.enemy.isBoss && this.enemy.health > 0) {
-      // Posição da barra de vida acima do inimigo
       const barX = this.enemy.x - 25 + this.cameras.main.scrollX;
       const barY = this.enemy.y - this.enemy.displayHeight / 2 - 10 + this.cameras.main.scrollY;
       const barWidth = 50;
       const barHeight = 5;
 
-      this.enemyHealthBarBg.clear();
-      this.enemyHealthBarBg.fillStyle(0x000000, 0.5);
-      this.enemyHealthBarBg.fillRect(barX, barY, barWidth, barHeight);
-
-      this.enemyHealthBarFill.clear();
-      this.enemyHealthBarFill.fillStyle(0xff0000, 1);
-      this.enemyHealthBarFill.fillRect(barX, barY, barWidth * (this.enemy.health / this.enemy.maxHealth), barHeight);
-
+      this.enemyHealthBarBg.clear().fillStyle(0x000000, 0.5).fillRect(barX, barY, barWidth, barHeight);
+      this.enemyHealthBarFill.clear().fillStyle(0xff0000, 1).fillRect(barX, barY, barWidth * (this.enemy.health / this.enemy.maxHealth), barHeight);
       this.enemyHealthBarBg.setVisible(true);
       this.enemyHealthBarFill.setVisible(true);
     } else {
@@ -318,72 +1244,54 @@ class HUD extends Phaser.Scene {
     }
   }
 
-  // Define o inimigo para mostrar a barra de vida individual
-  setEnemy(enemy) {
-    this.enemy = enemy;
-  }
+  updateHearts() {
+    this.heartsGroup.clear(true, true);
+    const startX = 10;
+    const startY = this.game.config.height - 40;
 
-  // Esconde a barra de vida do inimigo individual
-  hideEnemyHealthBar() {
-    this.enemy = null;
-    this.enemyHealthBarBg.setVisible(false);
-    this.enemyHealthBarFill.setVisible(false);
-  }
-
-  // Atualiza pontuação no HUD
-  updateScore(newScore) {
-    scoreText.setText('Pontos: ' + newScore);
-  }
-
-  // Atualiza número da onda no HUD
-  updateWave(newWave) {
-    waveText.setText('Onda: ' + newWave);
-  }
-
-  // Atualiza informações da arma no HUD
-  updateWeaponHUD(weaponName, ammo) {
-    armaNomeText.setText(weaponName);
-    armaImagem.setTexture(weapons[playerStats.currentWeapon].icon); // Atualiza ícone da arma
-
-    if (ammo !== Infinity) {
-      this.ammoText.setText(`Munição: ${ammo}`);
-    } else {
-      this.ammoText.setText(''); // Não mostra munição para armas infinitas
+    for (let i = 0; i < playerStats.maxLife; i++) {
+      const x = startX + i * (this.heartSize + 5);
+      const heart = this.add.image(x + this.heartSize / 2, startY + this.heartSize / 2, 'heart_full').setScale(0.8).setScrollFactor(0).setOrigin(0.5);
+      this.heartsGroup.add(heart);
+    }
+    for (let i = 0; i < this.heartsGroup.getLength(); i++) {
+      const heart = this.heartsGroup.getChildren()[i];
+      if (i < playerStats.life) { heart.setAlpha(1); }
+      else { heart.setAlpha(0.3); }
     }
   }
 
-  // Exibe a barra de vida do boss
-  showBossHealthBar(boss) {
-    const barWidth = this.game.config.width * 0.6; // 60% da largura da tela
+  setEnemy(enemy) { this.enemy = enemy; }
+  hideEnemyHealthBar() { this.enemy = null; this.enemyHealthBarBg.setVisible(false); this.enemyHealthBarFill.setVisible(false); }
+  updateScore(newScore) { this.scoreText.setText('Score: ' + newScore); }
+  updateWave(newWave) { this.waveText.setText('Wave: ' + newWave); }
+  updateXp(currentXp, requiredXp) { this.xpText.setText(`XP: ${Math.floor(currentXp)}/${requiredXp} (Level ${level})`); }
+
+  updateWeaponHUD(weaponName, ammo) {
+    this.armaNomeText.setText(weaponName);
+    this.armaImagem.setTexture(weapons[playerStats.currentWeapon].icon);
+    this.ammoText.setText(ammo !== Infinity ? `Ammo: ${ammo}` : '');
+  }
+
+  showBossHealthBar(bossEntity) {
+    const barWidth = this.game.config.width * 0.6;
     const barHeight = 20;
     const barX = (this.game.config.width - barWidth) / 2;
     const barY = 100;
 
-    bossHealthBarBg.clear();
-    bossHealthBarBg.fillStyle(0x000000, 0.7);
-    bossHealthBarBg.fillRect(barX, barY, barWidth, barHeight);
-    bossHealthBarBg.setVisible(true);
-
-    bossHealthBarFill.clear();
-    bossHealthBarFill.fillStyle(0xFF0000, 1);
-    bossHealthBarFill.fillRect(barX, barY, barWidth * (boss.health / boss.maxHealth), barHeight);
-    bossHealthBarFill.setVisible(true);
-
-    bossNameText.setText(boss.name);
-    bossNameText.setVisible(true);
+    this.bossHealthBarBg.clear().fillStyle(0x000000, 0.7).fillRect(barX, barY, barWidth, barHeight).setVisible(true);
+    this.bossHealthBarFill.clear().fillStyle(0xFF0000, 1).fillRect(barX, barY, barWidth * (bossEntity.health / bossEntity.maxHealth), barHeight).setVisible(true);
+    this.bossNameText.setText(bossEntity.name).setVisible(true);
   }
 
-  // Esconde a barra de vida do boss
   hideBossHealthBar() {
-    bossHealthBarBg.setVisible(false);
-    bossHealthBarFill.setVisible(false);
-    bossNameText.setVisible(false);
+    this.bossHealthBarBg.setVisible(false);
+    this.bossHealthBarFill.setVisible(false);
+    this.bossNameText.setVisible(false);
   }
 
-  // Atualiza a exibição das cartas ativas no HUD
-  atualizarHUDCartas(activeCardCounts) {
-    cardsHUDGroup.clear(true, true); // Limpa antes de redesenhar
-
+  updateActiveCardsHUD(activeCardCounts) {
+    this.cardsHUDGroup.clear(true, true);
     let currentX = this.game.config.width / 2 - (Object.keys(activeCardCounts).length * 60) / 2;
     const startY = this.game.config.height - 90;
 
@@ -392,814 +1300,47 @@ class HUD extends Phaser.Scene {
       if (!card) continue;
 
       const bgImage = this.add.image(currentX, startY, 'cardBg').setScale(0.8).setScrollFactor(0);
-      cardsHUDGroup.add(bgImage);
+      this.cardsHUDGroup.add(bgImage);
 
       if (card.sprite) {
         const icon = this.add.image(currentX, startY - 20, card.sprite).setScale(0.5).setScrollFactor(0);
-        cardsHUDGroup.add(icon);
+        this.cardsHUDGroup.add(icon);
       }
 
       const countText = this.add.text(currentX, startY + 15, activeCardCounts[cardName], {
         fontSize: '18px',
         color: '#fff',
         fixedWidth: 50,
-        align: 'center'
+        align: 'center',
+        fontFamily: 'Press Start 2P'
       }).setOrigin(0.5).setScrollFactor(0);
-      cardsHUDGroup.add(countText);
-
+      this.cardsHUDGroup.add(countText);
       currentX += 60;
     }
   }
-}
 
-// Inicializa o jogo Phaser
-let game = new Phaser.Game(config);
-
-function preload() {
-  this.load.image('player', 'assets/player.png');
-  this.load.image('bullet', 'assets/bullet.png');
-  this.load.image('enemy1', 'assets/enemy_robot.png');
-  this.load.image('enemy2', 'assets/enemy_fast.png');
-  this.load.image('enemy3', 'assets/enemy_tank.png');
-  this.load.image('boss1', 'assets/boss_robot.png');
-  this.load.image('health_pickup', 'assets/health_pickup.png');
-  this.load.image('ammo_pickup', 'assets/ammo.png');
-  this.load.image('weapon_pickup', 'assets/weapon_pickup.png');
-  this.load.image('laser_bullet', 'assets/ammo.png');
-  this.load.image('rocket', 'assets/rocket.png');
-  this.load.image('explosion', 'assets/explosion.png'); // Imagem fallback para explosão
-
-  // Sprites de armas (ícones para o HUD)
-  this.load.image('pistol_icon', 'assets/pistolinha.png');
-  this.load.image('machinegun_icon', 'assets/metralha.png');
-  this.load.image('shotgun_icon', 'assets/lancaraio.png');
-  this.load.image('laser_icon', 'assets/ammo.png');
-  this.load.image('rocketlauncher_icon', 'assets/lancarrio.png');
-
-  // Sprites de power-ups para as cartas (ícones para o HUD de cartas)
-  this.load.image('heart_powerup', 'assets/cora.png');
-  this.load.image('speed_powerup', 'assets/cora.png');
-  this.load.image('firerate_powerup', 'assets/ammo.png');
-  this.load.image('damage_powerup', 'assets/boss_robot.png');
-  this.load.image('multishot_powerup', 'assets/ammo.png');
-  this.load.image('grenade_powerup', 'assets/grenade.png');
-
-  this.load.image('heart_full', 'assets/cora.png'); // Coração cheio para o HUD de vida
-  this.load.image('cardBg', 'assets/cardBg.png'); // Fundo para as cartas no pop-up e HUD
-
-  // Carregue a spritesheet de explosão se tiver uma, exemplo:
-  // this.load.spritesheet('explosion_ss', 'assets/explosion_spritesheet.png', { frameWidth: 64, frameHeight: 64 });
-}
-
-function create() {
-  this.scene.launch('HUD'); // Inicia a cena HUD
-  this.hud = this.scene.get('HUD'); // Pega a referência para a cena HUD
-
-  // Dimensões do mundo do jogo
-  const worldWidth = 2000;
-  const worldHeight = 2000;
-
-  // Cria um background de tiles fixo na tela (não rola com a câmera)
-  this.add.tileSprite(0, 0, config.width, config.height, 'tile') // Usa width/height do game para cobrir a tela
-    .setOrigin(0, 0)
-    .setScrollFactor(0); // Faz o fundo permanecer fixo na tela
-
-  // Define os limites do mundo para a física (onde os objetos podem se mover)
-  this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
-
-  // Player
-  player = this.physics.add.sprite(config.width / 2, config.height / 2, 'player')
-    .setCollideWorldBounds(true) // Colide com os limites do mundo
-    .setOrigin(0.5, 0.5); // Origem no centro
-  player.setScale(0.4); // **TAMANHO DO JOGADOR** - Ajuste aqui (0.4 = 40% do tamanho original)
-  player.setDamping(true).setDrag(0.99); // Adiciona inércia ao movimento
-  // Ajusta o corpo de física para ser menor que a imagem do player, centralizando-o
-  player.body.setSize(player.width * 0.8, player.height * 0.8);
-  player.body.setOffset(player.width * 0.1, player.height * 0.1);
-
-
-  cursors = this.input.keyboard.createCursorKeys(); // Teclas de seta
-  this.input.keyboard.on('keydown-SPACE', fireBullet, this); // Atirar com Barra de Espaço
-  this.input.keyboard.on('keydown-ONE', () => switchWeapon('pistol'), this);
-  this.input.keyboard.on('keydown-TWO', () => switchWeapon('machinegun'), this);
-  this.input.keyboard.on('keydown-THREE', () => switchWeapon('shotgun'), this);
-  this.input.keyboard.on('keydown-FOUR', () => switchWeapon('laser'), this);
-  this.input.keyboard.on('keydown-FIVE', () => switchWeapon('rocketlauncher'), this);
-  this.input.keyboard.on('keydown-E', showLevelUpChoices, this); // Tecla para abrir escolhas de level up
-
-  // Grupo de balas do jogador
-  bullets = this.physics.add.group({
-    defaultKey: 'bullet',
-    maxSize: 50,
-    runChildUpdate: true // Permite que cada bala tenha sua própria lógica de atualização
-  });
-
-  // Grupo de balas dos inimigos
-  enemyBullets = this.physics.add.group({
-    defaultKey: 'bullet',
-    maxSize: 50,
-    runChildUpdate: true
-  });
-
-  // Grupo de inimigos
-  enemies = this.physics.add.group({
-    runChildUpdate: true
-  });
-
-  // Grupo de power-ups
-  powerUpGroup = this.physics.add.group({
-    runChildUpdate: true
-  });
-
-  // Colisões e Overlaps
-  this.physics.add.collider(player, enemies, hitPlayer, null, this); // Colisão entre jogador e inimigos
-  this.physics.add.overlap(bullets, enemies, hitEnemy, null, this); // Bala do jogador acerta inimigo
-  this.physics.add.overlap(player, powerUpGroup, collectPowerUp, null, this); // Jogador coleta power-up
-  this.physics.add.overlap(enemyBullets, player, hitPlayerByEnemyBullet, null, this); // Bala do inimigo acerta jogador
-
-  // Câmera segue o jogador
-  // A câmera agora se move dentro dos limites do mundo (2000x2000),
-  // mas o fundo permanece fixo na tela visível (devido ao setScrollFactor(0) no tileSprite).
-  this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
-  this.cameras.main.startFollow(player, true, 0.05, 0.05); // Suavidade no seguimento
-
-  // Timer para spawn de inimigos
-  spawnTimer = this.time.addEvent({
-    delay: 2000, // Spawn a cada 2 segundos
-    callback: spawnEnemy,
-    callbackScope: this,
-    loop: true
-  });
-
-  // Timer para atualizar o HUD das cartas ativas (a cada segundo)
-  this.time.addEvent({
-    delay: 1000,
-    callback: () => {
-      this.hud.atualizarHUDCartas(activeCardCount);
-    },
-    callbackScope: this,
-    loop: true
-  });
-
-  // Animação de explosão (se houver spritesheet)
-  // if (this.textures.exists('explosion_ss')) {
-  //   this.anims.create({
-  //     key: 'explode',
-  //     frames: this.anims.generateFrameNumbers('explosion_ss', { start: 0, end: 15 }), // Ajuste os frames
-  //     frameRate: 24,
-  //     repeat: 0,
-  //     hideOnComplete: true
-  //   });
-  // }
-
-  startWave(); // Inicia a primeira onda
-}
-
-function update() {
-  // Movimento do jogador
-  player.setVelocity(0); // Reseta a velocidade a cada frame
-
-  if (cursors.left.isDown) {
-    player.setVelocityX(-playerStats.speed);
-  } else if (cursors.right.isDown) {
-    player.setVelocityX(playerStats.speed);
-  }
-
-  if (cursors.up.isDown) {
-    player.setVelocityY(-playerStats.speed);
-  } else if (cursors.down.isDown) {
-    player.setVelocityY(playerStats.speed);
-  }
-
-  // Rotação do jogador para olhar para o ponteiro do mouse
-  let angle = Phaser.Math.Angle.Between(player.x, player.y, this.input.activePointer.x + this.cameras.main.scrollX, this.input.activePointer.y + this.cameras.main.scrollY);
-  player.setRotation(angle + Math.PI / 2); // Ajuste de 90 graus para alinhar o sprite
-
-  // Atirar com o mouse
-  if (this.input.activePointer.isDown) {
-    fireBullet.call(this);
-  }
-
-  // Lógica para inimigos: movimento e tiro
-  enemies.children.each(function (enemy) {
-    if (enemy.active && enemy.health > 0) {
-      this.physics.moveToObject(enemy, player, enemy.speed); // Inimigos se movem em direção ao jogador
-
-      // Inimigos atirando (se tiverem a habilidade de atirar)
-      if (enemy.canShoot && enemy.lastShot + enemy.fireRate < this.time.now) {
-        let enemyBullet = enemyBullets.get(enemy.x, enemy.y, 'bullet');
-        if (enemyBullet) {
-          enemyBullet.setActive(true).setVisible(true);
-          enemyBullet.setTint(0xFFFF00); // Bala amarela para inimigos
-          this.physics.moveToObject(enemyBullet, player, enemy.bulletSpeed);
-          enemy.lastShot = this.time.now;
-        }
-      }
+  showTemporaryMessage(message, color = '#ffffff', duration = 2000) {
+    if (this.tempMessageTimer) {
+      this.tempMessageTimer.remove(false);
     }
-  }, this);
+    this.tempMessageText.setText(message).setFill(color).setVisible(true);
+    this.tempMessageText.setAlpha(1); // Ensure it starts fully visible
 
-  // Determina o inimigo mais próximo para exibir a barra de vida individual
-  let closestEnemy = null;
-  let minDistance = Infinity;
-
-  enemies.children.each(function (enemy) {
-    if (enemy.active && !enemy.isBoss && enemy.health > 0) {
-      const distance = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestEnemy = enemy;
-      }
-    }
-  }, this);
-
-  if (closestEnemy) {
-    this.hud.setEnemy(closestEnemy); // Atualiza o HUD para exibir a barra do inimigo mais próximo
-  } else {
-    this.hud.hideEnemyHealthBar(); // Esconde a barra se não houver inimigos próximos
-  }
-
-  // Limpa balas do jogador que saem da tela
-  bullets.children.each(function (bullet) {
-    if (bullet.active && !this.physics.world.bounds.contains(bullet.x, bullet.y)) {
-      bullets.killAndHide(bullet);
-    }
-  }, this);
-
-  // Limpa balas inimigas que saem da tela
-  enemyBullets.children.each(function (bullet) {
-    if (bullet.active && !this.physics.world.bounds.contains(bullet.x, bullet.y)) {
-      enemyBullets.killAndHide(bullet);
-    }
-  }, this);
-}
-
-function fireBullet() {
-  if (!playerStats.canShoot) return; // Não pode atirar se o cooldown não acabou
-
-  const weapon = weapons[playerStats.currentWeapon];
-  if (weapon.ammo <= 0 && weapon.ammo !== Infinity) return; // Sem munição
-
-  const bulletOffset = 30; // Distância da bala em relação ao player
-  const dx = Math.cos(player.rotation - Math.PI / 2); // Componente X da direção
-  const dy = Math.sin(player.rotation - Math.PI / 2); // Componente Y da direção
-
-  const startX = player.x + dx * bulletOffset;
-  const startY = player.y + dy * bulletOffset;
-
-  // Lógica de tiro para diferentes tipos de armas e power-ups
-  if (activePowerUps.multiShot && !weapon.pellets && !weapon.isLaser && !weapon.isExplosive) {
-    // Tiro múltiplo (power-up ativo e não é escopeta/laser/foguete)
-    for (let i = -1; i <= 1; i++) {
-      let bullet = bullets.get(startX, startY, weapon.bulletSprite);
-      if (bullet) {
-        let angle = player.rotation + i * 0.2; // Pequeno arco para as balas
-        bullet.setActive(true).setVisible(true);
-        bullet.setRotation(angle);
-        this.physics.velocityFromRotation(angle - Math.PI / 2, weapon.bulletSpeed, bullet.body.velocity);
-      }
-    }
-  } else if (weapon.pellets) {
-    // Escopeta (múltiplos projéteis com espalhamento)
-    for (let i = 0; i < weapon.pellets; i++) {
-      let bullet = bullets.get(startX, startY, weapon.bulletSprite);
-      if (bullet) {
-        let angleOffset = Phaser.Math.Between(-15, 15) * Phaser.Math.DEG_TO_RAD; // Espalhamento aleatório
-        let angle = player.rotation + angleOffset;
-        bullet.setActive(true).setVisible(true);
-        bullet.setRotation(angle);
-        this.physics.velocityFromRotation(angle - Math.PI / 2, weapon.bulletSpeed, bullet.body.velocity);
-      }
-    }
-  } else if (weapon.isLaser) {
-    // Laser (projétil com efeito visual específico)
-    let bullet = bullets.get(startX, startY, weapon.bulletSprite);
-    if (bullet) {
-      bullet.setActive(true).setVisible(true);
-      bullet.setRotation(player.rotation);
-      this.physics.velocityFromRotation(player.rotation - Math.PI / 2, weapon.bulletSpeed, bullet.body.velocity);
-      // Efeito de pulsação do laser
-      this.add.tween({
-        targets: bullet,
-        alpha: { from: 1, to: 0.5 },
-        duration: weapon.fireRate / 2,
-        yoyo: true,
-        repeat: 0
-      });
-    }
-  } else if (weapon.isExplosive) {
-    // Foguete (projétil explosivo)
-    let rocket = bullets.get(startX, startY, weapon.bulletSprite);
-    if (rocket) {
-      rocket.setActive(true).setVisible(true);
-      this.physics.velocityFromRotation(player.rotation - Math.PI / 2, weapon.bulletSpeed, rocket.body.velocity);
-      rocket.damage = weapon.damage; // O dano é aplicado na explosão
-      rocket.setRotation(player.rotation);
-    }
-  } else {
-    // Tiro normal (pistola/metralhadora)
-    let bullet = bullets.get(startX, startY, weapon.bulletSprite);
-    if (bullet) {
-      bullet.setActive(true).setVisible(true);
-      bullet.setRotation(player.rotation);
-      this.physics.velocityFromRotation(player.rotation - Math.PI / 2, weapon.bulletSpeed, bullet.body.velocity);
-    }
-  }
-
-  // Atualiza munição (se não for infinita)
-  if (weapon.ammo !== Infinity) {
-    weapon.ammo--;
-    this.hud.updateWeaponHUD(weapon.name, weapon.ammo);
-  }
-
-  // Define cooldown para o próximo tiro
-  playerStats.canShoot = false;
-  this.time.delayedCall(playerStats.fireRate, () => {
-    playerStats.canShoot = true;
-  });
-}
-
-// Funções de acerto e dano
-function hitPlayer(player, enemy) {
-  if (player.invincible) return; // Se o jogador estiver invencível, não sofre dano
-
-  playerStats.life--;
-  this.hud.updateHearts(); // Atualiza o HUD de corações
-
-  if (playerStats.life <= 0) {
-    gameOver.call(this); // Chama a função Game Over
-  } else {
-    // Efeito de dano e invencibilidade temporária
-    player.setTint(0xff0000); // Fica vermelho
-    player.invincible = true;
-    this.time.delayedCall(1000, () => { // Dura 1 segundo
-      player.clearTint(); // Volta à cor normal
-      player.invincible = false;
-    });
-  }
-}
-
-function hitPlayerByEnemyBullet(player, bullet) {
-  enemyBullets.killAndHide(bullet); // Desativa e esconde a bala inimiga
-  if (player.invincible) return;
-
-  playerStats.life -= 1;
-  this.hud.updateHearts();
-
-  if (playerStats.life <= 0) {
-    gameOver.call(this);
-  } else {
-    player.setTint(0xff0000);
-    player.invincible = true;
-    this.time.delayedCall(1000, () => {
-      player.clearTint();
-      player.invincible = false;
-    });
-  }
-}
-
-function hitEnemy(bullet, enemy) {
-  // Se for um foguete, cria uma explosão e aplica dano em área
-  if (weapons[playerStats.currentWeapon].isExplosive && bullet.texture.key === 'rocket') {
-    createExplosion.call(this, bullet.x, bullet.y);
-    bullets.killAndHide(bullet); // Desativa o foguete
-
-    // Aplica dano de explosão a inimigos próximos
-    enemies.children.each(function (e) {
-      if (e.active && e.health > 0) { // Garante que o inimigo esteja ativo e vivo
-        const distance = Phaser.Math.Distance.Between(bullet.x, bullet.y, e.x, e.y);
-        if (distance < 100) { // Raio da explosão (ajustável)
-          e.health -= bullet.damage; // Dano do foguete
-          if (e.health <= 0) {
-            handleEnemyDeath.call(this, e); // Chama a função para lidar com a morte do inimigo
-          }
-        }
-      }
-    }, this);
-  } else {
-    // Para outros tipos de balas, aplica dano direto
-    bullets.killAndHide(bullet);
-    enemy.health -= playerStats.bulletDamage * weapons[playerStats.currentWeapon].damage;
-  }
-
-  // Verifica se o inimigo morreu após receber dano
-  if (enemy.health <= 0 && enemy.active) { // Garante que o inimigo ainda esteja ativo
-    handleEnemyDeath.call(this, enemy);
-  }
-}
-
-// Função para lidar com a morte de um inimigo
-function handleEnemyDeath(enemy) {
-  enemy.destroy(); // Remove o sprite do inimigo da cena
-  score += 10;
-  this.hud.updateScore(score);
-  enemiesAlive--; // Decrementa o contador de inimigos vivos
-
-  if (enemy.isBoss) {
-    this.hud.hideBossHealthBar(); // Esconde a barra de vida do boss
-    this.time.delayedCall(1000, showLevelUpChoices, [], this); // Abre a tela de escolha de cartas após 1s
-  } else {
-    // Chance de spawnar um power-up
-    if (Phaser.Math.RND.between(1, 100) <= 20) { // 20% de chance
-      spawnPowerUp.call(this, enemy.x, enemy.y);
-    }
-  }
-}
-
-// Função para spawnar inimigos
-function spawnEnemy() {
-  if (enemiesToSpawn > 0) {
-    let x, y;
-    let spawnEdge = Phaser.Math.RND.between(0, 3); // 0: topo, 1: direita, 2: baixo, 3: esquerda
-
-    // Spawna fora da tela visível, mas dentro dos limites do mundo
-    const camera = this.cameras.main;
-    const padding = 100; // Margem para garantir que spawnem fora da tela
-
-    if (spawnEdge === 0) { // Topo
-      x = Phaser.Math.RND.between(camera.worldView.left, camera.worldView.right);
-      y = camera.worldView.top - padding;
-    } else if (spawnEdge === 1) { // Direita
-      x = camera.worldView.right + padding;
-      y = Phaser.Math.RND.between(camera.worldView.top, camera.worldView.bottom);
-    } else if (spawnEdge === 2) { // Baixo
-      x = Phaser.Math.RND.between(camera.worldView.left, camera.worldView.right);
-      y = camera.worldView.bottom + padding;
-    } else { // Esquerda
-      x = camera.worldView.left - padding;
-      y = Phaser.Math.RND.between(camera.worldView.top, camera.worldView.bottom);
-    }
-
-    // Garante que o ponto de spawn esteja dentro dos limites do mundo
-    x = Phaser.Math.Clamp(x, 0, this.physics.world.bounds.width);
-    y = Phaser.Math.Clamp(y, 0, this.physics.world.bounds.height);
-
-    let enemyType = Phaser.Math.RND.between(1, 3); // Tipos de inimigo
-    let enemy;
-    let enemySpriteKey;
-    let enemyScale = 0.5; // **TAMANHO DOS INIMIGOS** - Ajuste aqui
-
-    if (enemyType === 1) {
-      enemySpriteKey = 'enemy1'; // Inimigo normal
-    } else if (enemyType === 2) {
-      enemySpriteKey = 'enemy2'; // Inimigo rápido
-    } else {
-      enemySpriteKey = 'enemy3'; // Inimigo tanque
-    }
-
-    enemy = enemies.get(x, y, enemySpriteKey);
-    if (!enemy) { // Se não houver inimigo disponível no pool, cria um novo
-      enemy = this.physics.add.sprite(x, y, enemySpriteKey);
-      enemies.add(enemy);
-    } else {
-      enemy.setActive(true).setVisible(true).setPosition(x, y); // Reutiliza inimigo do pool
-    }
-
-    enemy.setCollideWorldBounds(true);
-    enemy.setOrigin(0.5, 0.5);
-    enemy.setScale(enemyScale);
-
-    // Ajusta o corpo de física de acordo com a escala do sprite
-    enemy.body.setSize(enemy.width * enemyScale * 0.8, enemy.height * enemyScale * 0.8);
-    enemy.body.setOffset((enemy.width * enemyScale - enemy.body.width) / 2, (enemy.height * enemyScale - enemy.body.height) / 2);
-
-    // Atributos base para cada tipo de inimigo
-    if (enemyType === 1) {
-      enemy.health = 5;
-      enemy.maxHealth = 5;
-      enemy.speed = 100;
-      enemy.canShoot = false;
-    } else if (enemyType === 2) {
-      enemy.health = 8;
-      enemy.maxHealth = 8;
-      enemy.speed = 80;
-      enemy.canShoot = true;
-      enemy.fireRate = 1500; // Tempo entre tiros do inimigo
-      enemy.lastShot = this.time.now;
-      enemy.bulletSpeed = 300;
-    } else {
-      enemy.health = 12;
-      enemy.maxHealth = 12;
-      enemy.speed = 60;
-      enemy.canShoot = false;
-    }
-
-    enemiesToSpawn--;
-    enemiesAlive++;
-  } else if (enemiesAlive === 0 && enemiesToSpawn === 0) {
-    // Se não há mais inimigos para spawnar e todos os inimigos foram derrotados
-    endWave.call(this);
-  }
-}
-
-// Funções de controle de onda
-function startWave() {
-  this.hud.updateWave(currentWave); // Atualiza o número da onda no HUD
-  enemiesToSpawn = enemiesPerWave;
-  enemiesAlive = 0; // Garante que começa do zero para cada onda
-  if (currentWave % 5 === 0) { // A cada 5 ondas, spawna um boss
-    spawnBoss.call(this);
-  }
-  enemiesPerWave += 2; // Aumenta a quantidade de inimigos para a próxima onda
-}
-
-function endWave() {
-  currentWave++;
-  this.time.delayedCall(2000, startWave, [], this); // Inicia a próxima onda após 2 segundos
-}
-
-// Spawna o boss
-function spawnBoss() {
-  const boss = this.physics.add.sprite(this.physics.world.bounds.width / 2, 100, 'boss1');
-  boss.setCollideWorldBounds(true);
-  boss.setOrigin(0.5, 0.5);
-  boss.setScale(0.8); // **TAMANHO DO BOSS** - Ajuste aqui
-  enemies.add(boss); // Adiciona o boss ao grupo de inimigos
-
-  // Ajusta o corpo de física do boss
-  boss.body.setSize(boss.width * boss.scaleX * 0.8, boss.height * boss.scaleY * 0.8);
-  boss.body.setOffset((boss.width * boss.scaleX - boss.body.width) / 2, (boss.height * boss.scaleY - boss.body.height) / 2);
-
-  boss.isBoss = true;
-  boss.health = 50 * currentWave; // Vida do boss aumenta com a onda
-  boss.maxHealth = boss.health;
-  boss.speed = 50;
-  boss.name = `Mega-Autômato [Onda ${currentWave}]`;
-  this.hud.showBossHealthBar(boss); // Exibe a barra de vida do boss
-  enemiesAlive++;
-}
-
-// Troca de arma
-function switchWeapon(newWeapon) {
-  if (playerWeapons[newWeapon]) { // Verifica se a arma está desbloqueada
-    playerStats.currentWeapon = newWeapon;
-    // Atualiza os stats do jogador baseados na nova arma
-    playerStats.fireRate = weapons[newWeapon].fireRate;
-    playerStats.bulletDamage = weapons[newWeapon].damage;
-    playerStats.bulletSpeed = weapons[newWeapon].bulletSpeed;
-
-    // Reaplica efeitos de power-ups temporários (se ativos)
-    if (activePowerUps.fireRateBoost) {
-      playerStats.fireRate -= 50;
-      if (playerStats.fireRate < 50) playerStats.fireRate = 50;
-    }
-    if (activePowerUps.damageBoost) {
-      playerStats.bulletDamage += 0.5;
-    }
-
-    this.hud.updateWeaponHUD(weapons[newWeapon].name, weapons[newWeapon].ammo);
-  } else {
-    console.log(`Arma ${weapons[newWeapon].name} não desbloqueada!`);
-  }
-}
-
-// Spawna um power-up
-function spawnPowerUp(x, y) {
-  const powerUpTypes = [
-    { key: 'health_pickup', type: 'health' },
-    { key: 'ammo_pickup', type: 'ammo' },
-    { key: 'weapon_pickup', type: 'weapon' }
-  ];
-  const chosenPowerUp = Phaser.Math.RND.pick(powerUpTypes); // Escolhe um tipo aleatório
-
-  let powerUp = powerUpGroup.get(x, y, chosenPowerUp.key);
-  if (!powerUp) {
-    powerUp = this.physics.add.sprite(x, y, chosenPowerUp.key);
-    powerUpGroup.add(powerUp);
-  } else {
-    powerUp.setActive(true).setVisible(true).setPosition(x, y);
-  }
-
-  powerUp.type = chosenPowerUp.type; // Armazena o tipo para a coleta
-  powerUp.setCollideWorldBounds(true);
-  powerUp.setBounce(0.6); // Efeito de quique
-  powerUp.setOrigin(0.5, 0.5);
-  powerUp.setScale(0.7); // **TAMANHO DOS POWER-UPS** - Ajuste aqui
-
-  // Animação de flutuação para o power-up
-  this.tweens.add({
-    targets: powerUp,
-    y: powerUp.y - 10,
-    duration: 800,
-    ease: 'Sine.easeInOut',
-    yoyo: true,
-    repeat: -1
-  });
-}
-
-// Coleta de power-ups
-function collectPowerUp(player, powerUp) {
-  if (powerUp.type === 'health') {
-    playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife); // Cura 1 de vida, até o máximo
-    this.hud.updateHearts();
-  } else if (powerUp.type === 'ammo') {
-    const currentWeaponObj = weapons[playerStats.currentWeapon];
-    if (currentWeaponObj.ammo !== Infinity) { // Se a arma atual não tiver munição infinita
-      currentWeaponObj.ammo += 50;
-      this.hud.updateWeaponHUD(currentWeaponObj.name, currentWeaponObj.ammo);
-    } else {
-      // Se a arma atual tem munição infinita, tenta dar munição para outra arma desbloqueada
-      const availableWeapons = Object.keys(weapons).filter(key => weapons[key].ammo !== Infinity && playerWeapons[key]);
-      if (availableWeapons.length > 0) {
-        const randomWeaponKey = Phaser.Math.RND.pick(availableWeapons);
-        weapons[randomWeaponKey].ammo += 50;
-        if (randomWeaponKey === playerStats.currentWeapon) {
-          this.hud.updateWeaponHUD(weapons[randomWeaponKey].name, weapons[randomWeaponKey].ammo);
-        }
-      }
-    }
-  } else if (powerUp.type === 'weapon') {
-    const unownedWeapons = Object.keys(playerWeapons).filter(key => !playerWeapons[key]); // Armas ainda não desbloqueadas
-    if (unownedWeapons.length > 0) {
-      const newWeaponKey = Phaser.Math.RND.pick(unownedWeapons); // Escolhe uma aleatória
-      playerWeapons[newWeaponKey] = true; // Desbloqueia
-      if (weapons[newWeaponKey].ammo !== Infinity) {
-        weapons[newWeaponKey].ammo = 50; // Dá munição inicial
-      }
-      this.hud.updateWeaponHUD(weapons[playerStats.currentWeapon].name, weapons[playerStats.currentWeapon].ammo); // Atualiza HUD
-      // Exibe mensagem de arma desbloqueada
-      const weaponUnlockText = this.add.text(player.x, player.y - 50, `Arma ${weapons[newWeaponKey].name} desbloqueada!`, { fontSize: '20px', fill: '#00ff00' })
-        .setOrigin(0.5)
-        .setDepth(1)
-        .setAlpha(0); // Começa invisível
-
+    this.tempMessageTimer = this.time.delayedCall(duration, () => {
       this.tweens.add({
-        targets: weaponUnlockText,
-        alpha: 1, // Fica visível
-        y: weaponUnlockText.y - 20, // Sobe um pouco
+        targets: this.tempMessageText,
+        alpha: 0,
         duration: 500,
-        yoyo: true, // Volta ao estado inicial
-        onComplete: function (tween, targets) {
-          targets[0].destroy(); // Destrói o texto ao final da animação
+        onComplete: () => {
+          this.tempMessageText.setVisible(false);
         }
       });
-    } else {
-      // Se todas as armas já estão desbloqueadas, dá vida em vez de arma
-      playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
-      this.hud.updateHearts();
-      // Opcional: exibir mensagem "Vida máxima!"
-    }
-  }
-  powerUpGroup.killAndHide(powerUp); // Desativa e esconde o power-up coletado
-}
-
-// Cria uma animação de explosão
-function createExplosion(x, y) {
-  if (this.textures.exists('explosion_ss')) {
-    // Se tiver spritesheet de explosão, usa ela
-    const explosion = this.add.sprite(x, y, 'explosion_ss');
-    explosion.play('explode'); // Toca a animação 'explode'
-    explosion.setOrigin(0.5, 0.5);
-    explosion.setDepth(5);
-    explosion.on('animationcomplete', () => {
-      explosion.destroy(); // Destrói o sprite da explosão ao final da animação
-    });
-  } else {
-    // Fallback se não tiver spritesheet, usa a imagem estática 'explosion'
-    const explosion = this.add.image(x, y, 'explosion').setScale(0.5);
-    explosion.setAlpha(0); // Começa invisível
-    this.tweens.add({
-      targets: explosion,
-      alpha: { from: 0, to: 1 }, // Aparece
-      scale: { from: 0.5, to: 1.5 }, // Aumenta de tamanho
-      duration: 300,
-      ease: 'Quad.easeOut',
-      onComplete: () => {
-        this.tweens.add({
-          targets: explosion,
-          alpha: 0, // Desaparece
-          duration: 200,
-          ease: 'Quad.easeIn',
-          onComplete: () => {
-            explosion.destroy();
-          }
-        });
-      }
-    });
+    }, [], this);
   }
 }
 
-// Exibe as opções de melhoria/cartas
-function showLevelUpChoices() {
-  this.physics.pause(); // Pausa a física do jogo
-  playerStats.canShoot = false; // Impede o jogador de atirar
-
-  const choicesPanel = this.add.container(this.cameras.main.scrollX + config.width / 2, this.cameras.main.scrollY + config.height / 2);
-  choicesPanel.setDepth(100); // Garante que o painel esteja acima de tudo
-
-  const panelBg = this.add.graphics();
-  panelBg.fillStyle(0x000000, 0.8);
-  panelBg.fillRect(-350, -150, 700, 300);
-  choicesPanel.add(panelBg);
-
-  this.add.text(0, -120, 'Escolha uma Melhoria!', { fontSize: '32px', fill: '#fff' }).setOrigin(0.5).setDepth(1).setContainer(choicesPanel);
-
-  const availableCards = Object.keys(cards);
-  currentCardChoices = [];
-
-  // Seleciona 3 cartas aleatórias e únicas para a escolha
-  const numberOfChoices = Math.min(3, availableCards.length);
-  const tempAvailableCards = [...availableCards]; // Cria uma cópia para não modificar o original
-  while (currentCardChoices.length < numberOfChoices && tempAvailableCards.length > 0) {
-    const randomIndex = Phaser.Math.RND.between(0, tempAvailableCards.length - 1);
-    const chosenCardName = tempAvailableCards[randomIndex];
-    currentCardChoices.push(chosenCardName);
-    tempAvailableCards.splice(randomIndex, 1); // Remove para evitar repetições
-  }
-
-  const cardSpacing = 200;
-  let startX = -((numberOfChoices - 1) * cardSpacing) / 2; // Centraliza as cartas
-
-  currentCardChoices.forEach((cardName, index) => {
-    const card = cards[cardName];
-    const xPos = startX + index * cardSpacing;
-
-    const bgImage = this.add.image(xPos, 0, 'cardBg').setScale(0.8);
-    bgImage.setInteractive({ useHandCursor: true })
-      .on('pointerover', function () { this.setTint(0xAAAAAA); })
-      .on('pointerout', function () { this.setTint(0xFFFFFF); })
-      .on('pointerdown', () => selecionarCarta.call(this, cardName, choicesPanel));
-
-    const title = this.add.text(xPos, -90, card.nome, { fontSize: '22px', fill: '#fff', align: 'center', wordWrap: { width: 140 } })
-      .setOrigin(0.5);
-    const description = this.add.text(xPos, -40, card.descricao, { fontSize: '14px', fill: '#ddd', align: 'center', wordWrap: { width: 140 } })
-      .setOrigin(0.5);
-
-    if (card.sprite) {
-      const icon = this.add.image(xPos, -110, card.sprite).setScale(0.8).setOrigin(0.5);
-      choicesPanel.add(icon);
-    }
-
-    choicesPanel.add(bgImage);
-    choicesPanel.add(title);
-    choicesPanel.add(description);
-  });
-}
-
-// Aplica a carta selecionada e fecha o painel
-function selecionarCarta(cardName, choicesPanel) {
-  choicesPanel.destroy(); // Remove o painel de escolhas
-
-  const card = cards[cardName];
-  card.efeito(this); // Aplica o efeito da carta
-
-  // Incrementa o contador da carta ativa (para o HUD)
-  activeCardCount[cardName] = (activeCardCount[cardName] || 0) + 1;
-  this.hud.atualizarHUDCartas(activeCardCount); // Atualiza o HUD
-
-  this.physics.resume(); // Retoma a física do jogo
-  playerStats.canShoot = true; // Permite que o jogador atire novamente
-}
-
-// Função de Game Over
-function gameOver() {
-  this.physics.pause(); // Pausa a física
-  player.setTint(0xff0000); // Jogador fica vermelho
-
-  // Exibe a mensagem de Game Over
-  const gameOverText = this.add.text(this.cameras.main.scrollX + config.width / 2, this.cameras.main.scrollY + config.height / 2, 'GAME OVER', { fontSize: '64px', fill: '#ff0000' }).setOrigin(0.5).setDepth(200);
-
-  // Reinicia o jogo após um pequeno delay
-  this.time.addEvent({
-    delay: 3000, // 3 segundos
-    callback: () => {
-      // Limpa todos os objetos para um reinício limpo
-      this.scene.stop('HUD'); // Para a cena HUD
-      this.scene.restart(); // Reinicia a cena principal
-
-      // Reseta todas as variáveis de estado do jogo
-      score = 0;
-      currentWave = 1;
-      enemiesPerWave = 5;
-      enemiesAlive = 0;
-      enemiesToSpawn = 0;
-      activePowerUps = {};
-      activeCardCount = {};
-      playerStats = { // Reseta playerStats para os valores iniciais
-        life: 5,
-        maxLife: 5,
-        speed: 200,
-        fireRate: 300,
-        bulletSpeed: 500,
-        bulletDamage: 1,
-        currentWeapon: 'pistol',
-        canShoot: true
-      };
-      // Reseta as armas desbloqueadas
-      for (const weaponKey in playerWeapons) {
-        playerWeapons[weaponKey] = (weaponKey === 'pistol'); // Só a pistola fica desbloqueada
-      }
-      // Reseta a munição das armas não infinitas
-      for (const weaponKey in weapons) {
-        if (weapons[weaponKey].ammo !== Infinity) {
-          weapons[weaponKey].ammo = (weaponKey === 'pistol') ? Infinity : 0; // Munição inicial (0 para as outras)
-        }
-      }
-
-      this.scene.launch('HUD'); // Relança a cena HUD
-    },
-    callbackScope: this
-  });
-}
+// Start the game
+let game = new Phaser.Game(config);
 </script>
 </body>
 </html>
