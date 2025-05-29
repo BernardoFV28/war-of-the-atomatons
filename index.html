@@ -449,7 +449,7 @@ function create() {
   // Player
   player = this.physics.add.sprite(config.width / 2, config.height / 2, 'player').setCollideWorldBounds(true).setOrigin(0.5, 0.5);
   player.setDamping(true).setDrag(0.99); // Adiciona inércia ao movimento
-  player.body.setSize(player.width * 0.07, player.height * 0.07); // Ajusta o corpo de física para ser menor que a imagem
+  player.body.setSize(player.width * 0.03, player.height * 0.03); // Ajusta o corpo de física para ser menor que a imagem
   player.body.setOffset(player.width * 0.15, player.height * 0.15); // Centraliza o corpo ajustado
 
   cursors = this.input.keyboard.createCursorKeys();
