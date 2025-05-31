@@ -26,7 +26,7 @@ const config = {
   backgroundColor: '#000000',
   physics: {
     default: 'arcade',
-    arcade: { debug: false }
+    arcade: { debug: true } // ALTERADO: Setado para 'true' para ativar o debug de física
   },
   scene: {
     preload,
@@ -90,23 +90,61 @@ const enemyTypes = {
     baseHealth: 4,
     speed: 100,
     scale: 0.06,
-    xpReward: 10 // Valor base
+    xpReward: 10
   },
   fast: {
     texture: 'enemy_fast',
     baseHealth: 4,
     speed: 180,
     scale: 0.06,
-    xpReward: 15 // Valor base
+    xpReward: 15
   },
   tank: {
     texture: 'enemy_tank',
     baseHealth: 9,
     speed: 70,
     scale: 0.08,
-    xpReward: 25 // Valor base
+    xpReward: 25
   }
 };
+
+// NOVO: Array para definir configurações de ondas/níveis
+// Você pode expandir isso para um gerador procedural futuramente.
+const levelConfigs = [
+  // Wave 1
+  {
+    totalEnemies: 3, // Aumentado para garantir mais XP na primeira onda, caso o XP de cada inimigo não seja suficiente.
+    enemyDistribution: [{ type: 'normal', count: 3 }],
+    xpBonusPerEnemy: 20 // Bônus de XP para cada inimigo nesta onda
+  },
+  // Wave 2
+  {
+    totalEnemies: 5,
+    enemyDistribution: [{ type: 'normal', count: 4 }, { type: 'fast', count: 1 }],
+    xpBonusPerEnemy: 15
+  },
+  // Wave 3
+  {
+    totalEnemies: 7,
+    enemyDistribution: [{ type: 'normal', count: 4 }, { type: 'fast', count: 2 }, { type: 'tank', count: 1 }],
+    xpBonusPerEnemy: 10
+  },
+  // Wave 4
+  {
+    totalEnemies: 9,
+    enemyDistribution: [{ type: 'normal', count: 3 }, { type: 'fast', count: 3 }, { type: 'tank', count: 3 }],
+    xpBonusPerEnemy: 5
+  },
+  // Wave 5 (Volta ao XP base ou próximo do normal)
+  {
+    totalEnemies: 10,
+    enemyDistribution: [{ type: 'normal', count: 4 }, { type: 'fast', count: 3 }, { type: 'tank', count: 3 }],
+    xpBonusPerEnemy: 0
+  }
+  // Adicione mais ondas aqui conforme o jogo avança
+  // Para ondas além do que está definido, a lógica de spawnWave usará um padrão genérico.
+];
+
 
 const game = new Phaser.Game(config);
 
@@ -664,8 +702,44 @@ function ativarSpiritAlly() {
 }
 
 function spawnWave() {
-  const totalEnemiesToSpawn = Math.floor(wave * 2.5);
+  // Tenta obter a configuração da onda no array levelConfigs
+  const currentLevelConfig = levelConfigs[wave - 1]; // -1 porque o array é 0-indexado
 
+  let totalEnemiesToSpawn = Math.floor(wave * 2.5); // Valor padrão
+  let xpBonusForThisWave = 0; // Bônus de XP padrão para a onda
+
+  if (currentLevelConfig) {
+    totalEnemiesToSpawn = currentLevelConfig.totalEnemies;
+    xpBonusForThisWave = currentLevelConfig.xpBonusPerEnemy || 0; // Garante que é 0 se não definido
+    
+    // Spawna inimigos com base na distribuição definida para a onda atual
+    currentLevelConfig.enemyDistribution.forEach(dist => {
+      for (let i = 0; i < dist.count; i++) {
+        const x = Phaser.Math.Between(100, config.width - 100);
+        const y = Phaser.Math.Between(100, config.height - 100);
+
+        const typeProps = enemyTypes[dist.type];
+        if (!typeProps) {
+          console.warn(`Tipo de inimigo desconhecido: ${dist.type}`);
+          continue;
+        }
+
+        const enemy = enemies.create(x, y, typeProps.texture).setScale(typeProps.scale);
+
+        enemy.health = typeProps.baseHealth + Math.floor(wave / 2);
+        enemy.maxHealth = enemy.health;
+        enemy.speed = typeProps.speed + Math.floor(wave * 2);
+        enemy.setCollideWorldBounds(true);
+        // Aplica o bônus de XP definido para esta onda
+        enemy.xpReward = typeProps.xpReward + xpBonusForThisWave;
+      }
+    });
+
+    // Sai da função se a onda tiver uma configuração específica
+    return;
+  }
+
+  // Lógica padrão para ondas não definidas no levelConfigs (ondas mais altas)
   for (let i = 0; i < totalEnemiesToSpawn; i++) {
     const x = Phaser.Math.Between(100, config.width - 100);
     const y = Phaser.Math.Between(100, config.height - 100);
@@ -690,21 +764,7 @@ function spawnWave() {
     enemy.maxHealth = enemy.health;
     enemy.speed = typeProps.speed + Math.floor(wave * 2);
     enemy.setCollideWorldBounds(true);
-
-    // LÓGICA PARA AUMENTAR O XP NAS PRIMEIRAS ONDAS (1 a 5)
-    let bonusXP = 0;
-    if (wave <= 5) {
-        switch (wave) {
-            case 1: bonusXP = 20; break; // XP base 10 + 20 = 30 para normal
-            case 2: bonusXP = 15; break; // XP base 10 + 15 = 25 para normal
-            case 3: bonusXP = 10; break; // XP base 10 + 10 = 20 para normal
-            case 4: bonusXP = 5; break;  // XP base 10 + 5 = 15 para normal
-            case 5: bonusXP = 0; break;  // Volta ao XP normal
-        }
-    }
-    enemy.xpReward = typeProps.xpReward + bonusXP;
-    // FIM DA LÓGICA DE XP
-
+    enemy.xpReward = typeProps.xpReward; // Sem bônus de XP para ondas genéricas
   }
 }
 
