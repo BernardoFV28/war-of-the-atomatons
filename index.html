@@ -26,7 +26,7 @@ const config = {
   backgroundColor: '#000000',
   physics: {
     default: 'arcade',
-    arcade: { debug: false } // Set to 'true' for debugging physics bodies
+    arcade: { debug: false }
   },
   scene: {
     preload,
@@ -75,7 +75,7 @@ let playerStats = {
   xp: 0,
   level: 1,
   xpToNextLevel: 100,
-  waveXpGoal: 20 // ALTERADO: Reduzido para 20 para permitir passar da primeira fase
+  waveXpGoal: 20
 };
 
 const tiposDeArmas = {
@@ -90,21 +90,21 @@ const enemyTypes = {
     baseHealth: 4,
     speed: 100,
     scale: 0.06,
-    xpReward: 10
+    xpReward: 10 // Valor base
   },
   fast: {
     texture: 'enemy_fast',
     baseHealth: 4,
     speed: 180,
     scale: 0.06,
-    xpReward: 15
+    xpReward: 15 // Valor base
   },
   tank: {
     texture: 'enemy_tank',
     baseHealth: 9,
     speed: 70,
     scale: 0.08,
-    xpReward: 25
+    xpReward: 25 // Valor base
   }
 };
 
@@ -475,7 +475,7 @@ function showCardChoices() {
             xp: 0,
             level: 1,
             xpToNextLevel: 100,
-            waveXpGoal: 20 // ALTERADO: Reduzido para 20 no reset também
+            waveXpGoal: 20
         };
         wave = 0;
         showingCards = false;
@@ -690,7 +690,21 @@ function spawnWave() {
     enemy.maxHealth = enemy.health;
     enemy.speed = typeProps.speed + Math.floor(wave * 2);
     enemy.setCollideWorldBounds(true);
-    enemy.xpReward = typeProps.xpReward;
+
+    // LÓGICA PARA AUMENTAR O XP NAS PRIMEIRAS ONDAS (1 a 5)
+    let bonusXP = 0;
+    if (wave <= 5) {
+        switch (wave) {
+            case 1: bonusXP = 20; break; // XP base 10 + 20 = 30 para normal
+            case 2: bonusXP = 15; break; // XP base 10 + 15 = 25 para normal
+            case 3: bonusXP = 10; break; // XP base 10 + 10 = 20 para normal
+            case 4: bonusXP = 5; break;  // XP base 10 + 5 = 15 para normal
+            case 5: bonusXP = 0; break;  // Volta ao XP normal
+        }
+    }
+    enemy.xpReward = typeProps.xpReward + bonusXP;
+    // FIM DA LÓGICA DE XP
+
   }
 }
 
