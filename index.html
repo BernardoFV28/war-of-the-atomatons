@@ -51,37 +51,37 @@ let cardsHUDGroup; // Grupo visual do HUD de cartas
 
 
 let playerStats = {
-  life: 3, 
-  maxLife: 3, 
-  bulletDamage: 1, 
-  fireRate: 3000, 
-  hasShield: false, 
-  spiritAllyActive: false, 
-  spreadUpgrade: false, 
-  doubleBullets: false, 
-  dashAvailable: false, 
-  dashCooldown: false, 
-  slowEnemies: false, 
-  reviveOnce: false, 
-  increasedDropRate: false, 
-  tripleBullets: false, 
-  playerSpeed: 400, 
-  healOnKill: false, 
-  damageAura: false, 
-  speedBoost: false, 
-  bulletPiercing: false, 
-  thorns: false, 
-  bulletSpeedBoost: false, 
-  xp: 0, 
-  level: 1, 
-  xpToNextLevel: 100, 
-  waveXpGoal: 50 
+  life: 3,
+  maxLife: 3,
+  bulletDamage: 1,
+  fireRate: 3000,
+  hasShield: false,
+  spiritAllyActive: false,
+  spreadUpgrade: false,
+  doubleBullets: false,
+  dashAvailable: false,
+  dashCooldown: false,
+  slowEnemies: false,
+  reviveOnce: false,
+  increasedDropRate: false,
+  tripleBullets: false,
+  playerSpeed: 400,
+  healOnKill: false,
+  damageAura: false,
+  speedBoost: false,
+  bulletPiercing: false,
+  thorns: false,
+  bulletSpeedBoost: false,
+  xp: 0,
+  level: 1,
+  xpToNextLevel: 100,
+  waveXpGoal: 20 // ALTERADO: Reduzido para 20 para permitir passar da primeira fase
 };
 
 const tiposDeArmas = {
-  arma1: { dano: 1, fireRate: 3000 }, 
-  arma2: { dano: 2, fireRate: 1000 }, 
-  arma3: { dano: 3, fireRate: 2000 } 
+  arma1: { dano: 1, fireRate: 3000 },
+  arma2: { dano: 2, fireRate: 1000 },
+  arma3: { dano: 3, fireRate: 2000 }
 };
 
 const enemyTypes = {
@@ -117,22 +117,22 @@ function preload() {
   this.load.image('arma1', 'assets/pistolinha.png');
   this.load.image('arma2', 'assets/metralha.png');
   this.load.image('arma3', 'assets/lancarrio.png');
-  this.load.image('fundogame', 'assets/fundogame.png'); 
-  this.load.image('cora', 'assets/cora.png'); 
+  this.load.image('fundogame', 'assets/fundogame.png');
+  this.load.image('cora', 'assets/cora.png');
 
-  this.load.image('enemy', 'assets/enemy_robot.png'); 
-  this.load.image('enemy_fast', 'assets/enemy_fast.png'); 
-  this.load.image('enemy_tank', 'assets/enemy_tank.png'); 
+  this.load.image('enemy', 'assets/enemy_robot.png');
+  this.load.image('enemy_fast', 'assets/enemy_fast.png');
+  this.load.image('enemy_tank', 'assets/enemy_tank.png');
 }
 
 function create() {
   this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1);
 
   player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true).setScale(0.05);
-  player.health = playerStats.life; 
-  player.maxHealth = playerStats.maxLife; 
+  player.health = playerStats.life;
+  player.maxHealth = playerStats.maxLife;
 
-  this.hud = new HUD(this, player); 
+  this.hud = new HUD(this, player);
 
   bullets = this.physics.add.group();
   enemies = this.physics.add.group();
@@ -168,7 +168,7 @@ function create() {
       e.health -= playerStats.bulletDamage;
 
       if (!playerStats.bulletPiercing) {
-        b.destroy(); 
+        b.destroy();
       } else {
         const particles = this.add.particles('bullet');
         particles.createEmitter({
@@ -184,9 +184,9 @@ function create() {
 
       if (e.health <= 0) {
         e.destroy();
-        gainXp.call(this, e.xpReward); 
+        gainXp.call(this, e.xpReward);
         if (playerStats.healOnKill) {
-          playerStats.life = Math.min(playerStats.life + 0.5, playerStats.maxLife); 
+          playerStats.life = Math.min(playerStats.life + 0.5, playerStats.maxLife);
           this.hud.update();
         }
       }
@@ -197,15 +197,15 @@ function create() {
     if (b.active && p.active) {
       b.destroy();
       if (!playerStats.hasShield) {
-        playerStats.life--; 
-        this.hud.update(); 
+        playerStats.life--;
+        this.hud.update();
         p.setTint(0xff0000);
         this.time.delayedCall(100, () => p.clearTint());
 
         if (playerStats.thorns) {
           enemies.getChildren().forEach(enemy => {
             const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
-            if (enemy.active && dist < 150) { 
+            if (enemy.active && dist < 150) {
               enemy.health -= 1;
               if (enemy.health <= 0) {
                 enemy.destroy();
@@ -250,7 +250,7 @@ function create() {
   });
 
   hudGroup = this.add.group();
-  cardsHUDGroup = this.add.group(); 
+  cardsHUDGroup = this.add.group();
 
   armaNomeText = this.add.text(config.width / 2, 20, 'Pistolinha', {
     fontFamily: 'Cinzel',
@@ -294,14 +294,14 @@ function spawnArmas() {
   const tipos = Object.keys(tiposDeArmas);
 
   let dropCount = 3;
-  if (playerStats.increasedDropRate && Phaser.Math.Between(0,100) < 50) { 
+  if (playerStats.increasedDropRate && Phaser.Math.Between(0,100) < 50) {
     dropCount++;
   }
 
   for (let i = 0; i < dropCount; i++) {
     const tipo = Phaser.Utils.Array.GetRandom(tipos);
-    const x = Phaser.Math.Between(100, config.width - 100); 
-    const y = Phaser.Math.Between(100, config.height - 100); 
+    const x = Phaser.Math.Between(100, config.width - 100);
+    const y = Phaser.Math.Between(100, config.height - 100);
     const arma = armas.create(x, y, tipo).setScale(0.02);
     arma.tipo = tipo;
   }
@@ -339,7 +339,7 @@ function atualizarHUDarma(nomeArma, keyImagem) {
 }
 
 function atualizarHUDCartas(scene) {
-  cardsHUDGroup.clear(true, true); 
+  cardsHUDGroup.clear(true, true);
 
   playerCards.forEach((card, index) => {
     const bg = scene.add.rectangle(50 + index * 60, 140, 50, 70, card.cor || 0x999999, 0.8)
@@ -377,7 +377,7 @@ function update(time) {
   enemies.getChildren().forEach(enemy => {
     if (!enemy.active) return;
     const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
-    this.physics.velocityFromRotation(angle, enemy.speed, enemy.body.velocity); 
+    this.physics.velocityFromRotation(angle, enemy.speed, enemy.body.velocity);
   });
 
   let closestEnemy = null;
@@ -394,7 +394,7 @@ function update(time) {
   this.hud.setEnemy(closestEnemy);
 
   if (playerStats.spiritAllyActive && spiritAlly) {
-    spiritAlly.x = player.x + 50; 
+    spiritAlly.x = player.x + 50;
     spiritAlly.y = player.y - 50;
   }
 
@@ -407,7 +407,7 @@ function update(time) {
 
 function shootRadial() {
   const count = playerStats.spreadUpgrade ? 24 : 12;
-  const speed = playerStats.bulletSpeedBoost ? 900 : 700; 
+  const speed = playerStats.bulletSpeedBoost ? 900 : 700;
 
   for (let i = 0; i < count; i++) {
     const baseAngle = Phaser.Math.DegToRad((360 / count) * i);
@@ -440,11 +440,11 @@ function shootRadial() {
 
 function showCardChoices() {
     if (playerStats.xp < playerStats.waveXpGoal) {
-        player.setActive(false).setVisible(false); 
+        player.setActive(false).setVisible(false);
         const failureText = this.add.text(config.width / 2, config.height / 2, 'FALHA NA ONDA!\nXP Insuficiente\nVoltando para Fase 1\n(Pressione ESPAÇO para reiniciar)', {
             fontFamily: 'Cinzel',
             fontSize: '36px',
-            color: '#FF4500', 
+            color: '#FF4500',
             stroke: '#000000',
             strokeThickness: 6,
             align: 'center'
@@ -475,14 +475,14 @@ function showCardChoices() {
             xp: 0,
             level: 1,
             xpToNextLevel: 100,
-            waveXpGoal: 50 
+            waveXpGoal: 20 // ALTERADO: Reduzido para 20 no reset também
         };
-        wave = 0; 
-        showingCards = false; 
-        return; 
+        wave = 0;
+        showingCards = false;
+        return;
     }
 
-    playerStats.waveXpGoal = Math.floor(playerStats.waveXpGoal * 1.5); 
+    playerStats.waveXpGoal = Math.floor(playerStats.waveXpGoal * 1.5);
 
   const cardOptions = [
     { nome: 'Escudo de Ivirik', desc: 'Proteção que te salva da morte uma vez', cor: 0xffc107, efeito: () => { playerStats.hasShield = true; } },
@@ -492,13 +492,13 @@ function showCardChoices() {
     { nome: 'Dash ', desc: 'Corrida rápida para escapar', cor: 0xf44336, efeito: () => { playerStats.dashAvailable = true; } },
     { nome: 'Projétil Perfurante', desc: 'Balas atravessam inimigos de forma avassaladora', cor: 0x03a9f4, efeito: () => { playerStats.bulletPiercing = true; } },
     { nome: 'Recuperação Instantânea', desc: 'Recupera 2 de vida', cor: 0x8bc34a, efeito: () => { playerStats.life = Math.min(playerStats.life + 2, playerStats.maxLife); this.hud.update(); } },
-    { nome: 'Fúria de Metalion', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.bulletDamage += 1; this.time.delayedCall(15000, () => playerStats.bulletDamage -= 1); } }, 
-    { nome: 'Vida Fantasma', desc: 'Sobrevive com 1 de vida ao morrer', cor: 0x673ab7, efeito: () => { playerStats.reviveOnce = true; } }, 
+    { nome: 'Fúria de Metalion', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.bulletDamage += 1; this.time.delayedCall(15000, () => playerStats.bulletDamage -= 1); } },
+    { nome: 'Vida Fantasma', desc: 'Sobrevive com 1 de vida ao morrer', cor: 0x673ab7, efeito: () => { playerStats.reviveOnce = true; } },
     { nome: 'Energético da Meia-Noite', desc: 'Velocidade de movimento aumentada em 50% por 10s', cor: 0xffeb3b, efeito: () => {
         const originalSpeed = playerStats.playerSpeed;
         playerStats.playerSpeed *= 1.5;
         this.time.delayedCall(10000, () => playerStats.playerSpeed = originalSpeed);
-      } 
+      }
     },
     { nome: 'Aura Letal', desc: 'Causa dano contínuo nos inimigos próximos', cor: 0xcd201f, efeito: () => {
         playerStats.damageAura = true;
@@ -517,46 +517,46 @@ function showCardChoices() {
             });
           }
         });
-      } 
+      }
     },
     { nome: 'Velocidade Neuronal', desc: 'Recarga de tiro 2x mais rápida por 10s', cor: 0x03a9f4, efeito: () => {
         const originalRate = playerStats.fireRate;
         playerStats.fireRate /= 2;
         this.time.delayedCall(10000, () => playerStats.fireRate = originalRate);
-      } 
+      }
     },
     { nome: 'Hack dos Fragmentos', desc: 'Chance dobrada de aparecer armas nas próximas ondas', cor: 0x607d8b, efeito: () => {
         playerStats.increasedDropRate = true;
-      } 
+      }
     },
     { nome: 'Respiro do Caos', desc: 'Recupera toda sua vida', cor: 0x009688, efeito: () => {
         playerStats.life = playerStats.maxLife;
         this.hud.update();
-      } 
+      }
     },
     { nome: 'Espelho de Plasma', desc: 'Reflete 30% do dano de volta ao inimigo por 10s', cor: 0x673ab7, efeito: () => {
-        playerStats.hasShield = true; 
+        playerStats.hasShield = true;
         const reflectText = this.add.text(config.width / 2, config.height / 2 - 100, 'Reflect not fully implemented!', { fontSize: '20px', color: '#FFF' }).setOrigin(0.5);
         this.time.delayedCall(3000, () => reflectText.destroy());
-      } 
+      }
     },
     { nome: 'Canhão Triplo', desc: 'Atira 3 balas em vez de 1', cor: 0xff9800, efeito: () => {
         playerStats.tripleBullets = true;
-      } 
+      }
     },
     { nome: 'Espinhos do Asfalto', desc: 'Dano nos inimigos ao ser atingido', cor: 0xe91e63, efeito: () => { playerStats.thorns = true; } },
     { nome: 'Visão de Águia', desc: 'Suas balas voam mais rápido', cor: 0x5cb85c, efeito: () => { playerStats.bulletSpeedBoost = true; } },
     { nome: 'Armadura Reforçada', desc: 'Aumenta sua vida máxima em 1', cor: 0x7e57c2, efeito: () => {
         playerStats.maxLife += 1;
-        playerStats.life = playerStats.maxLife; 
-        this.hud.updateHealthBar(); 
+        playerStats.life = playerStats.maxLife;
+        this.hud.updateHealthBar();
         this.hud.update();
       }
     },
     { nome: 'Toque Vampírico', desc: 'Recupere vida ao derrotar inimigos', cor: 0x8b0000, efeito: () => { playerStats.healOnKill = true; } },
     { nome: 'Carga do Trovão', desc: 'Dash atordoa inimigos próximos', cor: 0x42a5f5, efeito: () => {
-        playerStats.dashAvailable = true; 
-        playerStats.stunOnDash = true; 
+        playerStats.dashAvailable = true;
+        playerStats.stunOnDash = true;
       }
     },
   ];
@@ -611,7 +611,7 @@ function showCardChoices() {
         yoyo: true,
         ease: 'Power1',
         onComplete: () => {
-          card.efeito.call(this); 
+          card.efeito.call(this);
           cardsGroup.clear(true, true);
 
           playerCards.push(card);
@@ -636,7 +636,7 @@ function ativarSpiritAlly() {
   playerStats.spiritAllyActive = true;
 
   this.time.addEvent({
-    delay: 1500, 
+    delay: 1500,
     loop: true,
     callback: () => {
       if (!playerStats.spiritAllyActive || !spiritAlly || !spiritAlly.active) return;
@@ -657,25 +657,25 @@ function ativarSpiritAlly() {
     }
   });
 
-  this.time.delayedCall(15000, () => { 
+  this.time.delayedCall(15000, () => {
     if (spiritAlly) spiritAlly.destroy();
     playerStats.spiritAllyActive = false;
   }, [], this);
 }
 
 function spawnWave() {
-  const totalEnemiesToSpawn = Math.floor(wave * 2.5); 
+  const totalEnemiesToSpawn = Math.floor(wave * 2.5);
 
   for (let i = 0; i < totalEnemiesToSpawn; i++) {
-    const x = Phaser.Math.Between(100, config.width - 100); 
-    const y = Phaser.Math.Between(100, config.height - 100); 
+    const x = Phaser.Math.Between(100, config.width - 100);
+    const y = Phaser.Math.Between(100, config.height - 100);
 
-    let enemyTypeKey = 'normal'; 
+    let enemyTypeKey = 'normal';
 
-    if (wave >= 3 && Phaser.Math.Between(0, 100) < 30 + wave * 3) { 
+    if (wave >= 3 && Phaser.Math.Between(0, 100) < 30 + wave * 3) {
       enemyTypeKey = 'fast';
     }
-    if (wave >= 5 && Phaser.Math.Between(0, 100) < 20 + wave * 2) { 
+    if (wave >= 5 && Phaser.Math.Between(0, 100) < 20 + wave * 2) {
       enemyTypeKey = 'tank';
     }
 
@@ -686,11 +686,11 @@ function spawnWave() {
     const typeProps = enemyTypes[enemyTypeKey];
     const enemy = enemies.create(x, y, typeProps.texture).setScale(typeProps.scale);
 
-    enemy.health = typeProps.baseHealth + Math.floor(wave / 2); 
+    enemy.health = typeProps.baseHealth + Math.floor(wave / 2);
     enemy.maxHealth = enemy.health;
-    enemy.speed = typeProps.speed + Math.floor(wave * 2); 
+    enemy.speed = typeProps.speed + Math.floor(wave * 2);
     enemy.setCollideWorldBounds(true);
-    enemy.xpReward = typeProps.xpReward; 
+    enemy.xpReward = typeProps.xpReward;
   }
 }
 
@@ -723,10 +723,10 @@ function dashPlayer() {
       if (playerStats.stunOnDash) {
         enemies.getChildren().forEach(enemy => {
           const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
-          if (enemy.active && dist < 100) { 
+          if (enemy.active && dist < 100) {
             enemy.body.setVelocity(0,0);
-            enemy.setTint(0x0000ff); 
-            this.time.delayedCall(1000, () => enemy.clearTint()); 
+            enemy.setTint(0x0000ff);
+            this.time.delayedCall(1000, () => enemy.clearTint());
           }
         });
       }
@@ -736,14 +736,14 @@ function dashPlayer() {
 
 function gainXp(amount) {
   playerStats.xp += amount;
-  this.hud.updateXpBar(); 
+  this.hud.updateXpBar();
 
   if (playerStats.xp >= playerStats.xpToNextLevel) {
     playerStats.level++;
-    playerStats.xp -= playerStats.xpToNextLevel; 
-    playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5); 
-    playerStats.bulletDamage *= 1.012; 
-    this.hud.updateXpBar(); 
+    playerStats.xp -= playerStats.xpToNextLevel;
+    playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5);
+    playerStats.bulletDamage *= 1.012;
+    this.hud.updateXpBar();
     const levelUpText = this.add.text(config.width / 2, config.height / 2 + 50, `LEVEL UP! Level ${playerStats.level}`, {
       fontFamily: 'Cinzel',
       fontSize: '40px',
@@ -764,11 +764,11 @@ class HUD {
     this.playerHealthBarBg = this.scene.add.graphics();
     this.playerHealthBarFill = this.scene.add.graphics();
     this.playerHealthBarX = 20;
-    this.playerHealthBarY = 20; 
+    this.playerHealthBarY = 20;
     this.playerHealthBarWidth = 150;
     this.playerHealthBarHeight = 20;
 
-    this.updateHealthBar(); 
+    this.updateHealthBar();
 
     this.enemyHealthBarBg = this.scene.add.graphics();
     this.enemyHealthBarFill = this.scene.add.graphics();
@@ -778,7 +778,7 @@ class HUD {
     this.enemyHealthBarWidth = 150;
     this.enemyHealthBarHeight = 20;
 
-    this.enemy = null; 
+    this.enemy = null;
 
     this.xpBarBg = this.scene.add.graphics();
     this.xpBarFill = this.scene.add.graphics();
@@ -796,7 +796,7 @@ class HUD {
   }
 
   update() {
-    this.updateHealthBar(); 
+    this.updateHealthBar();
 
     if (this.enemy && this.enemy.active) {
       this.enemyHealthBarBg.clear();
@@ -840,7 +840,7 @@ class HUD {
     this.playerHealthBarBg.fillRect(this.playerHealthBarX, this.playerHealthBarY, this.playerHealthBarWidth, this.playerHealthBarHeight);
 
     const healthPercent = Phaser.Math.Clamp(playerStats.life / playerStats.maxLife, 0, 1);
-    this.playerHealthBarFill.fillStyle(0x8A2BE2, 1); 
+    this.playerHealthBarFill.fillStyle(0x8A2BE2, 1);
     this.playerHealthBarFill.fillRect(this.playerHealthBarX, this.playerHealthBarY, this.playerHealthBarWidth * healthPercent, this.playerHealthBarHeight);
   }
 }
