@@ -74,7 +74,8 @@ const playerStats = {
     rocketDamage: 50,
     rocketExplosionRadius: 100,
     baseFireRate: 200,
-    cardsToChoose: []
+    cardsToChoose: [],
+    xpMultiplier: 1 // **ADICIONADO: Multiplicador de XP inicial**
 };
 
 // Player's current weapon and collected cards
@@ -150,7 +151,8 @@ const cardDefinitions = [
     { name: "Fogo Rápido", effect: "Diminui tempo de recarga da arma em 20ms.", type: "fireRate" },
     { name: "Tiro Duplo", effect: "Atira 2 projéteis de pistola.", type: "doubleShot" },
     { name: "Dispersão", effect: "Aumenta número de projéteis da escopeta.", type: "shotgunPellets" },
-    { name: "Foguete Gigante", effect: "Aumenta dano do foguete em 15 e raio de explosão.", type: "rocketUpgrade" }
+    { name: "Foguete Gigante", effect: "Aumenta dano do foguete em 15 e raio de explosão.", type: "rocketUpgrade" },
+    { name: "XP Turbinado", effect: "Dobra o ganho de XP.", type: "xpBoost" } // **ADICIONADO: Nova carta de XP**
 ];
 
 // Group for cards in HUD
@@ -529,7 +531,8 @@ function deflectBullet(playerBullet, enemyBullet) {
 }
 
 function gainXp(amount) {
-    playerStats.xp += amount;
+    // **MODIFICAÇÃO AQUI: Multiplica o XP recebido pelo xpMultiplier**
+    playerStats.xp += amount * playerStats.xpMultiplier;
     if (playerStats.xp >= playerStats.xpToNextLevel) {
         levelUp.call(this);
     }
@@ -553,7 +556,15 @@ function offerCards() {
     player.setVelocity(0); // Stop player movement
 
     // Pick 3 random, unique cards
-    const availableCards = cardDefinitions.filter(card => !playerCards.includes(card) || card.type === 'health' || card.type === 'damage' || card.type === 'speed' || card.type === 'fireRate'); // Allow stacking these
+    const availableCards = cardDefinitions.filter(card => {
+        // Allow stacking health, damage, speed, fireRate, and xpBoost
+        if (card.type === 'health' || card.type === 'damage' || card.type === 'speed' || card.type === 'fireRate' || card.type === 'xpBoost') {
+            return true;
+        }
+        // For other types, only allow if not already collected
+        return !playerCards.some(c => c.type === card.type);
+    });
+
     playerStats.cardsToChoose = Phaser.Utils.Array.Shuffle(availableCards).slice(0, 3);
 
     const cardDisplayGroup = this.add.group();
@@ -638,6 +649,10 @@ function applyCardEffect(card) {
             playerStats.rocketDamage += 15;
             playerStats.rocketExplosionRadius += 20;
             weaponProperties.rocketLauncher.damage = playerStats.rocketDamage;
+            break;
+        case "xpBoost": // **ADICIONADO: Lógica para a nova carta de XP**
+            playerStats.xpMultiplier *= 2; // Dobra o multiplicador de XP
+            console.log("XP Turbinado ativado! Multiplicador de XP atual: " + playerStats.xpMultiplier);
             break;
         default:
             console.warn("Unknown card type:", card.type);
@@ -1285,7 +1300,8 @@ function gameOver() {
             rocketDamage: 50,
             rocketExplosionRadius: 100,
             baseFireRate: 200,
-            cardsToChoose: []
+            cardsToChoose: [],
+            xpMultiplier: 1 // **RESETADO: Multiplicador de XP para o valor inicial**
         });
         playerCards = []; // Clear player cards
         currentWeapon = 'pistol'; // Reset weapon
