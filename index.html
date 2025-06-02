@@ -175,7 +175,7 @@ function create() {
           x: e.x,
           y: e.y,
           speed: { min: -50, max: 50 },
-          scale: { start: 0.05, end: 0 },
+          scale: { start: 0.02, end: 0 },
           lifespan: 300,
           blendMode: 'ADD',
           quantity: 6
@@ -277,7 +277,7 @@ function create() {
   }).setOrigin(1, 0);
 
   this.time.addEvent({
-    delay: 9000,
+    delay: 900,
     loop: true,
     callback: () => {
       enemies.getChildren().forEach(enemy => {
@@ -519,7 +519,7 @@ function showCardChoices() {
         });
       }
     },
-    { nome: 'Velocidade Neuronal', desc: 'Recarga de tiro 2x mais rápida por 10s', cor: 0x03a9f4, efeito: () => {
+    { nome: 'Velocid del zubarata', desc: 'Recarga de tiro 2x mais rápida por 10s', cor: 0x03a9f4, efeito: () => {
         const originalRate = playerStats.fireRate;
         playerStats.fireRate /= 2;
         this.time.delayedCall(10000, () => playerStats.fireRate = originalRate);
@@ -534,13 +534,13 @@ function showCardChoices() {
         this.hud.update();
       }
     },
-    { nome: 'Espelho de Plasma', desc: 'Reflete 30% do dano de volta ao inimigo por 10s', cor: 0x673ab7, efeito: () => {
+    { nome: 'Espelho de dos 30', desc: 'Reflete 30% do dano de volta ao inimigo por 10s', cor: 0x673ab7, efeito: () => {
         playerStats.hasShield = true;
         const reflectText = this.add.text(config.width / 2, config.height / 2 - 100, 'Reflect not fully implemented!', { fontSize: '20px', color: '#FFF' }).setOrigin(0.5);
         this.time.delayedCall(3000, () => reflectText.destroy());
       }
     },
-    { nome: 'Canhão Triplo', desc: 'Atira 3 balas em vez de 1', cor: 0xff9800, efeito: () => {
+    { nome: 'Raio Triplo', desc: 'Atira 3 balas em vez de 1', cor: 0xff9800, efeito: () => {
         playerStats.tripleBullets = true;
       }
     },
@@ -695,10 +695,10 @@ function spawnWave() {
     let bonusXP = 0;
     if (wave <= 5) {
         switch (wave) {
-            case 1: bonusXP = 20; break; // XP base 10 + 20 = 30 para normal
-            case 2: bonusXP = 15; break; // XP base 10 + 15 = 25 para normal
-            case 3: bonusXP = 10; break; // XP base 10 + 10 = 20 para normal
-            case 4: bonusXP = 5; break;  // XP base 10 + 5 = 15 para normal
+            case 1: bonusXP = 30; break; // XP base 10 + 30 = 40 para normal
+            case 2: bonusXP = 20; break; // XP base 10 + 20 = 30 para normal
+            case 3: bonusXP = 15; break; // XP base 10 + 15 = 25 para normal
+            case 4: bonusXP = 10; break;  // XP base 10 + 10 = 20 para normal
             case 5: bonusXP = 0; break;  // Volta ao XP normal
         }
     }
@@ -724,7 +724,7 @@ function dashPlayer() {
     return;
   }
 
-  const dashDistance = 150;
+  const dashDistance = 200;
 
   this.tweens.add({
     targets: player,
