@@ -1,1205 +1,865 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="author" content="Bernardo" />
-  <meta name="description" content="Portfólio de Bernardo - Desenvolvedor Web" />
-  <title>Portfólio - Bernardo F.V</title>
-  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <title>War of the Automatons V.1.2.7 - Multi-Enemy Update</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
-    /* Reset and Base Styles */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
     body {
-      font-family: 'Share Tech Mono', monospace; /* Changed font for biopunk feel */
-      background-color: #000;
-      color: #00ff66; /* Brighter green for biopunk */
-      font-size: 1.1rem;
-      line-height: 1.6;
-      transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
-      overflow-x: hidden;
-    }
-
-    /* Light Mode - Biopunk Adaptation */
-    .light-mode {
-      background-color: #e0f8e0; /* Softer light green */
-      color: #008033; /* Darker green */
-      font-family: 'Share Tech Mono', monospace;
-    }
-
-    /* Star Background - Retained, but potentially adjusted */
-    .estrelas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: url('images/fundo.png') repeat top center; /* Assuming 'fundo.png' is a starfield */
-      z-index: 0;
-      pointer-events: none;
-      opacity: 0.08; /* Slightly less opaque */
-      animation: moveStars 120s linear infinite;
-    }
-
-    /* Floating Avatar - Retained, but styling might be adapted */
-    .avatar-flutuante {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 120px;
-      height: auto;
-      z-index: 99;
-      animation: aparecer 2s ease-in-out forwards, flutuar 3s ease-in-out infinite;
-      cursor: pointer;
-    }
-
-    .avatar-flutuante img {
-      width: 100%;
-      border-radius: 20%;
-      box-shadow: 0 0 25px rgba(0, 255, 102, 0.4); /* Biopunk glow */
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-      border: 2px solid #00ff66; /* Green border */
-    }
-
-    .avatar-flutuante img:hover {
-      transform: scale(1.08);
-      box-shadow: 0 0 35px rgba(0, 255, 102, 0.6);
-    }
-
-    /* Speech Bubble - Biopunk Style */
-    .balao-fala {
-      position: fixed;
-      bottom: 160px;
-      right: 150px;
-      background: rgba(0, 51, 25, 0.9); /* Darker, semi-transparent green */
-      color: #00ff66;
-      padding: 12px 18px;
-      border-radius: 12px;
-      font-size: 0.95rem;
-      box-shadow: 0 0 15px rgba(0, 255, 102, 0.5);
-      animation: fadeInBalao 0.5s ease forwards;
-      z-index: 99;
-      display: none;
-      opacity: 0;
-      transform: translateY(20px);
-      border: 1px solid #00cc55;
-    }
-
-    /* Keyframe Animations - Adjusted colors/shadows for biopunk */
-    @keyframes fadeInBalao {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes flutuar {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-12px); } /* Slightly more float */
-    }
-
-    @keyframes aparecer {
-      from { opacity: 0; transform: translateY(30px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes moveStars {
-      from { background-position: 0 0; }
-      to { background-position: 100% 100%; }
-    }
-
-    /* Header - HUD Style */
-    header {
-      background: linear-gradient(180deg, #001a0a 0%, #000 100%); /* Darker gradient */
-      color: #00ff66;
-      text-align: center;
-      padding: 80px 20px 40px; /* Adjusted padding */
-      position: relative;
-      z-index: 1;
+      margin: 0;
       overflow: hidden;
-      border-bottom: 2px solid #00ff66; /* Biopunk separator */
-      box-shadow: 0 5px 20px rgba(0, 255, 102, 0.2);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      background: #0a0000ce;
     }
-
-    header h1 {
-      font-size: 4rem; /* Larger title */
-      font-weight: bold;
-      margin-bottom: 15px;
-      letter-spacing: 3px; /* More prominent */
-      animation: slideInLeft 1s ease-out forwards;
-      text-shadow: 0 0 10px rgba(0, 255, 102, 0.7);
-    }
-
-    header p {
-      font-size: 1.6rem; /* Larger subtitle */
-      font-weight: 300;
-      letter-spacing: 1.5px;
-      max-width: 700px; /* Wider subtitle */
-      margin: 0 auto 30px; /* More space below */
-      animation: slideInRight 1s ease-out forwards;
-      animation-delay: 0.3s;
-      color: #99ffbb; /* Lighter green for subtitle */
-    }
-
-    /* Navigation - Integrated HUD Look */
-    nav {
-      position: static; /* Removed absolute positioning */
-      transform: none; /* Removed transform */
-      display: flex;
-      flex-wrap: wrap; /* Allow wrapping on smaller screens */
-      gap: 25px; /* Adjusted gap */
-      font-size: 1.3rem; /* Slightly larger nav links */
-      font-weight: 500;
-      margin-top: 20px; /* Space from subtitle */
-    }
-
-    nav a {
-      color: #00ff66;
-      text-decoration: none;
-      transition: color 0.3s ease, transform 0.3s ease, text-shadow 0.3s ease;
-      padding: 8px 15px;
-      border: 1px solid #008033; /* Subtle border */
-      border-radius: 5px;
-      background: rgba(0, 51, 25, 0.5); /* Semi-transparent background */
-    }
-
-    nav a:hover {
-      color: #aaffaa; /* Lighter green on hover */
-      transform: translateY(-4px);
-      text-shadow: 0 0 8px #00ff66;
-      background: rgba(0, 80, 40, 0.7);
-      border-color: #00ff66;
-    }
-
-    /* Theme Toggle Button - HUD Style */
-    .theme-toggle, .language-toggle {
-      position: absolute;
-      top: 30px; /* Adjust position */
-      background: none;
-      border: 2px solid #00ff66;
-      color: #00ff66;
-      padding: 8px 15px; /* Larger padding */
-      border-radius: 8px; /* Slightly more rounded */
-      cursor: pointer;
-      font-weight: bold;
-      transition: all 0.3s ease;
-      overflow: hidden;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 1rem;
-      text-shadow: 0 0 5px rgba(0, 255, 102, 0.5);
-    }
-
-    .theme-toggle {
-      right: 30px;
-    }
-
-    .language-toggle {
-      right: 170px; /* Adjusted position */
-    }
-
-    .theme-toggle:hover, .language-toggle:hover {
-      background-color: #00ff66;
-      color: #000;
-      box-shadow: 0 0 20px rgba(0, 255, 102, 0.8);
-      transform: scale(1.07);
-      text-shadow: none;
-    }
-
-    .light-mode .theme-toggle, .light-mode .language-toggle {
-      border-color: #008033;
-      color: #008033;
-      text-shadow: none;
-    }
-
-    .light-mode .theme-toggle:hover, .light-mode .language-toggle:hover {
-      background-color: #008033;
-      color: #e0f8e0;
-      box-shadow: 0 0 20px rgba(0, 128, 51, 0.8);
-    }
-
-    /* Sections - Biopunk feel */
-    main section {
-      padding: 100px 20px; /* More vertical padding */
-      margin-top: 30px; /* More space between sections */
-      z-index: 1;
-      opacity: 0;
-      transform: translateY(60px); /* Deeper animation start */
-      transition: opacity 0.7s ease-out, transform 0.7s ease-out;
-      background: rgba(0, 15, 8, 0.7); /* Semi-transparent background */
-      border-radius: 15px; /* Rounded corners */
-      border: 1px solid rgba(0, 255, 102, 0.2);
-      box-shadow: 0 8px 25px rgba(0, 255, 102, 0.1);
-    }
-
-    main section.is-visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    h2 {
-      text-align: center;
-      font-size: 3rem; /* Larger section titles */
-      margin-bottom: 25px;
-      font-weight: 600;
-      animation: fadeInDown 0.8s ease-out forwards;
-      color: #00ff66;
-      text-shadow: 0 0 8px rgba(0, 255, 102, 0.6);
-      border-bottom: 1px dashed rgba(0, 255, 102, 0.4); /* Dashed separator */
-      padding-bottom: 10px;
-    }
-
-    .container {
-      max-width: 1000px; /* Slightly smaller container for denser feel */
-      width: 85%;
-      margin: 0 auto;
-    }
-
-    /* Skill Cards / Project Cards - Biopunk Modules */
-    ul {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Slightly larger cards */
-      gap: 25px; /* More space between cards */
-      list-style: none;
-      padding: 0;
-    }
-
-    li {
-      background: #002211; /* Darker green background */
-      padding: 25px; /* More padding */
-      border-radius: 10px; /* More rounded */
-      box-shadow: 0 6px 15px rgba(0, 255, 102, 0.15);
-      transition: all 0.4s ease; /* Slower transition */
-      opacity: 0;
-      transform: translateY(25px);
-      border: 1px solid #005522; /* Subtle border */
-      position: relative; /* For potential glow effects */
-    }
-
-    li:hover {
-      transform: translateY(-12px) scale(1.03); /* More lift and scale */
-      box-shadow: 0 10px 25px rgba(0, 255, 102, 0.4);
-      background: #00331a; /* Slightly lighter on hover */
-    }
-
-    li h3 {
-      font-size: 1.8rem; /* Larger skill/project titles */
-      margin-bottom: 12px;
-      color: #00ff66;
-      text-shadow: 0 0 5px rgba(0, 255, 102, 0.5);
-    }
-
-    li p {
-      font-size: 1.05rem; /* Slightly larger text */
-      color: #88ffbb; /* Lighter green */
-    }
-
-    /* Inventory Section - New Biopunk Element */
-    #inventory {
-      padding: 80px 20px;
-      margin-top: 30px;
-      background: rgba(10, 0, 0, 0.8); /* Darker, slightly red background */
-      border-radius: 15px;
-      border: 2px solid #ff3300; /* Red-orange border for danger/special */
-      box-shadow: 0 8px 30px rgba(255, 51, 0, 0.4);
-      color: #ffaa99;
-      text-align: center;
-    }
-
-    #inventory h2 {
-      color: #ff3300;
-      text-shadow: 0 0 10px rgba(255, 51, 0, 0.8);
-      border-bottom: 1px dashed rgba(255, 51, 0, 0.6);
-    }
-
-    .inventory-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-      gap: 15px;
-      padding: 20px;
-      background: rgba(20, 0, 0, 0.6);
-      border-radius: 10px;
-      border: 1px solid rgba(255, 51, 0, 0.3);
-      max-width: 800px;
-      margin: 20px auto;
-    }
-
-    .inventory-item {
-      background: rgba(50, 0, 0, 0.7);
-      border: 1px solid #ff6600;
-      border-radius: 8px;
-      padding: 10px;
-      text-align: center;
-      color: #ffccaa;
-      font-size: 0.9rem;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      cursor: pointer;
-      position: relative;
-    }
-
-    .inventory-item:hover {
-      transform: translateY(-5px) scale(1.05);
-      box-shadow: 0 0 15px rgba(255, 102, 0, 0.8);
-      background: rgba(80, 0, 0, 0.8);
-    }
-
-    .inventory-item img {
-      width: 60px;
-      height: 60px;
-      object-fit: contain;
-      margin-bottom: 5px;
-      filter: drop-shadow(0 0 5px rgba(255, 102, 0, 0.5)); /* Item glow */
-    }
-
-    .inventory-item span {
+    canvas {
       display: block;
-      margin-top: 5px;
-      font-weight: bold;
-    }
-
-    /* Boss Section - New Biopunk Element */
-    #boss-section {
-      padding: 80px 20px;
-      margin-top: 30px;
-      background: rgba(0, 0, 0, 0.9); /* Very dark background */
-      border-radius: 15px;
-      border: 3px solid #ff0000; /* Intense red border */
-      box-shadow: 0 0 50px rgba(255, 0, 0, 0.7); /* Strong red glow */
-      color: #ffaaaa;
-      text-align: center;
-      position: relative;
-      overflow: hidden; /* For animations within */
-    }
-
-    #boss-section h2 {
-      color: #ff0000;
-      text-shadow: 0 0 15px rgba(255, 0, 0, 1);
-      font-size: 3.5rem;
-      animation: pulseGlow 1.5s infinite alternate; /* Pulsing glow */
-    }
-
-    @keyframes pulseGlow {
-      from { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
-      to { box-shadow: 0 0 30px rgba(255, 0, 0, 1); }
-    }
-
-    .boss-container {
-      margin-top: 40px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .boss-image {
-      width: 300px;
-      height: 300px;
-      background: url('images/biopunk_boss.png') no-repeat center center / contain; /* Placeholder for boss image */
-      margin-bottom: 30px;
-      animation: bossAppear 2s ease-out forwards;
-      filter: drop-shadow(0 0 20px rgba(255, 0, 0, 0.8));
-    }
-
-    @keyframes bossAppear {
-      from { opacity: 0; transform: scale(0.5) translateY(50px); }
-      to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-
-    .boss-health-bar {
-      width: 80%;
-      max-width: 600px;
-      height: 30px;
-      background: #330000; /* Dark red empty bar */
-      border: 2px solid #ff0000;
-      border-radius: 15px;
-      overflow: hidden;
-      margin-bottom: 20px;
-      box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
-    }
-
-    .boss-health {
-      height: 100%;
-      width: 100%; /* Initial full health */
-      background: linear-gradient(90deg, #ff0000 0%, #ff6600 100%); /* Red to orange gradient */
-      transition: width 0.5s ease-out;
-      border-radius: 12px;
-      position: relative;
-    }
-
-    .boss-health::after {
-      content: attr(data-health-percentage);
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: white;
-      font-weight: bold;
-      text-shadow: 0 0 5px black;
-    }
-
-    .boss-description {
-      font-size: 1.1rem;
-      max-width: 700px;
-      margin: 0 auto 30px;
-      color: #ffdddd;
-    }
-
-    .boss-attack-button {
-      background: #ff0000;
-      color: white;
-      padding: 15px 30px;
-      border: 2px solid #ff6600;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 1.2rem;
-      font-weight: bold;
-      transition: all 0.3s ease;
-      text-shadow: 0 0 5px black;
-      box-shadow: 0 5px 15px rgba(255, 0, 0, 0.5);
-      font-family: 'Share Tech Mono', monospace;
-    }
-
-    .boss-attack-button:hover {
-      background: #ff3300;
-      box-shadow: 0 0 25px rgba(255, 0, 0, 0.9);
-      transform: translateY(-3px) scale(1.02);
-    }
-
-    /* Weapon Level HUD Element */
-    .weapon-level-hud {
-        position: absolute;
-        top: 30px;
-        left: 30px; /* Position it on the left */
-        background: rgba(0, 51, 25, 0.8); /* Dark green background */
-        border: 2px solid #00ff66;
-        color: #00ff66;
-        padding: 10px 20px;
-        border-radius: 10px;
-        font-size: 1.2rem;
-        font-weight: bold;
-        text-shadow: 0 0 8px rgba(0, 255, 102, 0.7);
-        box-shadow: 0 0 15px rgba(0, 255, 102, 0.4);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .weapon-level-hud img {
-        width: 30px;
-        height: 30px;
-        filter: brightness(1.2) drop-shadow(0 0 5px #00ff66);
-    }
-
-    /* Footer - Biopunk touch */
-    footer {
-      text-align: center;
-      background-color: #000;
-      color: #00ff66;
-      padding: 25px;
-      border-top: 1px solid #005522;
-      transition: background-color 0.5s, color 0.5s;
-      font-size: 0.95rem;
-      text-shadow: 0 0 3px rgba(0, 255, 102, 0.3);
-    }
-
-    footer a {
-      color: #00cc66;
-      text-decoration: none;
-      transition: color 0.3s ease;
-    }
-
-    footer a:hover {
-      color: #aaffaa;
-      text-decoration: underline;
-    }
-
-    /* Animations for text and elements */
-    @keyframes slideInLeft {
-      from { opacity: 0; transform: translateX(-100%); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
-    @keyframes slideInRight {
-      from { opacity: 0; transform: translateX(100%); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
-    @keyframes fadeInDown {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Media Queries */
-    @media (max-width: 768px) {
-      header h1 {
-        font-size: 3rem;
-      }
-
-      header p {
-        font-size: 1.2rem;
-      }
-
-      nav {
-        flex-direction: column;
-        gap: 15px;
-        margin-top: 20px;
-      }
-
-      .container {
-        width: 90%;
-      }
-
-      .avatar-flutuante {
-        width: 80px;
-        bottom: 10px;
-        right: 10px;
-      }
-
-      .balao-fala {
-        bottom: 100px;
-        right: 90px;
-        font-size: 0.8rem;
-        padding: 8px 12px;
-      }
-
-      .theme-toggle, .language-toggle {
-        position: static;
-        margin-top: 10px;
-      }
-
-      .theme-language-toggles {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-        position: absolute;
-        top: 20px;
-        right: 20px;
-      }
-
-      .weapon-level-hud {
-        position: static; /* Adjust for mobile, perhaps below title or above nav */
-        margin: 20px auto;
-        width: fit-content;
-        left: unset;
-        top: unset;
-      }
-
-      h2 {
-        font-size: 2rem;
-      }
-
-      .inventory-grid {
-        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-      }
-
-      .boss-image {
-        width: 200px;
-        height: 200px;
-      }
-    }
+      margin: auto;}
   </style>
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
 </head>
 <body>
-  <div class="estrelas"></div>
-  <header>
-    <div class="theme-language-toggles">
-        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Alternar tema" data-lang="themeToggle">Dia ☀️ / Noite 💻</button>
-        <button class="language-toggle" onclick="toggleLanguage()" aria-label="Alternar idioma">PT / EN</button>
-    </div>
-    <div class="weapon-level-hud">
-        <img src="images/icon_pistol.png" alt="Pistol Icon"> <span data-lang="weaponLevelDisplay">Pistolinha Nível: <span id="pistolLevel">1</span></span>
-    </div>
-    <h1 data-lang="mainTitle">Bernardo Fernandes Valentim</h1>
-    <p data-lang="subtitle">[~] Criando experiências digitais do terminal para a sua tela</p>
-    <nav class="hud-nav">
-      <a href="#sobre" data-lang="about">Sobre</a>
-      <a href="#habilidades" data-lang="skills">Habilidades</a>
-      <a href="#projetos" data-lang="projects">Projetos</a>
-      <a href="#inventory" data-lang="inventory">Inventário</a>
-      <a href="#boss-section" data-lang="boss">Boss</a>
-    </nav>
-  </header>
+<script>
+const config = {
+  type: Phaser.AUTO,
+  width: 1300,
+  height: 580,
+  backgroundColor: '#000000',
+  physics: {
+    default: 'arcade',
+    arcade: { debug: false }
+  },
+  scene: {
+    preload,
+    create,
+    update
+  }
+};
 
-  <main>
-    <section id="sobre" class="about" aria-label="Seção Sobre Mim">
-      <div class="container">
-        <h1 data-lang="aboutTitle">☕ Ei, você aí...</h1>
-        <p data-lang="aboutText">
-          Nada aqui é por acaso. Se esse café te chamou,
-          é porque seu projeto tá pedindo algo mais —
-          algo com <strong>alma</strong>, com <strong>presença digital de verdade</strong>.<br><br>
-          Me chamo <strong>Bernardo</strong>. <br><br>
-          Sou dev web, mas prefiro dizer que sou <strong>arquiteto de experiências</strong>.
-          Pego ideias cruas, às vezes mal rabiscadas num guardanapo,
-          e transformo em sites e sistemas que não só funcionam —
-          <em>seduzem, conectam, vendem, impactam</em>.
-          <br><br>
-          Mas olha só: eu <strong>não sou só mais um dev</strong>.
-          Eu me envolvo, mergulho, desenrolo,
-          cutuco sua ideia até ela gritar de originalidade.
-          <br><br>
-          🔥 Não tô aqui pra te entregar um site comum.
-          Tô aqui pra te entregar um <strong>portal</strong>,
-          uma <strong>vitrine viva</strong>, um canal que faz sua marca
-          se destacar no meio do mar digital onde todo mundo tá gritando igual.
-          <br><br>
-          Você quer um <em>código bonito</em>
-          ou uma <strong>presença digital que causa impacto?</strong>
-          <br><br>
-          Se for o segundo…
-          <br><br>
-          Então <strong>bora tomar esse café, trocar ideia</strong>,
-          e começar algo que ninguém vai esquecer.
-        </p>
-      </div>
-    </section>
+let waveText;
+let hudGroup;
+let armaNomeText;
+let armaImagem;
+let player, cursors;
+let bullets, enemies, enemyBullets, armas;
+let lastShoot = 0;
+let showingCards = false;
+let wave = 1; //onda
+let cardsGroup; //grupo de cartas
+let spiritAlly = null; //aliado
+let playerCards = []; // Cartas que o jogador pegou
+let cardsHUDGroup; // Grupo visual do HUD de cartas
 
-    <section id="habilidades" class="skills" aria-label="Seção de Habilidades Técnicas">
-      <div class="container">
-        <h2 data-lang="skillsTitle">Minhas Habilidades</h2>
-        <ul>
-          <li class="skill-item">
-            <h3 data-lang="pythonTitle">Python</h3>
-            <p data-lang="pythonDesc">Desenvolvimento de aplicações back-end, automações e análise de dados. Experiência com Flask e Django.</p>
-          </li>
-          <li class="skill-item">
-            <h3 data-lang="csharpTitle">C#</h3>
-            <p data-lang="csharpDesc">Criação de APIs, sistemas corporativos e apps com ASP.NET e Xamarin.</p>
-          </li>
-          <li class="skill-item">
-            <h3 data-lang="djangoTitle">Django</h3>
-            <p data-lang="djangoDesc">Aplicações web robustas com APIs RESTful e admin customizado.</p>
-          </li>
-          <li class="skill-item">
-            <h3 data-lang="htmlcssTitle">HTML & CSS</h3>
-            <p data-lang="htmlcssDesc">Interfaces modernas, acessíveis e responsivas com HTML5 e CSS3.</p>
-          </li>
-        </ul>
-      </div>
-    </section>
 
-    <section id="projetos" class="projects" aria-label="Seção de Projetos">
-      <div class="container">
-        <h2 data-lang="projectsTitle">Meus Projetos</h2>
-        <p data-lang="projectsIntro">Aqui você pode ver alguns dos meus trabalhos recentes. Cada projeto é uma história de desafios superados e soluções criativas.</p>
-        <ul>
-          <li class="project-item">
-            <h3 data-lang="projectAlphaTitle">Projeto Alpha</h3>
-            <p data-lang="projectAlphaDesc">Desenvolvimento de uma plataforma e-commerce responsiva com integração de pagamentos.</p>
-          </li>
-          <li class="project-item">
-            <h3 data-lang="projectBetaTitle">Sistema de Gestão Beta</h3>
-            <p data-lang="projectBetaDesc">Construção de um sistema interno para otimização de processos empresariais.</p>
-          </li>
-          <li class="project-item">
-            <h3 data-lang="projectXYZTitle">API Restful XYZ</h3>
-            <p data-lang="projectXYZDesc">Criação de uma API robusta para serviço de dados, com autenticação JWT.</p>
-          </li>
-          <li class="project-item">
-            <h3 data-lang="rpgSiteTitle">Raízes de Cobre</h3>
-            <p data-lang="rpgSiteDesc">Um site interativo para campanhas de RPG, com gerenciamento de personagens e histórias.</p>
-          </li>
-          <li class="project-item">
-            <h3 data-lang="choiceGameTitle">Escolhas de Ferrumia</h3>
-            <p data-lang="choiceGameDesc">Um jogo narrativo de escolhas que moldam a história, desenvolvido com foco na ramificação de enredos.</p>
-          </li>
-          <li class="project-item">
-            <h3 data-lang="bulletHellTitle">Guerras dos Autômatos</h3>
-            <p data-lang="bulletHellDesc">Jogo estilo bullet hell com gráficos vibrantes e mecânicas de combate desafiadoras.</p>
-          </li>
-          <li class="project-item">
-            <h3 data-lang="bankProjectTitle">Projeto de Banco</h3>
-            <p data-lang="bankProjectDesc">Simulação de sistema bancário com funcionalidades de depósito, saque e transferência.</p>
-          </li>
-          <li class="project-item">
-            <h3 data-lang="rdchatTitle">RDChat</h3>
-            <p data-lang="rdchatDesc">Aplicação de chat onde você pode interagir com personagens de Red Dead Redemption, utilizando IA para as respostas.</p>
-          </li>
-          <li class="project-item">
-            <h3 data-lang="votingSiteTitle">Site de Votação</h3>
-            <p data-lang="votingSiteDesc">Plataforma online para criação e participação em votações, com resultados em tempo real e segurança de dados.</p>
-          </li>
-        </ul>
-      </div>
-    </section>
+let playerStats = {
+  life: 3,
+  maxLife: 3,
+  bulletDamage: 1,
+  fireRate: 3000,
+  hasShield: false,
+  spiritAllyActive: false,
+  spreadUpgrade: false,
+  doubleBullets: false,
+  dashAvailable: false,
+  dashCooldown: false,
+  slowEnemies: false,
+  reviveOnce: false,
+  increasedDropRate: false,
+  tripleBullets: false,
+  playerSpeed: 400,
+  healOnKill: false,
+  damageAura: false,
+  speedBoost: false,
+  bulletPiercing: false,
+  thorns: false,
+  bulletSpeedBoost: false,
+  xp: 0,
+  level: 1,
+  xpToNextLevel: 100,
+  waveXpGoal: 20
+};
 
-    <section id="inventory" aria-label="Seção de Inventário">
-      <div class="container">
-        <h2 data-lang="inventoryTitle">Inventário de Itens</h2>
-        <p data-lang="inventoryIntro">Aqui estão alguns itens que você pode coletar em sua jornada digital. Clique para inspecionar!</p>
-        <div class="inventory-grid" id="inventoryGrid">
-          </div>
-      </div>
-    </section>
+const tiposDeArmas = {
+  arma1: { dano: 1, fireRate: 3000 },
+  arma2: { dano: 2, fireRate: 1000 },
+  arma3: { dano: 3, fireRate: 2000 }
+};
 
-    <section id="boss-section" aria-label="Seção do Boss">
-      <div class="container">
-        <h2 data-lang="bossTitle">O Vírus Corrompido</h2>
-        <p data-lang="bossDesc" class="boss-description">
-          Um artefato digital maligno que se manifestou para corromper o fluxo de dados.
-          Sua presença distorce a realidade. Prepare-se para o confronto final!
-        </p>
-        <div class="boss-container">
-          <div class="boss-image"></div>
-          <div class="boss-health-bar">
-            <div class="boss-health" id="bossHealth" data-health-percentage="100%"></div>
-          </div>
-          <button class="boss-attack-button" onclick="attackBoss()" data-lang="attackButton">Atacar o Vírus!</button>
-          <p id="attackMessage" style="margin-top: 20px; font-weight: bold; color: #ff6666;"></p>
-        </div>
-      </div>
-    </section>
+const enemyTypes = {
+  normal: {
+    texture: 'enemy',
+    baseHealth: 4,
+    speed: 100,
+    scale: 0.06,
+    xpReward: 10 // Valor base
+  },
+  fast: {
+    texture: 'enemy_fast',
+    baseHealth: 4,
+    speed: 180,
+    scale: 0.06,
+    xpReward: 15 // Valor base
+  },
+  tank: {
+    texture: 'enemy_tank',
+    baseHealth: 9,
+    speed: 70,
+    scale: 0.08,
+    xpReward: 25 // Valor base
+  }
+};
 
-  </main>
+const game = new Phaser.Game(config);
 
-  <div class="avatar-flutuante" onclick="mostrarMensagem()">
-    <img src="images/avatar.png" alt="Avatar do Bernardo" />
-  </div>
-  <div class="balao-fala" id="balaoFala">Bem-vindo(a)! Explore meus projetos 👾</div>
+function preload() {
+  this.load.image('cardBg', 'assets/card.png');
+  this.load.image('player', 'assets/player.png');
+  this.load.image('bullet', 'assets/bullet.png');
+  this.load.image('arma1', 'assets/pistolinha.png');
+  this.load.image('arma2', 'assets/metralha.png');
+  this.load.image('arma3', 'assets/lancarrio.png');
+  this.load.image('fundogame', 'assets/fundogame.png');
+  this.load.image('cora', 'assets/cora.png');
 
-  <footer>
-    <p>&copy; 2025 Bernardo. Desenvolvedor Web. <a href="mailto:bernardo.8350855@aluno.mg.gov.br" data-lang="footerContact">Contate-me</a></p>
-  </footer>
+  this.load.image('enemy', 'assets/enemy_robot.png');
+  this.load.image('enemy_fast', 'assets/enemy_fast.png');
+  this.load.image('enemy_tank', 'assets/enemy_tank.png');
+}
 
-  <script>
-    // Language data
-    const translations = {
-      'pt': {
-        'about': 'Sobre',
-        'skills': 'Habilidades',
-        'projects': 'Projetos',
-        'inventory': 'Inventário', /* New */
-        'boss': 'Boss', /* New */
-        'themeToggle': 'Dia ☀️ / Noite 💻',
-        'mainTitle': 'Bernardo Fernandes Valentim',
-        'subtitle': '[~] Criando experiências digitais do terminal para a sua tela',
-        'aboutTitle': '☕ Ei, você aí...',
-        'aboutText': `
-          Nada aqui é por acaso. Se esse café te chamou,
-          é porque seu projeto tá pedindo algo mais —
-          algo com <strong>alma</strong>, com <strong>presença digital de verdade</strong>.<br><br>
-          Me chamo <strong>Bernardo</strong>. <br><br>
-          Sou dev web, mas prefiro dizer que sou <strong>arquiteto de experiências</strong>.
-          Pego ideias cruas, às vezes mal rabiscadas num guardanapo,
-          e transformo em sites e sistemas que não só funcionam —
-          <em>seduzem, conectam, vendem, impactam</em>.
-          <br><br>
-          Mas olha só: eu <strong>não sou só mais um dev</strong>.
-          Eu me envolvo, mergulho, desenrolo,
-          cutuco sua ideia até ela gritar de originalidade.
-          <br><br>
-          🔥 Não tô aqui pra te entregar um site comum.
-          Tô aqui pra te entregar um <strong>portal</strong>,
-          uma <strong>vitrine viva</strong>, um canal que faz sua marca
-          se destacar no meio do mar digital onde todo mundo tá gritando igual.
-          <br><br>
-          Você quer um <em>código bonito</em>
-          ou uma <strong>presença digital que causa impacto?</strong>
-          <br><br>
-          Se for o segundo…
-          <br><br>
-          Então <strong>bora tomar esse café, trocar ideia</strong>,
-          e começar algo que ninguém vai esquecer.
-        `,
-        'skillsTitle': 'Minhas Habilidades',
-        'pythonTitle': 'Python',
-        'pythonDesc': 'Desenvolvimento de aplicações back-end, automações e análise de dados. Experiência com Flask e Django.',
-        'csharpTitle': 'C#',
-        'csharpDesc': 'Criação de APIs, sistemas corporativos e apps com ASP.NET e Xamarin.',
-        'djangoTitle': 'Django',
-        'djangoDesc': 'Aplicações web robustas com APIs RESTful e admin customizado.',
-        'htmlcssTitle': 'HTML & CSS',
-        'htmlcssDesc': 'Interfaces modernas, acessíveis e responsivas com HTML5 e CSS3.',
-        'projectsTitle': 'Meus Projetos',
-        'projectsIntro': 'Aqui você pode ver alguns dos meus trabalhos recentes. Cada projeto é uma história de desafios superados e soluções criativas.',
-        'projectAlphaTitle': 'Projeto Alpha',
-        'projectAlphaDesc': 'Desenvolvimento de uma plataforma e-commerce responsiva com integração de pagamentos.',
-        'projectBetaTitle': 'Sistema de Gestão Beta',
-        'projectBetaDesc': 'Construção de um sistema interno para otimização de processos empresariais.',
-        'projectXYZTitle': 'API Restful XYZ',
-        'projectXYZDesc': 'Criação de uma API robusta para serviço de dados, com autenticação JWT.',
-        'rpgSiteTitle': 'Raízes de Cobre',
-        'rpgSiteDesc': 'Um site interativo para campanhas de RPG, com gerenciamento de personagens e histórias.',
-        'choiceGameTitle': 'Escolhas de Ferrumia',
-        'choiceGameDesc': 'Um jogo narrativo de escolhas que moldam a história, desenvolvido com foco na ramificação de enredos.',
-        'bulletHellTitle': 'Guerras dos Autômatos',
-        'bulletHellDesc': 'Jogo estilo bullet hell com gráficos vibrantes e mecânicas de combate desafiadoras.',
-        'bankProjectTitle': 'Projeto de Banco',
-        'bankProjectDesc': 'Simulação de sistema bancário com funcionalidades de depósito, saque e transferência.',
-        'rdchatTitle': 'RDChat',
-        'rdchatDesc': 'Aplicação de chat onde você pode interagir com personagens de Red Dead Redemption, utilizando IA para as respostas.',
-        'votingSiteTitle': 'Site de Votação',
-        'votingSiteDesc': 'Plataforma online para criação e participação em votações, com resultados em tempo real e segurança de dados.',
-        'inventoryTitle': 'Inventário de Itens', /* New */
-        'inventoryIntro': 'Aqui estão alguns itens que você pode coletar em sua jornada digital. Clique para inspecionar!', /* New */
-        'bossTitle': 'O Vírus Corrompido', /* New */
-        'bossDesc': 'Um artefato digital maligno que se manifestou para corromper o fluxo de dados. Sua presença distorce a realidade. Prepare-se para o confronto final!', /* New */
-        'attackButton': 'Atacar o Vírus!', /* New */
-        'itemBioChip': 'Bio-Chip de Processamento', /* New */
-        'itemDataCrystal': 'Cristal de Dados Raros', /* New */
-        'itemNeuralImplant': 'Implante Neural 2.0', /* New */
-        'itemQuantumKey': 'Chave Quântica', /* New */
-        'itemSynapticFluid': 'Fluido Sináptico', /* New */
-        'itemBioChipDesc': 'Aumenta sua capacidade de processamento de dados em 10%.', /* New */
-        'itemDataCrystalDesc': 'Contém fragmentos de algoritmos perdidos, valor inestimável.', /* New */
-        'itemNeuralImplantDesc': 'Melhora a interface neural, concede +5 de lógica.', /* New */
-        'itemQuantumKeyDesc': 'Abre portais para dimensões de dados ocultas.', /* New */
-        'itemSynapticFluidDesc': 'Restaura 20 pontos de energia cognitiva.', /* New */
-        'footerContact': 'Contate-me',
-        'speechBubble1': 'Hoje é um bom dia pra codar ☕',
-        'speechBubble2': 'Explore meus projetos, faço mágicas com meus códigos front-end ☕',
-        'speechBubble3': 'Se encontrar um bug, me chame .-. ☕',
-        'speechBubble4': 'React, Python e uma pitada de magia ☕',
-        'speechBubble5': 'Quer fazer algo único? Vem comigo! ☕',
-        'speechBubble6': 'Quer me conhecer melhor? Contate-me ☕',
-        'speechBubble7': 'Sua ideia + meu código = sucesso! ✨',
-        'attackSuccess': 'Você causou {damage} de dano! Saúde do Boss: {health}%', /* New */
-        'bossDefeated': 'O Vírus foi desintegrado! Vitória!', /* New */
-        'bossAlreadyDefeated': 'O Vírus já foi aniquilado. Descanse, guerreiro digital.', /* New */
-        'weaponLevelDisplay': 'Pistolinha Nível: ', /* New */
-        'weaponLevelUp': 'Sua Pistolinha subiu para o Nível {level}! Dano aumentado!', /* New */
-      },
-      'en': {
-        'about': 'About',
-        'skills': 'Skills',
-        'projects': 'Projects',
-        'inventory': 'Inventory', /* New */
-        'boss': 'Boss', /* New */
-        'themeToggle': 'Day ☀️ / Night 💻',
-        'mainTitle': 'Bernardo Fernandes Valentim',
-        'subtitle': '[~] Crafting digital experiences from terminal to your screen',
-        'aboutTitle': '☕ Hey, you there...',
-        'aboutText': `
-          Nothing here is by chance. If this coffee called you,
-          it's because your project is asking for something more —
-          something with <strong>soul</strong>, with <strong>true digital presence</strong>.<br><br>
-          My name is <strong>Bernardo</strong>. <br><br>
-          I'm a web dev, but I prefer to say I'm an <strong>experience architect</strong>.
-          I take raw ideas, sometimes just scribbled on a napkin,
-          and transform them into websites and systems that not only work —
-          <em>seduce, connect, sell, impact</em>.
-          <br><br>
-          But look: I'm <strong>not just another dev</strong>.
-          I get involved, dive deep, untangle,
-          poke your idea until it screams originality.
-          <br><br>
-          🔥 I'm not here to deliver a common website.
-          Tô here to deliver a <strong>portal</strong>,
-          a <strong>living showcase</strong>, a channel that makes your brand
-          stand out in the digital sea where everyone is shouting the same.
-          <br><br>
-          Do you want <em>beautiful code</em>
-          or a <strong>digital presence that makes an impact?</strong>
-          <br><br>
-          If it's the second…
-          <br><br>
-          Then <strong>let's grab this coffee, chat</strong>,
-          and start something no one will forget.
-        `,
-        'skillsTitle': 'My Skills',
-        'pythonTitle': 'Python',
-        'pythonDesc': 'Development of back-end applications, automation, and data analysis. Experience with Flask and Django.',
-        'csharpTitle': 'C#',
-        'csharpDesc': 'Creation of APIs, corporate systems, and apps with ASP.NET and Xamarin.',
-        'djangoTitle': 'Django',
-        'djangoDesc': 'Robust web applications with RESTful APIs and customized admin.',
-        'htmlcssTitle': 'HTML & CSS',
-        'htmlcssDesc': 'Modern, accessible, and responsive interfaces with HTML5 and CSS3.',
-        'projectsTitle': 'My Projects',
-        'projectsIntro': 'Here you can see some of my recent work. Each project is a story of challenges overcome and creative solutions.',
-        'projectAlphaTitle': 'Project Alpha',
-        'projectAlphaDesc': 'Development of a responsive e-commerce platform with payment integration.',
-        'projectBetaTitle': 'Beta Management System',
-        'projectBetaDesc': 'Construction of an internal system for optimizing business processes.',
-        'projectXYZTitle': 'RESTful API XYZ',
-        'projectXYZDesc': 'Creation of a robust API for data services, with JWT authentication.',
-        'rpgSiteTitle': 'Copper Roots (Raízes de Cobre)',
-        'rpgSiteDesc': 'An interactive website for RPG campaigns, with character and story management.',
-        'choiceGameTitle': 'Ferrumia Choices (Escolhas de Ferrumia)',
-        'choiceGameDesc': 'A narrative choice-based game where decisions shape the story, developed with a focus on branching storylines.',
-        'bulletHellTitle': 'Automaton Wars (Guerras dos Autômatos)',
-        'bulletHellDesc': 'Bullet hell style game with vibrant graphics and challenging combat mechanics.',
-        'bankProjectTitle': 'Bank Project',
-        'bankProjectDesc': 'Banking system simulation with deposit, withdrawal, and transfer functionalities.',
-        'rdchatTitle': 'RDChat',
-        'rdchatDesc': 'Chat application where you can interact with Red Dead Redemption characters, using AI for responses.',
-        'votingSiteTitle': 'Voting Website',
-        'votingSiteDesc': 'Online platform for creating and participating in polls, with real-time results and data security.',
-        'inventoryTitle': 'Item Inventory', /* New */
-        'inventoryIntro': 'Here are some items you might collect on your digital journey. Click to inspect!', /* New */
-        'bossTitle': 'The Corrupted Virus', /* New */
-        'bossDesc': 'A malicious digital artifact that manifested to corrupt the data flow. Its presence distorts reality. Prepare for the final confrontation!', /* New */
-        'attackButton': 'Attack the Virus!', /* New */
-        'itemBioChip': 'Processing Bio-Chip', /* New */
-        'itemDataCrystal': 'Rare Data Crystal', /* New */
-        'itemNeuralImplant': 'Neural Implant 2.0', /* New */
-        'itemQuantumKey': 'Quantum Key', /* New */
-        'itemSynapticFluid': 'Synaptic Fluid', /* New */
-        'itemBioChipDesc': 'Increases your data processing capacity by 10%.', /* New */
-        'itemDataCrystalDesc': 'Contains fragments of lost algorithms, priceless value.', /* New */
-        'itemNeuralImplantDesc': 'Improves neural interface, grants +5 logic.', /* New */
-        'itemQuantumKeyDesc': 'Opens portals to hidden data dimensions.', /* New */
-        'itemSynapticFluidDesc': 'Restores 20 points of cognitive energy.', /* New */
-        'footerContact': 'Contact me',
-        'speechBubble1': 'Today is a good day to code ☕',
-        'speechBubble2': 'Explore my projects, I do magic with my front-end code ☕',
-        'speechBubble3': 'If you find a bug, call me .-. ☕',
-        'speechBubble4': 'React, Python, and a pinch of magic ☕',
-        'speechBubble5': 'Want to build something unique? Come with me! ☕',
-        'speechBubble6': 'Want to know me better? Contact me ☕',
-        'speechBubble7': 'Your idea + my code = success! ✨',
-        'attackSuccess': 'You dealt {damage} damage! Boss Health: {health}%', /* New */
-        'bossDefeated': 'The Virus has been disintegrated! Victory!', /* New */
-        'bossAlreadyDefeated': 'The Virus has already been annihilated. Rest, digital warrior.', /* New */
-        'weaponLevelDisplay': 'Pistol Level: ', /* New */
-        'weaponLevelUp': 'Your Pistol leveled up to Level {level}! Damage increased!', /* New */
+function create() {
+  this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1);
+
+  player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true).setScale(0.05);
+  player.health = playerStats.life;
+  player.maxHealth = playerStats.maxLife;
+
+  this.hud = new HUD(this, player);
+
+  bullets = this.physics.add.group();
+  enemies = this.physics.add.group();
+  enemyBullets = this.physics.add.group();
+  armas = this.physics.add.group();
+
+  cursors = this.input.keyboard.createCursorKeys();
+
+  spawnArmas.call(this);
+
+  this.physics.add.overlap(player, armas, (player, arma) => {
+    pegarArma.call(this, arma);
+  });
+
+  this.input.keyboard.on('keydown-Z', () => {
+    if (playerStats.dashAvailable && !playerStats.dashCooldown) {
+      dashPlayer.call(this);
+    }
+  });
+
+  this.input.keyboard.on('keydown-SPACE', () => {
+    if (!player.active) {
+      this.time.delayedCall(500, () => {
+        this.scene.restart();
+      });
+    }
+  });
+
+  spawnWave.call(this);
+
+  this.physics.add.overlap(bullets, enemies, (b, e) => {
+    if (b.active && e.active) {
+      e.health -= playerStats.bulletDamage;
+
+      if (!playerStats.bulletPiercing) {
+        b.destroy();
+      } else {
+        const particles = this.add.particles('bullet');
+        particles.createEmitter({
+          x: e.x,
+          y: e.y,
+          speed: { min: -50, max: 50 },
+          scale: { start: 0.05, end: 0 },
+          lifespan: 300,
+          blendMode: 'ADD',
+          quantity: 6
+        });
       }
+
+      if (e.health <= 0) {
+        e.destroy();
+        gainXp.call(this, e.xpReward);
+        if (playerStats.healOnKill) {
+          playerStats.life = Math.min(playerStats.life + 0.5, playerStats.maxLife);
+          this.hud.update();
+        }
+      }
+    }
+  });
+
+  this.physics.add.overlap(enemyBullets, player, (b, p) => {
+    if (b.active && p.active) {
+      b.destroy();
+      if (!playerStats.hasShield) {
+        playerStats.life--;
+        this.hud.update();
+        p.setTint(0xff0000);
+        this.time.delayedCall(100, () => p.clearTint());
+
+        if (playerStats.thorns) {
+          enemies.getChildren().forEach(enemy => {
+            const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
+            if (enemy.active && dist < 150) {
+              enemy.health -= 1;
+              if (enemy.health <= 0) {
+                enemy.destroy();
+                gainXp.call(this, enemy.xpReward);
+              }
+            }
+          });
+        }
+
+        if (playerStats.life <= 0) {
+          if (playerStats.reviveOnce) {
+            playerStats.life = 1;
+            playerStats.reviveOnce = false;
+            this.hud.update();
+            p.clearTint();
+            const reviveText = this.add.text(config.width / 2, config.height / 2 - 50, 'REVIVED!', {
+              fontFamily: 'Cinzel',
+              fontSize: '36px',
+              color: '#00FF00',
+              stroke: '#000000',
+              strokeThickness: 6,
+              align: 'center'
+            }).setOrigin(0.5);
+            this.time.delayedCall(3000, () => reviveText.destroy());
+          } else {
+            p.setActive(false).setVisible(false);
+            const gameOverText = this.add.text(config.width / 2, config.height / 2, 'GAME OVER\nPress SPACE to Restart', {
+              fontFamily: 'Cinzel',
+              fontSize: '48px',
+              color: '#FF0000',
+              stroke: '#000000',
+              strokeThickness: 6,
+              align: 'center'
+            }).setOrigin(0.5);
+          }
+        }
+      } else {
+        playerStats.hasShield = false;
+        p.clearTint();
+      }
+    }
+  });
+
+  hudGroup = this.add.group();
+  cardsHUDGroup = this.add.group();
+
+  armaNomeText = this.add.text(config.width / 2, 20, 'Pistolinha', {
+    fontFamily: 'Cinzel',
+    fontSize: '28px',
+    color: '#A62E2E',
+    stroke: '#000000',
+    strokeThickness: 4,
+    shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 4, stroke: true, fill: true }
+  }).setOrigin(0.5, 0);
+
+  const box = this.add.rectangle(config.width / 2, 40, 300, 70, 0x111111, 0.3).setOrigin(0.5, 0);
+  box.setStrokeStyle(2, 0x00ffff, 0.1);
+  hudGroup.add(box);
+
+  armaImagem = this.add.image(config.width / 2, 70, 'arma1').setScale(0.1);
+  hudGroup.addMultiple([armaNomeText, armaImagem]);
+
+  waveText = this.add.text(config.width - 20, 20, `Fase ${wave}`, {
+    fontFamily: 'Cinzel',
+    fontSize: '24px',
+    color: '#FFFFFF',
+    stroke: '#000000',
+    strokeThickness: 4
+  }).setOrigin(1, 0);
+
+  this.time.addEvent({
+    delay: 9000,
+    loop: true,
+    callback: () => {
+      enemies.getChildren().forEach(enemy => {
+        if (!enemy.active) return;
+        const bullet = enemyBullets.create(enemy.x, enemy.y, 'bullet').setScale(0.03);
+        const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
+        this.physics.velocityFromRotation(angle, 150, bullet.body.velocity);
+      });
+    }
+  });
+}
+
+function spawnArmas() {
+  const tipos = Object.keys(tiposDeArmas);
+
+  let dropCount = 3;
+  if (playerStats.increasedDropRate && Phaser.Math.Between(0,100) < 50) {
+    dropCount++;
+  }
+
+  for (let i = 0; i < dropCount; i++) {
+    const tipo = Phaser.Utils.Array.GetRandom(tipos);
+    const x = Phaser.Math.Between(100, config.width - 100);
+    const y = Phaser.Math.Between(100, config.height - 100);
+    const arma = armas.create(x, y, tipo).setScale(0.02);
+    arma.tipo = tipo;
+  }
+}
+
+function pegarArma(arma) {
+  const props = tiposDeArmas[arma.tipo];
+
+  playerStats.bulletDamage = props.dano;
+  playerStats.fireRate = props.fireRate;
+
+  arma.destroy();
+
+  const nomeArmasMap = {
+    arma1: 'Pistolinha',
+    arma2: 'Fúria de Eryon',
+    arma3: 'Lança-Raio'
+  };
+
+  atualizarHUDarma(nomeArmasMap[arma.tipo], arma.tipo);
+
+  const pickupText = this.add.text(player.x, player.y - 30, `Pegou ${nomeArmasMap[arma.tipo]}!`, {
+    fontSize: '18px',
+    color: '#FFD700',
+    fontStyle: 'bold',
+    stroke: '#000',
+    strokeThickness: 3
+  }).setOrigin(0.5).setDepth(99).setScrollFactor(0).setAlpha(0.7);
+    this.time.delayedCall(2000, () => pickupText.destroy());
+}
+
+function atualizarHUDarma(nomeArma, keyImagem) {
+  armaNomeText.setText(nomeArma);
+  armaImagem.setTexture(keyImagem);
+}
+
+function atualizarHUDCartas(scene) {
+  cardsHUDGroup.clear(true, true);
+
+  playerCards.forEach((card, index) => {
+    const bg = scene.add.rectangle(50 + index * 60, 140, 50, 70, card.cor || 0x999999, 0.8)
+      .setStrokeStyle(2, 0xffffff);
+    const title = scene.add.text(50 + index * 60, 140, card.nome[0], {
+      fontSize: '24px',
+      color: '#fff'
+    }).setOrigin(0.5);
+
+    cardsHUDGroup.add(bg);
+    cardsHUDGroup.add(title);
+  });
+}
+
+function update(time) {
+  this.hud.update();
+
+  if (!player.active) return;
+
+  let vx = 0, vy = 0;
+  if (cursors.left.isDown) vx = -1;
+  else if (cursors.right.isDown) vx = 1;
+
+  if (cursors.up.isDown) vy = -1;
+  else if (cursors.down.isDown) vy = 1;
+
+  const norm = Math.hypot(vx, vy) || 1;
+  player.setVelocity((vx / norm) * playerStats.playerSpeed, (vy / norm) * playerStats.playerSpeed);
+
+  if (time > lastShoot + playerStats.fireRate) {
+    shootRadial.call(this);
+    lastShoot = time;
+  }
+
+  enemies.getChildren().forEach(enemy => {
+    if (!enemy.active) return;
+    const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
+    this.physics.velocityFromRotation(angle, enemy.speed, enemy.body.velocity);
+  });
+
+  let closestEnemy = null;
+  let minDistance = Infinity;
+  enemies.getChildren().forEach(enemy => {
+    if (enemy.active) {
+      const distance = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestEnemy = enemy;
+      }
+    }
+  });
+  this.hud.setEnemy(closestEnemy);
+
+  if (playerStats.spiritAllyActive && spiritAlly) {
+    spiritAlly.x = player.x + 50;
+    spiritAlly.y = player.y - 50;
+  }
+
+
+  if (enemies.countActive() === 0 && !showingCards) {
+    showingCards = true;
+    showCardChoices.call(this);
+  }
+}
+
+function shootRadial() {
+  const count = playerStats.spreadUpgrade ? 24 : 12;
+  const speed = playerStats.bulletSpeedBoost ? 900 : 700;
+
+  for (let i = 0; i < count; i++) {
+    const baseAngle = Phaser.Math.DegToRad((360 / count) * i);
+
+    const criarBala = (angleOffset = 0) => {
+      const angle = baseAngle + angleOffset;
+      const bullet = bullets.create(player.x, player.y, 'bullet').setScale(0.02);
+
+      this.time.delayedCall(500, () => {
+        if (bullet && bullet.active) bullet.destroy();
+      });
+
+      this.physics.velocityFromRotation(angle, speed, bullet.body.velocity);
     };
 
-    let currentLanguage = 'pt'; // Default language
+    if (playerStats.tripleBullets) {
+      criarBala(Phaser.Math.DegToRad(-5));
+      criarBala(0);
+      criarBala(Phaser.Math.DegToRad(5));
 
-    // Theme Toggle
-    function toggleTheme() {
-      document.body.classList.toggle('light-mode');
+    } else if (playerStats.doubleBullets) {
+      criarBala(Phaser.Math.DegToRad(-3));
+      criarBala(Phaser.Math.DegToRad(3));
+
+    } else {
+      criarBala();
     }
+  }
+}
 
-    // Language Toggle
-    function toggleLanguage() {
-      currentLanguage = currentLanguage === 'pt' ? 'en' : 'pt';
-      updateContentLanguage();
-    }
+function showCardChoices() {
+    if (playerStats.xp < playerStats.waveXpGoal) {
+        player.setActive(false).setVisible(false);
+        const failureText = this.add.text(config.width / 2, config.height / 2, 'FALHA NA ONDA!\nXP Insuficiente\nVoltando para Fase 1\n(Pressione ESPAÇO para reiniciar)', {
+            fontFamily: 'Cinzel',
+            fontSize: '36px',
+            color: '#FF4500',
+            stroke: '#000000',
+            strokeThickness: 6,
+            align: 'center'
+        }).setOrigin(0.5);
 
-    function updateContentLanguage() {
-      document.querySelectorAll('[data-lang]').forEach(element => {
-        const key = element.getAttribute('data-lang');
-        if (translations[currentLanguage][key]) {
-          // For elements that are not inputs or textareas, update innerHTML
-          // For paragraph text, specifically handle strong tags within
-          if (element.tagName === 'P' && (key === 'aboutText' || key === 'projectsIntro' || key === 'bossDesc' || key === 'inventoryIntro')) {
-            element.innerHTML = translations[currentLanguage][key];
-          } else {
-            element.innerText = translations[currentLanguage][key];
-          }
-        }
-      });
-      // Update speech bubble phrases based on current language
-      updateSpeechBubblePhrases();
-      // Update inventory items and boss messages
-      renderInventory();
-      updateBossHealthDisplay(); // Ensure boss health message is updated
-      updateWeaponLevelDisplay(); // Update weapon level display after language change
-    }
-
-    function updateSpeechBubblePhrases() {
-      const phrases = [];
-      for (let i = 1; i <= 7; i++) {
-        phrases.push(translations[currentLanguage][`speechBubble${i}`]);
-      }
-      window.speechBubblePhrases = phrases; // Store in global scope for use by mostrarMensagem
-    }
-
-    // Floating Avatar Speech Bubble
-    function mostrarMensagem() {
-      const balao = document.getElementById('balaoFala');
-      // Hide and then show with animation
-      balao.style.display = 'none';
-      balao.style.opacity = '0';
-      balao.style.transform = 'translateY(20px)';
-
-      setTimeout(() => {
-        const currentPhrases = window.speechBubblePhrases || [];
-        if (currentPhrases.length > 0) {
-            balao.innerText = currentPhrases[Math.floor(Math.random() * currentPhrases.length)];
-        } else {
-            balao.innerText = translations[currentLanguage]['speechBubble1']; // Fallback
-        }
-        balao.style.display = 'block';
-        balao.style.opacity = '1';
-        balao.style.transform = 'translateY(0)';
-      }, 50); // Small delay to reset animation
-
-      // Hide after a few seconds
-      setTimeout(() => {
-        balao.style.opacity = '0';
-        balao.style.transform = 'translateY(20px)';
-        setTimeout(() => {
-          balao.style.display = 'none';
-        }, 500); // Wait for fade out
-      }, 5000); // Show for 5 seconds
-    }
-
-    // Inventory System
-    const inventoryItems = [
-      { id: 'bio-chip', nameKey: 'itemBioChip', descKey: 'itemBioChipDesc', icon: 'images/item_biochip.png' },
-      { id: 'data-crystal', nameKey: 'itemDataCrystal', descKey: 'itemDataCrystalDesc', icon: 'images/item_datacrystal.png' },
-      { id: 'neural-implant', nameKey: 'itemNeuralImplant', descKey: 'itemNeuralImplantDesc', icon: 'images/item_neuralimplant.png' },
-      { id: 'quantum-key', nameKey: 'itemQuantumKey', descKey: 'itemQuantumKeyDesc', icon: 'images/item_quantumkey.png' },
-      { id: 'synaptic-fluid', nameKey: 'itemSynapticFluid', descKey: 'itemSynapticFluidDesc', icon: 'images/item_synapticfluid.png' },
-    ];
-
-    function renderInventory() {
-      const inventoryGrid = document.getElementById('inventoryGrid');
-      inventoryGrid.innerHTML = ''; // Clear existing items
-
-      inventoryItems.forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.classList.add('inventory-item');
-        itemElement.innerHTML = `
-          <img src="${item.icon}" alt="${translations[currentLanguage][item.nameKey]}">
-          <span data-lang="${item.nameKey}">${translations[currentLanguage][item.nameKey]}</span>
-        `;
-        itemElement.title = translations[currentLanguage][item.descKey]; // Tooltip for description
-        inventoryGrid.appendChild(itemElement);
-      });
-    }
-
-    // Boss System
-    let bossHealth = 100;
-    const bossHealthBar = document.getElementById('bossHealth');
-    const attackMessage = document.getElementById('attackMessage');
-    const attackButton = document.querySelector('.boss-attack-button');
-    let weaponLevel = 1; // Initial weapon level
-    const pistolLevelDisplay = document.getElementById('pistolLevel');
-    let lastHealthThreshold = 100; // To track health for leveling up
-
-    function updateBossHealthDisplay() {
-      bossHealth = Math.max(0, bossHealth); // Ensure health doesn't go below 0
-      bossHealthBar.style.width = bossHealth + '%';
-      bossHealthBar.setAttribute('data-health-percentage', bossHealth + '%');
-
-      if (bossHealth <= 0) {
-        attackMessage.innerText = translations[currentLanguage]['bossDefeated'];
-        attackMessage.style.color = '#00ff66';
-        attackButton.disabled = true;
-        attackButton.style.opacity = '0.5';
-        attackButton.style.cursor = 'not-allowed';
-      }
-      checkWeaponLevelUp(); // Check for level up after each attack
-    }
-
-    function updateWeaponLevelDisplay() {
-        if (pistolLevelDisplay) {
-            pistolLevelDisplay.innerText = weaponLevel;
-        }
-    }
-
-    function checkWeaponLevelUp() {
-        // Levels up every 20% health reduction (5 phases = 100/5 = 20%)
-        const currentHealthPercentage = bossHealth;
-        const previousLevelThreshold = (weaponLevel - 1) * 20; // e.g., for level 2, threshold is 20
-        const currentLevelThreshold = weaponLevel * 20; // e.g., for level 2, threshold is 20
-        
-        // This logic needs to consider dropping below thresholds
-        if (currentHealthPercentage <= 80 && weaponLevel === 1) { // 1st level up at 80% or below
-            weaponLevel = 2;
-            showWeaponLevelUpMessage();
-        } else if (currentHealthPercentage <= 60 && weaponLevel === 2) { // 2nd level up at 60% or below
-            weaponLevel = 3;
-            showWeaponLevelUpMessage();
-        } else if (currentHealthPercentage <= 40 && weaponLevel === 3) { // 3rd level up at 40% or below
-            weaponLevel = 4;
-            showWeaponLevelUpMessage();
-        } else if (currentHealthPercentage <= 20 && weaponLevel === 4) { // 4th level up at 20% or below
-            weaponLevel = 5;
-            showWeaponLevelUpMessage();
-        }
-        updateWeaponLevelDisplay();
-    }
-
-    function showWeaponLevelUpMessage() {
-        let msg = translations[currentLanguage]['weaponLevelUp'];
-        msg = msg.replace('{level}', weaponLevel);
-        // Temporarily display the message
-        const oldMessage = attackMessage.innerText; // Store current message
-        const oldColor = attackMessage.style.color;
-
-        attackMessage.innerText = msg;
-        attackMessage.style.color = '#00ffcc'; // A distinct color for level up
-        setTimeout(() => {
-            if (bossHealth > 0) { // Only revert if boss is not defeated
-                attackMessage.innerText = oldMessage;
-                attackMessage.style.color = oldColor;
-            }
-        }, 3000); // Show for 3 seconds
-    }
-
-    function attackBoss() {
-      if (bossHealth <= 0) {
-        attackMessage.innerText = translations[currentLanguage]['bossAlreadyDefeated'];
-        attackMessage.style.color = '#99ffbb';
+        playerStats = {
+            life: 3,
+            maxLife: 3,
+            bulletDamage: 1,
+            fireRate: 3000,
+            hasShield: false,
+            spiritAllyActive: false,
+            spreadUpgrade: false,
+            doubleBullets: false,
+            dashAvailable: false,
+            dashCooldown: false,
+            slowEnemies: false,
+            reviveOnce: false,
+            increasedDropRate: false,
+            tripleBullets: false,
+            playerSpeed: 400,
+            healOnKill: false,
+            damageAura: false,
+            speedBoost: false,
+            bulletPiercing: false,
+            thorns: false,
+            bulletSpeedBoost: false,
+            xp: 0,
+            level: 1,
+            xpToNextLevel: 100,
+            waveXpGoal: 20
+        };
+        wave = 0;
+        showingCards = false;
         return;
-      }
-
-      // Base damage, increase with weapon level
-      let damage = Math.floor(Math.random() * 15) + 10; // Random damage between 10-24
-      damage += (weaponLevel - 1) * 5; // +5 damage per level after level 1
-
-      bossHealth -= damage;
-      updateBossHealthDisplay(); // This will call checkWeaponLevelUp internally
-
-      if (bossHealth > 0) {
-        let msg = translations[currentLanguage]['attackSuccess'];
-        msg = msg.replace('{damage}', damage);
-        msg = msg.replace('{health}', bossHealth);
-        attackMessage.innerText = msg;
-        attackMessage.style.color = '#ff6666';
-      }
     }
 
-    // Intersection Observer for Section Animations
-    document.addEventListener('DOMContentLoaded', () => {
-      updateContentLanguage(); // Set initial language on load
-      renderInventory(); // Render inventory on load
-      updateBossHealthDisplay(); // Initialize boss health display and check weapon level
-      updateWeaponLevelDisplay(); // Initial display of weapon level
+    playerStats.waveXpGoal = Math.floor(playerStats.waveXpGoal * 1.5);
 
-      const sections = document.querySelectorAll('main section');
-
-      const observerOptions = {
-        root: null,
-        rootMargin: '0px',
-        threshold: 0.2 // Trigger when 20% of the section is visible
-      };
-
-      const observer = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            // Animate skill items individually if the section is 'skills'
-            if (entry.target.id === 'habilidades') {
-              const skillItems = entry.target.querySelectorAll('.skill-item');
-              skillItems.forEach((item, index) => {
-                item.style.animation = `fadeInUp 0.6s ease-out forwards ${index * 0.1}s`;
-              });
-            }
-            // Animate project items individually if the section is 'projects'
-            if (entry.target.id === 'projetos') {
-              const projectItems = entry.target.querySelectorAll('.project-item');
-              projectItems.forEach((item, index) => {
-                item.style.animation = `fadeInUp 0.6s ease-out forwards ${index * 0.1}s`;
-              });
-            }
-            observer.unobserve(entry.target); // Stop observing once animated
+  const cardOptions = [
+    { nome: 'Escudo de Ivirik', desc: 'Proteção que te salva da morte uma vez', cor: 0xffc107, efeito: () => { playerStats.hasShield = true; } },
+    { nome: 'Tiro Duplo', desc: 'Dispara duas vezes mais balas', cor: 0x4caf50, efeito: () => { playerStats.doubleBullets = true; } },
+    { nome: 'Bênção do dr Anomoi', desc: 'Um automato te ajuda no ataque', cor: 0x00bcd4, efeito: ativarSpiritAlly },
+    { nome: 'Upgrade do Spread', desc: 'Dispara balas em círculo maior', cor: 0x9c27b0, efeito: () => { playerStats.spreadUpgrade = true; } },
+    { nome: 'Dash ', desc: 'Corrida rápida para escapar', cor: 0xf44336, efeito: () => { playerStats.dashAvailable = true; } },
+    { nome: 'Projétil Perfurante', desc: 'Balas atravessam inimigos de forma avassaladora', cor: 0x03a9f4, efeito: () => { playerStats.bulletPiercing = true; } },
+    { nome: 'Recuperação Instantânea', desc: 'Recupera 2 de vida', cor: 0x8bc34a, efeito: () => { playerStats.life = Math.min(playerStats.life + 2, playerStats.maxLife); this.hud.update(); } },
+    { nome: 'Fúria de Metalion', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.bulletDamage += 1; this.time.delayedCall(15000, () => playerStats.bulletDamage -= 1); } },
+    { nome: 'Vida Fantasma', desc: 'Sobrevive com 1 de vida ao morrer', cor: 0x673ab7, efeito: () => { playerStats.reviveOnce = true; } },
+    { nome: 'Energético da Meia-Noite', desc: 'Velocidade de movimento aumentada em 50% por 10s', cor: 0xffeb3b, efeito: () => {
+        const originalSpeed = playerStats.playerSpeed;
+        playerStats.playerSpeed *= 1.5;
+        this.time.delayedCall(10000, () => playerStats.playerSpeed = originalSpeed);
+      }
+    },
+    { nome: 'Aura Letal', desc: 'Causa dano contínuo nos inimigos próximos', cor: 0xcd201f, efeito: () => {
+        playerStats.damageAura = true;
+        this.time.addEvent({
+          delay: 1000,
+          loop: true,
+          callback: () => {
+            enemies.getChildren().forEach(e => {
+              const dist = Phaser.Math.Distance.Between(player.x, player.y, e.x, e.y);
+              if (e.active && dist < 100) {
+                e.health -= 1;
+                if (e.health <= 0) {
+                  e.destroy();
+                  gainXp.call(this, e.xpReward);}
+                }
+            });
           }
         });
-      }, observerOptions);
+      }
+    },
+    { nome: 'Velocidade Neuronal', desc: 'Recarga de tiro 2x mais rápida por 10s', cor: 0x03a9f4, efeito: () => {
+        const originalRate = playerStats.fireRate;
+        playerStats.fireRate /= 2;
+        this.time.delayedCall(10000, () => playerStats.fireRate = originalRate);
+      }
+    },
+    { nome: 'Hack dos Fragmentos', desc: 'Chance dobrada de aparecer armas nas próximas ondas', cor: 0x607d8b, efeito: () => {
+        playerStats.increasedDropRate = true;
+      }
+    },
+    { nome: 'Respiro do Caos', desc: 'Recupera toda sua vida', cor: 0x009688, efeito: () => {
+        playerStats.life = playerStats.maxLife;
+        this.hud.update();
+      }
+    },
+    { nome: 'Espelho de Plasma', desc: 'Reflete 30% do dano de volta ao inimigo por 10s', cor: 0x673ab7, efeito: () => {
+        playerStats.hasShield = true;
+        const reflectText = this.add.text(config.width / 2, config.height / 2 - 100, 'Reflect not fully implemented!', { fontSize: '20px', color: '#FFF' }).setOrigin(0.5);
+        this.time.delayedCall(3000, () => reflectText.destroy());
+      }
+    },
+    { nome: 'Canhão Triplo', desc: 'Atira 3 balas em vez de 1', cor: 0xff9800, efeito: () => {
+        playerStats.tripleBullets = true;
+      }
+    },
+    { nome: 'Espinhos do Asfalto', desc: 'Dano nos inimigos ao ser atingido', cor: 0xe91e63, efeito: () => { playerStats.thorns = true; } },
+    { nome: 'Visão de Águia', desc: 'Suas balas voam mais rápido', cor: 0x5cb85c, efeito: () => { playerStats.bulletSpeedBoost = true; } },
+    { nome: 'Armadura Reforçada', desc: 'Aumenta sua vida máxima em 1', cor: 0x7e57c2, efeito: () => {
+        playerStats.maxLife += 1;
+        playerStats.life = playerStats.maxLife;
+        this.hud.updateHealthBar();
+        this.hud.update();
+      }
+    },
+    { nome: 'Toque Vampírico', desc: 'Recupere vida ao derrotar inimigos', cor: 0x8b0000, efeito: () => { playerStats.healOnKill = true; } },
+    { nome: 'Carga do Trovão', desc: 'Dash atordoa inimigos próximos', cor: 0x42a5f5, efeito: () => {
+        playerStats.dashAvailable = true;
+        playerStats.stunOnDash = true;
+      }
+    },
+  ];
 
-      sections.forEach(section => {
-        observer.observe(section);
+
+  Phaser.Utils.Array.Shuffle(cardOptions);
+  const selectedCards = cardOptions.slice(0, 3);
+
+  cardsGroup = this.add.group();
+
+  const startX = this.cameras.main.centerX;
+  const startY = this.cameras.main.centerY;
+  const gap = 220;
+
+  selectedCards.forEach((card, i) => {
+    const x = startX + (i - 1) * gap;
+    const y = startY;
+
+    const container = this.add.container(x, y);
+    const bgImage = this.add.image(0, 0, 'cardBg').setDisplaySize(160, 240);
+
+    const title = this.add.text(0, -80, card.nome, { fontSize: '20px', color: '#fff', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
+    const desc = this.add.text(0, 0, card.desc, { fontSize: '14px', color: '#eee', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
+
+    container.add([bgImage, title, desc]);
+
+    container.setSize(160, 240);
+    container.setInteractive();
+
+    this.tweens.add({
+      targets: container,
+      y: y - 20,
+      yoyo: true,
+      repeat: -1,
+      duration: 1000,
+      ease: 'Sine.easeInOut'
+    });
+
+    container.on('pointerover', () => {
+      container.setScale(1.1);
+    });
+
+    container.on('pointerout', () => {
+      container.setScale(1);
+    });
+
+    container.on('pointerdown', () => {
+      this.tweens.add({
+        targets: container,
+        scale: 0.9,
+        duration: 100,
+        yoyo: true,
+        ease: 'Power1',
+        onComplete: () => {
+          card.efeito.call(this);
+          cardsGroup.clear(true, true);
+
+          playerCards.push(card);
+          atualizarHUDCartas(this);
+
+          showingCards = false;
+          wave++;
+          waveText.setText(`Fase ${wave}`);
+          spawnWave.call(this);
+        }
       });
     });
-  </script>
+
+    cardsGroup.add(container);
+  });
+}
+
+function ativarSpiritAlly() {
+  if (spiritAlly) spiritAlly.destroy();
+
+  spiritAlly = this.physics.add.sprite(player.x, player.y, 'player').setScale(0.03).setAlpha(0.7);
+  playerStats.spiritAllyActive = true;
+
+  this.time.addEvent({
+    delay: 1500,
+    loop: true,
+    callback: () => {
+      if (!playerStats.spiritAllyActive || !spiritAlly || !spiritAlly.active) return;
+      const closestEnemy = enemies.getChildren().reduce((closest, enemy) => {
+        if (!enemy.active) return closest;
+        const dist = Phaser.Math.Distance.Between(spiritAlly.x, spiritAlly.y, enemy.x, enemy.y);
+        if (dist < closest.distance) {
+          return { enemy: enemy, distance: dist };
+        }
+        return closest;
+      }, { enemy: null, distance: Infinity });
+
+      if (closestEnemy.enemy) {
+        const bullet = bullets.create(spiritAlly.x, spiritAlly.y, 'bullet').setScale(0.02);
+        const angle = Phaser.Math.Angle.Between(spiritAlly.x, spiritAlly.y, closestEnemy.enemy.x, closestEnemy.enemy.y);
+        this.physics.velocityFromRotation(angle, 500, bullet.body.velocity);
+      }
+    }
+  });
+
+  this.time.delayedCall(15000, () => {
+    if (spiritAlly) spiritAlly.destroy();
+    playerStats.spiritAllyActive = false;
+  }, [], this);
+}
+
+function spawnWave() {
+  const totalEnemiesToSpawn = Math.floor(wave * 2.5);
+
+  for (let i = 0; i < totalEnemiesToSpawn; i++) {
+    const x = Phaser.Math.Between(100, config.width - 100);
+    const y = Phaser.Math.Between(100, config.height - 100);
+
+    let enemyTypeKey = 'normal';
+
+    if (wave >= 3 && Phaser.Math.Between(0, 100) < 30 + wave * 3) {
+      enemyTypeKey = 'fast';
+    }
+    if (wave >= 5 && Phaser.Math.Between(0, 100) < 20 + wave * 2) {
+      enemyTypeKey = 'tank';
+    }
+
+    if (wave >= 7 && Phaser.Math.Between(0, 100) < 60) {
+      enemyTypeKey = Phaser.Utils.Array.GetRandom(['fast', 'tank']);
+    }
+
+    const typeProps = enemyTypes[enemyTypeKey];
+    const enemy = enemies.create(x, y, typeProps.texture).setScale(typeProps.scale);
+
+    enemy.health = typeProps.baseHealth + Math.floor(wave / 2);
+    enemy.maxHealth = enemy.health;
+    enemy.speed = typeProps.speed + Math.floor(wave * 2);
+    enemy.setCollideWorldBounds(true);
+
+    // LÓGICA PARA AUMENTAR O XP NAS PRIMEIRAS ONDAS (1 a 5)
+    let bonusXP = 0;
+    if (wave <= 5) {
+        switch (wave) {
+            case 1: bonusXP = 20; break; // XP base 10 + 20 = 30 para normal
+            case 2: bonusXP = 15; break; // XP base 10 + 15 = 25 para normal
+            case 3: bonusXP = 10; break; // XP base 10 + 10 = 20 para normal
+            case 4: bonusXP = 5; break;  // XP base 10 + 5 = 15 para normal
+            case 5: bonusXP = 0; break;  // Volta ao XP normal
+        }
+    }
+    enemy.xpReward = typeProps.xpReward + bonusXP;
+    // FIM DA LÓGICA DE XP
+
+  }
+}
+
+function dashPlayer() {
+  if (playerStats.dashCooldown) return;
+
+  playerStats.dashCooldown = true;
+
+  let dx = 0, dy = 0;
+  if (cursors.left.isDown) dx = -1;
+  else if (cursors.right.isDown) dx = 1;
+  if (cursors.up.isDown) dy = -1;
+  else if (cursors.down.isDown) dy = 1;
+
+  if (dx === 0 && dy === 0) {
+    playerStats.dashCooldown = false;
+    return;
+  }
+
+  const dashDistance = 150;
+
+  this.tweens.add({
+    targets: player,
+    x: player.x + dx * dashDistance,
+    y: player.y + dy * dashDistance,
+    duration: 150,
+    ease: 'Power2',
+    onComplete: () => {
+      playerStats.dashCooldown = false;
+      if (playerStats.stunOnDash) {
+        enemies.getChildren().forEach(enemy => {
+          const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
+          if (enemy.active && dist < 100) {
+            enemy.body.setVelocity(0,0);
+            enemy.setTint(0x0000ff);
+            this.time.delayedCall(1000, () => enemy.clearTint());
+          }
+        });
+      }
+    }
+  });
+}
+
+function gainXp(amount) {
+  playerStats.xp += amount;
+  this.hud.updateXpBar();
+
+  if (playerStats.xp >= playerStats.xpToNextLevel) {
+    playerStats.level++;
+    playerStats.xp -= playerStats.xpToNextLevel;
+    playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5);
+    playerStats.bulletDamage *= 1.012;
+    this.hud.updateXpBar();
+    const levelUpText = this.add.text(config.width / 2, config.height / 2 + 50, `LEVEL UP! Level ${playerStats.level}`, {
+      fontFamily: 'Cinzel',
+      fontSize: '40px',
+      color: '#00FFFF',
+      stroke: '#000000',
+      strokeThickness: 6,
+      align: 'center'
+    }).setOrigin(0.5);
+    this.time.delayedCall(3000, () => levelUpText.destroy());
+  }
+}
+
+class HUD {
+  constructor(scene, player) {
+    this.scene = scene;
+    this.player = player;
+
+    this.playerHealthBarBg = this.scene.add.graphics();
+    this.playerHealthBarFill = this.scene.add.graphics();
+    this.playerHealthBarX = 20;
+    this.playerHealthBarY = 20;
+    this.playerHealthBarWidth = 150;
+    this.playerHealthBarHeight = 20;
+
+    this.updateHealthBar();
+
+    this.enemyHealthBarBg = this.scene.add.graphics();
+    this.enemyHealthBarFill = this.scene.add.graphics();
+
+    this.enemyHealthBarX = 20;
+    this.enemyHealthBarY = 60;
+    this.enemyHealthBarWidth = 150;
+    this.enemyHealthBarHeight = 20;
+
+    this.enemy = null;
+
+    this.xpBarBg = this.scene.add.graphics();
+    this.xpBarFill = this.scene.add.graphics();
+    this.xpText = this.scene.add.text(config.width / 2, config.height - 30, `LV ${playerStats.level} XP: ${playerStats.xp}/${playerStats.xpToNextLevel}`, {
+      fontSize: '18px',
+      color: '#FFFFFF'
+    }).setOrigin(0.5);
+
+    this.xpBarX = config.width / 2 - 150;
+    this.xpBarY = config.height - 20;
+    this.xpBarWidth = 300;
+    this.xpBarHeight = 10;
+
+    this.updateXpBar();
+  }
+
+  update() {
+    this.updateHealthBar();
+
+    if (this.enemy && this.enemy.active) {
+      this.enemyHealthBarBg.clear();
+      this.enemyHealthBarFill.clear();
+
+      this.enemyHealthBarBg.fillStyle(0x000000, 0.6);
+      this.enemyHealthBarBg.fillRect(this.enemyHealthBarX, this.enemyHealthBarY, this.enemyHealthBarWidth, this.enemyHealthBarHeight);
+
+      const healthPercent = Phaser.Math.Clamp(this.enemy.health / this.enemy.maxHealth, 0, 1);
+      this.enemyHealthBarFill.fillStyle(0xff0000, 1);
+      this.enemyHealthBarFill.fillRect(this.enemyHealthBarX, this.enemyHealthBarY, this.enemyHealthBarWidth * healthPercent, this.enemyHealthBarHeight);
+    } else {
+      this.enemyHealthBarBg.clear();
+      this.enemyHealthBarFill.clear();
+    }
+  }
+
+  setEnemy(enemy) {
+    this.enemy = enemy;
+  }
+
+  updateXpBar() {
+    this.xpBarBg.clear();
+    this.xpBarFill.clear();
+
+    this.xpBarBg.fillStyle(0x000000, 0.6);
+    this.xpBarBg.fillRect(this.xpBarX, this.xpBarY, this.xpBarWidth, this.xpBarHeight);
+
+    const xpPercent = Phaser.Math.Clamp(playerStats.xp / playerStats.xpToNextLevel, 0, 1);
+    this.xpBarFill.fillStyle(0x00FF00, 1);
+    this.xpBarFill.fillRect(this.xpBarX, this.xpBarY, this.xpBarWidth * xpPercent, this.xpBarHeight);
+
+    this.xpText.setText(`LV ${playerStats.level} XP: ${playerStats.xp}/${playerStats.xpToNextLevel}`);
+  }
+
+  updateHealthBar() {
+    this.playerHealthBarBg.clear();
+    this.playerHealthBarFill.clear();
+
+    this.playerHealthBarBg.fillStyle(0x000000, 0.6);
+    this.playerHealthBarBg.fillRect(this.playerHealthBarX, this.playerHealthBarY, this.playerHealthBarWidth, this.playerHealthBarHeight);
+
+    const healthPercent = Phaser.Math.Clamp(playerStats.life / playerStats.maxLife, 0, 1);
+    this.playerHealthBarFill.fillStyle(0x8A2BE2, 1);
+    this.playerHealthBarFill.fillRect(this.playerHealthBarX, this.playerHealthBarY, this.playerHealthBarWidth * healthPercent, this.playerHealthBarHeight);
+  }
+}
+
+</script>
+
 </body>
 </html>
