@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V.1.2.7 - Multi-Enemy Update</title>
+  <title>War of the Automatons V.1.2.8 - Multi-Enemy Update + Classes + Weapon Levels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -13,7 +13,8 @@
     }
     canvas {
       display: block;
-      margin: auto;}
+      margin: auto;
+    }
   </style>
 
 </head>
@@ -48,7 +49,8 @@ let cardsGroup; //grupo de cartas
 let spiritAlly = null; //aliado
 let playerCards = []; // Cartas que o jogador pegou
 let cardsHUDGroup; // Grupo visual do HUD de cartas
-
+let playerStatsPanel; // Novo grupo para o painel de stats do jogador
+let waveXpGoalText; // Novo texto para a meta de XP da onda
 
 let playerStats = {
   life: 3,
@@ -75,36 +77,84 @@ let playerStats = {
   xp: 0,
   level: 1,
   xpToNextLevel: 100,
-  waveXpGoal: 20
+  waveXpGoal: 20,
+  currentWeapon: 'arma1', // Adicionado para rastrear a arma atual
+  currentWeaponLevel: 1, // Nível da arma atual
+  playerClass: null // Classe do jogador
 };
 
 const tiposDeArmas = {
-  arma1: { dano: 1, fireRate: 3000 },
-  arma2: { dano: 2, fireRate: 1000 },
-  arma3: { dano: 3, fireRate: 2000 }
+  arma1: { nome: 'Pistolinha', baseDano: 1, baseFireRate: 3000 },
+  arma2: { nome: 'Fúria de Eryon', baseDano: 2, baseFireRate: 1000 },
+  arma3: { nome: 'Lança-Raio', baseDano: 3, baseFireRate: 2000 }
 };
 
 const enemyTypes = {
   normal: {
+    name: 'Robô Comum',
     texture: 'enemy',
     baseHealth: 4,
     speed: 100,
     scale: 0.06,
-    xpReward: 10 // Valor base
+    xpReward: 10
   },
   fast: {
+    name: 'Robô Ágil',
     texture: 'enemy_fast',
     baseHealth: 4,
     speed: 180,
     scale: 0.06,
-    xpReward: 15 // Valor base
+    xpReward: 15
   },
   tank: {
+    name: 'Robô Tanque',
     texture: 'enemy_tank',
     baseHealth: 9,
     speed: 70,
     scale: 0.08,
-    xpReward: 25 // Valor base
+    xpReward: 25
+  }
+};
+
+const playerClasses = {
+  bioWarrior: {
+    name: 'Bio-Guerreiro',
+    description: 'Um combatente resistente. +1 Vida Máxima. Recupera 0.1 de vida a cada 5s.',
+    initialStats: {
+      maxLife: 4,
+      life: 4,
+    },
+    passiveAbility: (scene) => {
+      scene.time.addEvent({
+        delay: 5000,
+        loop: true,
+        callback: () => {
+          playerStats.life = Math.min(playerStats.life + 0.1, playerStats.maxLife);
+          scene.hud.update();
+        }
+      });
+    }
+  },
+  techSniper: {
+    name: 'Tecno-Atirador',
+    description: 'Especialista em dano. +1 Dano, +10% Velocidade de Bala.',
+    initialStats: {
+      bulletDamage: 2,
+      bulletSpeedBoost: true
+    },
+    passiveAbility: (scene) => {
+      // Implementação da passiva, se houver
+    }
+  },
+  mechanic: {
+    name: 'Mecânico',
+    description: 'Aumenta a chance de encontrar armas. +10% Chance de drop de arma.',
+    initialStats: {
+      increasedDropRate: true
+    },
+    passiveAbility: (scene) => {
+      // Implementação da passiva, se houver
+    }
   }
 };
 
@@ -141,7 +191,8 @@ function create() {
 
   cursors = this.input.keyboard.createCursorKeys();
 
-  spawnArmas.call(this);
+  // Chamada da tela de seleção de classes antes de iniciar o jogo
+  createClassSelection.call(this);
 
   this.physics.add.overlap(player, armas, (player, arma) => {
     pegarArma.call(this, arma);
@@ -154,14 +205,45 @@ function create() {
   });
 
   this.input.keyboard.on('keydown-SPACE', () => {
-    if (!player.active) {
+    if (!player.active && !showingCards) { // Adicionado !showingCards para evitar restart durante seleção de carta
       this.time.delayedCall(500, () => {
+        // Reset playerStats para o estado inicial para um novo jogo
+        playerStats = {
+            life: 3,
+            maxLife: 3,
+            bulletDamage: 1,
+            fireRate: 3000,
+            hasShield: false,
+            spiritAllyActive: false,
+            spreadUpgrade: false,
+            doubleBullets: false,
+            dashAvailable: false,
+            dashCooldown: false,
+            slowEnemies: false,
+            reviveOnce: false,
+            increasedDropRate: false,
+            tripleBullets: false,
+            playerSpeed: 400,
+            healOnKill: false,
+            damageAura: false,
+            speedBoost: false,
+            bulletPiercing: false,
+            thorns: false,
+            bulletSpeedBoost: false,
+            xp: 0,
+            level: 1,
+            xpToNextLevel: 100,
+            waveXpGoal: 20,
+            currentWeapon: 'arma1',
+            currentWeaponLevel: 1,
+            playerClass: null
+        };
+        wave = 1;
+        playerCards = [];
         this.scene.restart();
       });
     }
   });
-
-  spawnWave.call(this);
 
   this.physics.add.overlap(bullets, enemies, (b, e) => {
     if (b.active && e.active) {
@@ -249,10 +331,13 @@ function create() {
     }
   });
 
+  // HUD elements
   hudGroup = this.add.group();
   cardsHUDGroup = this.add.group();
+  playerStatsPanel = this.add.group(); // Inicializa o grupo para o painel de stats
 
-  armaNomeText = this.add.text(config.width / 2, 20, 'Pistolinha', {
+  // Weapon HUD
+  armaNomeText = this.add.text(config.width / 2, 20, 'Pistolinha LV1', {
     fontFamily: 'Cinzel',
     fontSize: '28px',
     color: '#A62E2E',
@@ -268,6 +353,7 @@ function create() {
   armaImagem = this.add.image(config.width / 2, 70, 'arma1').setScale(0.1);
   hudGroup.addMultiple([armaNomeText, armaImagem]);
 
+  // Wave Text
   waveText = this.add.text(config.width - 20, 20, `Fase ${wave}`, {
     fontFamily: 'Cinzel',
     fontSize: '24px',
@@ -275,6 +361,14 @@ function create() {
     stroke: '#000000',
     strokeThickness: 4
   }).setOrigin(1, 0);
+
+  // Wave XP Goal Text
+  waveXpGoalText = this.add.text(config.width / 2, config.height - 50, `Meta de XP para Onda: ${playerStats.waveXpGoal}`, {
+      fontSize: '18px',
+      color: '#FFD700',
+      stroke: '#000',
+      strokeThickness: 2
+  }).setOrigin(0.5);
 
   this.time.addEvent({
     delay: 9000,
@@ -288,14 +382,93 @@ function create() {
       });
     }
   });
+
+  // Call initial HUD updates
+  this.hud.updatePlayerStatsPanel();
+  atualizarHUDarma(tiposDeArmas[playerStats.currentWeapon].nome, playerStats.currentWeapon);
 }
+
+function createClassSelection() {
+    const classSelectionBg = this.add.rectangle(config.width / 2, config.height / 2, config.width, config.height, 0x000000, 0.9).setDepth(100);
+    const titleText = this.add.text(config.width / 2, config.height / 2 - 200, 'Selecione sua Classe Bio-Punk', {
+        fontFamily: 'Cinzel',
+        fontSize: '48px',
+        color: '#00FFFF',
+        stroke: '#000000',
+        strokeThickness: 8,
+        align: 'center'
+    }).setOrigin(0.5).setDepth(101);
+
+    const classButtons = this.add.group();
+    let xOffset = -250;
+
+    Object.entries(playerClasses).forEach(([key, classData]) => {
+        const button = this.add.container(config.width / 2 + xOffset, config.height / 2 + 50).setDepth(101);
+        const bg = this.add.rectangle(0, 0, 200, 250, 0x333333, 0.8).setStrokeStyle(2, 0x00FFFF);
+        const name = this.add.text(0, -90, classData.name, {
+            fontFamily: 'Cinzel',
+            fontSize: '28px',
+            color: '#FFFFFF',
+            stroke: '#000000',
+            strokeThickness: 4,
+            align: 'center',
+            wordWrap: { width: 180 }
+        }).setOrigin(0.5);
+        const desc = this.add.text(0, 0, classData.description, {
+            fontSize: '16px',
+            color: '#E0E0E0',
+            align: 'center',
+            wordWrap: { width: 180 }
+        }).setOrigin(0.5);
+
+        button.add([bg, name, desc]);
+        button.setSize(200, 250);
+        button.setInteractive();
+
+        button.on('pointerover', () => {
+            bg.setFillStyle(0x555555, 0.9);
+        });
+
+        button.on('pointerout', () => {
+            bg.setFillStyle(0x333333, 0.8);
+        });
+
+        button.on('pointerdown', () => {
+            playerStats.playerClass = key;
+            // Apply initial stats
+            Object.assign(playerStats, playerClasses[key].initialStats);
+            // Activate passive ability
+            playerClasses[key].passiveAbility(this);
+
+            classSelectionBg.destroy();
+            titleText.destroy();
+            classButtons.clear(true, true); // Destroi os botões
+
+            // Start the game after class selection
+            player.setActive(true).setVisible(true); // Garante que o jogador está visível
+            spawnArmas.call(this);
+            spawnWave.call(this);
+            this.hud.update(); // Atualiza HUD com novos stats
+            this.hud.updatePlayerStatsPanel();
+        });
+
+        classButtons.add(button);
+        xOffset += 250;
+    });
+
+    player.setActive(false).setVisible(false); // Esconde o jogador até a seleção da classe
+}
+
 
 function spawnArmas() {
   const tipos = Object.keys(tiposDeArmas);
 
   let dropCount = 3;
-  if (playerStats.increasedDropRate && Phaser.Math.Between(0,100) < 50) {
+  if (playerStats.increasedDropRate && Phaser.Math.Between(0,100) < 50) { // 50% extra chance
     dropCount++;
+  }
+  if (playerStats.playerClass === 'mechanic') { // Classe mecânico
+    dropCount++; // +1 drop garantido para o mecânico
   }
 
   for (let i = 0; i < dropCount; i++) {
@@ -308,11 +481,8 @@ function spawnArmas() {
 }
 
 function pegarArma(arma) {
-  const props = tiposDeArmas[arma.tipo];
-
-  playerStats.bulletDamage = props.dano;
-  playerStats.fireRate = props.fireRate;
-
+  playerStats.currentWeapon = arma.tipo; // Atualiza a arma atual
+  updateWeaponStats(); // Recalcula os stats da arma
   arma.destroy();
 
   const nomeArmasMap = {
@@ -333,31 +503,66 @@ function pegarArma(arma) {
     this.time.delayedCall(2000, () => pickupText.destroy());
 }
 
+function updateWeaponStats() {
+    const currentWeaponProps = tiposDeArmas[playerStats.currentWeapon];
+    // Dano base + (nível da arma - 1) * 0.5 (exemplo de escalonamento)
+    playerStats.bulletDamage = currentWeaponProps.baseDano + (playerStats.currentWeaponLevel - 1) * 0.5;
+    // Cadência base - (nível da arma - 1) * 50 (exemplo de escalonamento)
+    playerStats.fireRate = currentWeaponProps.baseFireRate - (playerStats.currentWeaponLevel - 1) * 50;
+    
+    // Certifica-se de que a cadência de tiro não seja muito baixa
+    if (playerStats.fireRate < 100) playerStats.fireRate = 100;
+
+    // Aplicar bônus de classe se for Tecno-Atirador
+    if (playerStats.playerClass === 'techSniper') {
+        playerStats.bulletDamage += 1; // +1 de dano da classe
+        // playerStats.bulletSpeedBoost já é definido em initialStats da classe
+    }
+
+    atualizarHUDarma(tiposDeArmas[playerStats.currentWeapon].nome, playerStats.currentWeapon);
+    game.scene.scenes[0].hud.updatePlayerStatsPanel(); // Atualiza o painel de stats
+}
+
+
 function atualizarHUDarma(nomeArma, keyImagem) {
-  armaNomeText.setText(nomeArma);
+  armaNomeText.setText(`${nomeArma} LV${playerStats.currentWeaponLevel}`);
   armaImagem.setTexture(keyImagem);
 }
 
 function atualizarHUDCartas(scene) {
   cardsHUDGroup.clear(true, true);
 
+  const startX = 50;
+  const startY = 140;
+  const gap = 60;
+
   playerCards.forEach((card, index) => {
-    const bg = scene.add.rectangle(50 + index * 60, 140, 50, 70, card.cor || 0x999999, 0.8)
+    const bg = scene.add.rectangle(startX + index * gap, startY, 50, 70, card.cor || 0x999999, 0.8)
       .setStrokeStyle(2, 0xffffff);
-    const title = scene.add.text(50 + index * 60, 140, card.nome[0], {
+    const title = scene.add.text(startX + index * gap, startY, card.nome[0], {
       fontSize: '24px',
-      color: '#fff'
+      color: '#fff',
+      fontStyle: 'bold'
     }).setOrigin(0.5);
+    const nameTip = scene.add.text(startX + index * gap, startY + 40, card.nome, {
+      fontSize: '12px',
+      color: '#fff',
+      align: 'center',
+      wordWrap: { width: 50 }
+    }).setOrigin(0.5);
+
 
     cardsHUDGroup.add(bg);
     cardsHUDGroup.add(title);
+    cardsHUDGroup.add(nameTip);
   });
 }
 
 function update(time) {
   this.hud.update();
+  this.hud.updatePlayerStatsPanel(); // Atualiza constantemente para refletir mudanças
 
-  if (!player.active) return;
+  if (!player.active || showingCards) return; // Não move ou atira se o jogo estiver pausado para seleção de carta
 
   let vx = 0, vy = 0;
   if (cursors.left.isDown) vx = -1;
@@ -407,7 +612,12 @@ function update(time) {
 
 function shootRadial() {
   const count = playerStats.spreadUpgrade ? 24 : 12;
-  const speed = playerStats.bulletSpeedBoost ? 900 : 700;
+  let speed = playerStats.bulletSpeedBoost ? 900 : 700;
+
+  // Bônus de velocidade de bala da classe Tecno-Atirador
+  if (playerStats.playerClass === 'techSniper') {
+      speed *= 1.1; // +10% de velocidade
+  }
 
   for (let i = 0; i < count; i++) {
     const baseAngle = Phaser.Math.DegToRad((360 / count) * i);
@@ -448,8 +658,9 @@ function showCardChoices() {
             stroke: '#000000',
             strokeThickness: 6,
             align: 'center'
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setDepth(100);
 
+        // Reset playerStats para o estado inicial
         playerStats = {
             life: 3,
             maxLife: 3,
@@ -475,14 +686,23 @@ function showCardChoices() {
             xp: 0,
             level: 1,
             xpToNextLevel: 100,
-            waveXpGoal: 20
+            waveXpGoal: 20,
+            currentWeapon: 'arma1',
+            currentWeaponLevel: 1,
+            playerClass: null
         };
-        wave = 0;
-        showingCards = false;
+        wave = 1;
+        playerCards = [];
+        this.hud.update(); // Atualiza HUD com novos stats
+        this.hud.updatePlayerStatsPanel();
+        this.hud.updateXpBar();
+        showingCards = false; // Permite reiniciar
         return;
     }
 
     playerStats.waveXpGoal = Math.floor(playerStats.waveXpGoal * 1.5);
+    waveXpGoalText.setText(`Meta de XP para Onda: ${playerStats.waveXpGoal}`);
+
 
   const cardOptions = [
     { nome: 'Escudo de Ivirik', desc: 'Proteção que te salva da morte uma vez', cor: 0xffc107, efeito: () => { playerStats.hasShield = true; } },
@@ -492,12 +712,13 @@ function showCardChoices() {
     { nome: 'Dash ', desc: 'Corrida rápida para escapar', cor: 0xf44336, efeito: () => { playerStats.dashAvailable = true; } },
     { nome: 'Projétil Perfurante', desc: 'Balas atravessam inimigos de forma avassaladora', cor: 0x03a9f4, efeito: () => { playerStats.bulletPiercing = true; } },
     { nome: 'Recuperação Instantânea', desc: 'Recupera 2 de vida', cor: 0x8bc34a, efeito: () => { playerStats.life = Math.min(playerStats.life + 2, playerStats.maxLife); this.hud.update(); } },
-    { nome: 'Fúria de Metalion', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.bulletDamage += 1; this.time.delayedCall(15000, () => playerStats.bulletDamage -= 1); } },
+    { nome: 'Fúria de Metalion', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.bulletDamage += 1; this.time.delayedCall(15000, () => playerStats.bulletDamage -= 1); this.hud.updatePlayerStatsPanel();} },
     { nome: 'Vida Fantasma', desc: 'Sobrevive com 1 de vida ao morrer', cor: 0x673ab7, efeito: () => { playerStats.reviveOnce = true; } },
     { nome: 'Energético da Meia-Noite', desc: 'Velocidade de movimento aumentada em 50% por 10s', cor: 0xffeb3b, efeito: () => {
         const originalSpeed = playerStats.playerSpeed;
         playerStats.playerSpeed *= 1.5;
         this.time.delayedCall(10000, () => playerStats.playerSpeed = originalSpeed);
+        this.hud.updatePlayerStatsPanel();
       }
     },
     { nome: 'Aura Letal', desc: 'Causa dano contínuo nos inimigos próximos', cor: 0xcd201f, efeito: () => {
@@ -523,6 +744,7 @@ function showCardChoices() {
         const originalRate = playerStats.fireRate;
         playerStats.fireRate /= 2;
         this.time.delayedCall(10000, () => playerStats.fireRate = originalRate);
+        this.hud.updatePlayerStatsPanel();
       }
     },
     { nome: 'Hack dos Fragmentos', desc: 'Chance dobrada de aparecer armas nas próximas ondas', cor: 0x607d8b, efeito: () => {
@@ -536,7 +758,7 @@ function showCardChoices() {
     },
     { nome: 'Espelho de Plasma', desc: 'Reflete 30% do dano de volta ao inimigo por 10s', cor: 0x673ab7, efeito: () => {
         playerStats.hasShield = true;
-        const reflectText = this.add.text(config.width / 2, config.height / 2 - 100, 'Reflect not fully implemented!', { fontSize: '20px', color: '#FFF' }).setOrigin(0.5);
+        const reflectText = this.add.text(config.width / 2, config.height / 2 - 100, 'Reflect not fully implemented!', { fontSize: '20px', color: '#FFF' }).setOrigin(0.5).setDepth(100);
         this.time.delayedCall(3000, () => reflectText.destroy());
       }
     },
@@ -551,6 +773,7 @@ function showCardChoices() {
         playerStats.life = playerStats.maxLife;
         this.hud.updateHealthBar();
         this.hud.update();
+        this.hud.updatePlayerStatsPanel();
       }
     },
     { nome: 'Toque Vampírico', desc: 'Recupere vida ao derrotar inimigos', cor: 0x8b0000, efeito: () => { playerStats.healOnKill = true; } },
@@ -576,6 +799,8 @@ function showCardChoices() {
     const y = startY;
 
     const container = this.add.container(x, y);
+    container.setDepth(10); // Garante que as cartas apareçam acima de tudo
+
     const bgImage = this.add.image(0, 0, 'cardBg').setDisplaySize(160, 240);
 
     const title = this.add.text(0, -80, card.nome, { fontSize: '20px', color: '#fff', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
@@ -620,6 +845,22 @@ function showCardChoices() {
           showingCards = false;
           wave++;
           waveText.setText(`Fase ${wave}`);
+
+          // Lógica de nível da arma a cada 5 ondas
+          if (wave % 5 === 0) {
+              playerStats.currentWeaponLevel++;
+              updateWeaponStats();
+              const levelUpWeaponText = this.add.text(config.width / 2, config.height / 2 - 100, `ARMA LV UP! LV${playerStats.currentWeaponLevel}`, {
+                  fontFamily: 'Cinzel',
+                  fontSize: '36px',
+                  color: '#FFD700',
+                  stroke: '#000000',
+                  strokeThickness: 6,
+                  align: 'center'
+              }).setOrigin(0.5).setDepth(100);
+              this.time.delayedCall(3000, () => levelUpWeaponText.destroy());
+          }
+
           spawnWave.call(this);
         }
       });
@@ -690,22 +931,24 @@ function spawnWave() {
     enemy.maxHealth = enemy.health;
     enemy.speed = typeProps.speed + Math.floor(wave * 2);
     enemy.setCollideWorldBounds(true);
+    enemy.enemyType = typeProps.name; // Armazena o nome do tipo de inimigo
 
     // LÓGICA PARA AUMENTAR O XP NAS PRIMEIRAS ONDAS (1 a 5)
     let bonusXP = 0;
     if (wave <= 5) {
         switch (wave) {
-            case 1: bonusXP = 20; break; // XP base 10 + 20 = 30 para normal
-            case 2: bonusXP = 15; break; // XP base 10 + 15 = 25 para normal
-            case 3: bonusXP = 10; break; // XP base 10 + 10 = 20 para normal
-            case 4: bonusXP = 5; break;  // XP base 10 + 5 = 15 para normal
-            case 5: bonusXP = 0; break;  // Volta ao XP normal
+            case 1: bonusXP = 20; break;
+            case 2: bonusXP = 15; break;
+            case 3: bonusXP = 10; break;
+            case 4: bonusXP = 5; break;
+            case 5: bonusXP = 0; break;
         }
     }
     enemy.xpReward = typeProps.xpReward + bonusXP;
     // FIM DA LÓGICA DE XP
 
   }
+  spawnArmas.call(this); // Spawna armas a cada nova onda
 }
 
 function dashPlayer() {
@@ -756,8 +999,9 @@ function gainXp(amount) {
     playerStats.level++;
     playerStats.xp -= playerStats.xpToNextLevel;
     playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5);
-    playerStats.bulletDamage *= 1.012;
+    playerStats.bulletDamage *= 1.012; // Pequeno aumento de dano no level up
     this.hud.updateXpBar();
+    this.hud.updatePlayerStatsPanel(); // Atualiza stats no level up
     const levelUpText = this.add.text(config.width / 2, config.height / 2 + 50, `LEVEL UP! Level ${playerStats.level}`, {
       fontFamily: 'Cinzel',
       fontSize: '40px',
@@ -775,38 +1019,46 @@ class HUD {
     this.scene = scene;
     this.player = player;
 
+    // Player Health Bar
     this.playerHealthBarBg = this.scene.add.graphics();
     this.playerHealthBarFill = this.scene.add.graphics();
     this.playerHealthBarX = 20;
     this.playerHealthBarY = 20;
     this.playerHealthBarWidth = 150;
     this.playerHealthBarHeight = 20;
-
     this.updateHealthBar();
 
+    // Enemy Health Bar
     this.enemyHealthBarBg = this.scene.add.graphics();
     this.enemyHealthBarFill = this.scene.add.graphics();
-
+    this.enemyNameText = this.scene.add.text(0, 0, '', { fontSize: '16px', color: '#FFF' }).setOrigin(0.5);
     this.enemyHealthBarX = 20;
     this.enemyHealthBarY = 60;
     this.enemyHealthBarWidth = 150;
     this.enemyHealthBarHeight = 20;
-
     this.enemy = null;
 
+    // XP Bar
     this.xpBarBg = this.scene.add.graphics();
     this.xpBarFill = this.scene.add.graphics();
     this.xpText = this.scene.add.text(config.width / 2, config.height - 30, `LV ${playerStats.level} XP: ${playerStats.xp}/${playerStats.xpToNextLevel}`, {
       fontSize: '18px',
       color: '#FFFFFF'
     }).setOrigin(0.5);
-
     this.xpBarX = config.width / 2 - 150;
     this.xpBarY = config.height - 20;
     this.xpBarWidth = 300;
     this.xpBarHeight = 10;
-
     this.updateXpBar();
+
+    // Player Stats Panel
+    this.playerStatsPanelBg = this.scene.add.graphics();
+    this.playerStatsText = this.scene.add.text(20, 100, '', {
+        fontSize: '16px',
+        color: '#FFFFFF',
+        lineSpacing: 5
+    });
+    this.updatePlayerStatsPanel();
   }
 
   update() {
@@ -815,6 +1067,7 @@ class HUD {
     if (this.enemy && this.enemy.active) {
       this.enemyHealthBarBg.clear();
       this.enemyHealthBarFill.clear();
+      this.enemyNameText.setVisible(true);
 
       this.enemyHealthBarBg.fillStyle(0x000000, 0.6);
       this.enemyHealthBarBg.fillRect(this.enemyHealthBarX, this.enemyHealthBarY, this.enemyHealthBarWidth, this.enemyHealthBarHeight);
@@ -822,9 +1075,13 @@ class HUD {
       const healthPercent = Phaser.Math.Clamp(this.enemy.health / this.enemy.maxHealth, 0, 1);
       this.enemyHealthBarFill.fillStyle(0xff0000, 1);
       this.enemyHealthBarFill.fillRect(this.enemyHealthBarX, this.enemyHealthBarY, this.enemyHealthBarWidth * healthPercent, this.enemyHealthBarHeight);
+
+      this.enemyNameText.setText(this.enemy.enemyType);
+      this.enemyNameText.setPosition(this.enemyHealthBarX + this.enemyHealthBarWidth / 2, this.enemyHealthBarY - 15);
     } else {
       this.enemyHealthBarBg.clear();
       this.enemyHealthBarFill.clear();
+      this.enemyNameText.setVisible(false);
     }
   }
 
@@ -856,6 +1113,23 @@ class HUD {
     const healthPercent = Phaser.Math.Clamp(playerStats.life / playerStats.maxLife, 0, 1);
     this.playerHealthBarFill.fillStyle(0x8A2BE2, 1);
     this.playerHealthBarFill.fillRect(this.playerHealthBarX, this.playerHealthBarY, this.playerHealthBarWidth * healthPercent, this.playerHealthBarHeight);
+  }
+
+  updatePlayerStatsPanel() {
+    this.playerStatsPanelBg.clear();
+    this.playerStatsPanelBg.fillStyle(0x111111, 0.5);
+    this.playerStatsPanelBg.fillRect(10, 90, 200, 120); // Posição e tamanho do painel
+
+    const fireRateMs = playerStats.fireRate / 1000;
+    const statsText = `
+      Classe: ${playerStats.playerClass ? playerClasses[playerStats.playerClass].name : 'Nenhuma'}
+      Vida: ${playerStats.life.toFixed(1)} / ${playerStats.maxLife}
+      Dano: ${playerStats.bulletDamage.toFixed(1)}
+      Cadência: ${fireRateMs.toFixed(2)}s
+      Velocidade: ${playerStats.playerSpeed}
+    `;
+    this.playerStatsText.setText(statsText);
+    this.playerStatsText.setPosition(20, 100);
   }
 }
 
