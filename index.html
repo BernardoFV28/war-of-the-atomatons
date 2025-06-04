@@ -92,21 +92,21 @@ const enemyTypes = {
     baseHealth: 4,
     speed: 100,
     scale: 0.06,
-    xpReward: 10 // Valor base
+    xpReward: 20 // Valor base
   },
   fast: {
     texture: 'enemy_fast',
     baseHealth: 4,
     speed: 180,
     scale: 0.06,
-    xpReward: 15 // Valor base
+    xpReward: 25 // Valor base
   },
   tank: {
     texture: 'enemy_tank',
     baseHealth: 9,
     speed: 70,
     scale: 0.08,
-    xpReward: 25 // Valor base
+    xpReward: 35 // Valor base
   }
 };
 
@@ -664,7 +664,7 @@ function showCardChoices() {
 function ativarSpiritAlly() {
   if (spiritAlly) spiritAlly.destroy();
 
-  spiritAlly = this.physics.add.sprite(player.x, player.y, 'player').setScale(0.03).setAlpha(0.7);
+  spiritAlly = this.physics.add.sprite(player.x, player.y, 'player').setScale(0.06).setAlpha(0.7);
   playerStats.spiritAllyActive = true;
 
   this.time.addEvent({
@@ -731,7 +731,7 @@ function spawnWave() {
             case 1: bonusXP = 20; break; // XP base 10 + 20 = 30 para normal
             case 2: bonusXP = 15; break; // XP base 10 + 15 = 25 para normal
             case 3: bonusXP = 10; break; // XP base 10 + 10 = 20 para normal
-            case 4: bonusXP = 5; break;  // XP base 10 + 5 = 15 para normal
+            case 4: bonusXP = 30; break;  // XP base 10 + 5 = 15 para normal
             case 5: bonusXP = 0; break;  // Volta ao XP normal
         }
     }
