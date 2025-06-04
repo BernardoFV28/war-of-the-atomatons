@@ -44,1092 +44,838 @@ let player, cursors;
 let bullets, enemies, enemyBullets, armas;
 let lastShoot = 0;
 let showingCards = false;
-let cardsHUDGroup; // Group for HUD cards
-let choiceCardsGroup; // Group for choice cards
-let playerStatsPanel; // Renamed for clarity
-let playerEffectsPanel; // New: to display active effects
-let game;
-let gameRestarting = false; // Flag to prevent multiple restarts
+let wave = 1; //onda
+let cardsGroup; //grupo de cartas
+let spiritAlly = null; //aliado
+let playerCards = []; // Cartas que o jogador pegou
+let cardsHUDGroup; // Grupo visual do HUD de cartas
 
-// --- Game Stats & Data ---
+
 let playerStats = {
-  level: 1,
+  life: 3,
+  maxLife: 3,
+  bulletDamage: 1,
+  fireRate: 3000,
+  hasShield: false,
+  spiritAllyActive: false,
+  spreadUpgrade: false,
+  doubleBullets: false,
+  dashAvailable: false,
+  dashCooldown: false,
+  slowEnemies: false,
+  reviveOnce: false,
+  increasedDropRate: false,
+  tripleBullets: false,
+  playerSpeed: 400,
+  healOnKill: false,
+  damageAura: false,
+  speedBoost: false,
+  bulletPiercing: false,
+  thorns: false,
+  bulletSpeedBoost: false,
   xp: 0,
+  level: 1,
   xpToNextLevel: 100,
-  life: 100,
-  maxLife: 100,
-  speed: 200,
-  fireRate: 500, // ms between shots
-  damage: 10,
-  critChance: 0.1,
-  critDamage: 1.5,
-  bulletSpeed: 500,
-  playerClass: 'Soldado', // Default class
-  currentWeapon: 'pistol', // Default weapon
-  numBullets: 1, // For multi-shot
-  bulletSpread: 0, // For shotgun-like effects
-  dashAvailable: false, // Flag for Dash card effect
-  spikeAuraActive: false, // Flag for Spike Aura card effect
-  // ... add other effect flags as needed
+  waveXpGoal: 20,
+  spikeAuraActive: false // Added in the new version
 };
 
-// Player Class Definitions
-const classes = {
-  Soldado: {
-    baseLife: 100,
-    baseSpeed: 200,
-    baseDamage: 10,
-    baseFireRate: 500,
-  },
-  Atirador: {
-    baseLife: 80,
-    baseSpeed: 220,
-    baseDamage: 12,
-    baseFireRate: 400,
-  },
-  Tanque: {
-    baseLife: 150,
-    baseSpeed: 150,
-    baseDamage: 8,
-    baseFireRate: 600,
-  },
-};
-
-// Weapon Definitions
 const tiposDeArmas = {
-  pistol: {
-    name: 'Pistola',
-    damageMultiplier: 1,
-    fireRateMultiplier: 1,
-    bulletSpeedMultiplier: 1,
-    numBullets: 1,
-    spread: 0,
-    image: 'pistol',
-    level: 1,
-    maxLevel: 5,
-    xp: 0,
-    xpToNextLevel: 50,
-    upgrade: (weapon) => {
-      weapon.level++;
-      weapon.damageMultiplier += 0.2;
-      weapon.fireRateMultiplier -= 0.05; // Faster fire rate
-      weapon.bulletSpeedMultiplier += 0.1;
-      weapon.xpToNextLevel = Math.floor(weapon.xpToNextLevel * 1.5);
-    }
-  },
-  shotgun: {
-    name: 'Escopeta',
-    damageMultiplier: 0.8,
-    fireRateMultiplier: 1.5,
-    bulletSpeedMultiplier: 0.8,
-    numBullets: 3,
-    spread: 0.2, // radians
-    image: 'shotgun',
-    level: 1,
-    maxLevel: 5,
-    xp: 0,
-    xpToNextLevel: 70,
-    upgrade: (weapon) => {
-      weapon.level++;
-      weapon.damageMultiplier += 0.15;
-      weapon.fireRateMultiplier -= 0.1;
-      weapon.numBullets += 1;
-      weapon.xpToNextLevel = Math.floor(weapon.xpToNextLevel * 1.6);
-    }
-  },
-  rifle: {
-    name: 'Rifle',
-    damageMultiplier: 1.2,
-    fireRateMultiplier: 0.8,
-    bulletSpeedMultiplier: 1.2,
-    numBullets: 1,
-    spread: 0,
-    image: 'rifle',
-    level: 1,
-    maxLevel: 5,
-    xp: 0,
-    xpToNextLevel: 60,
-    upgrade: (weapon) => {
-      weapon.level++;
-      weapon.damageMultiplier += 0.25;
-      weapon.fireRateMultiplier -= 0.08;
-      weapon.bulletSpeedMultiplier += 0.15;
-      weapon.xpToNextLevel = Math.floor(weapon.xpToNextLevel * 1.55);
-    }
-  }
-  // Add more weapons as needed
+  arma1: { dano: 1, fireRate: 3000 },
+  arma2: { dano: 2, fireRate: 1000 },
+  arma3: { dano: 3, fireRate: 2000 }
 };
 
-// Enemy Waves Configuration
-const waves = [
-  { wave: 1, enemyCount: 5, enemySpeed: 50, enemyLife: 20, spawnDelay: 1000 },
-  { wave: 2, enemyCount: 8, enemySpeed: 60, enemyLife: 25, spawnDelay: 900 },
-  { wave: 3, enemyCount: 10, enemySpeed: 70, enemyLife: 30, spawnDelay: 800 },
-  { wave: 4, enemyCount: 12, enemySpeed: 80, enemyLife: 35, spawnDelay: 700 },
-  { wave: 5, enemyCount: 15, enemySpeed: 90, enemyLife: 40, spawnDelay: 600 },
-  { wave: 6, enemyCount: 18, enemySpeed: 100, enemyLife: 45, spawnDelay: 550 },
-  { wave: 7, enemyCount: 20, enemySpeed: 110, enemyLife: 50, spawnDelay: 500 },
-  { wave: 8, enemyCount: 22, enemySpeed: 120, enemyLife: 55, spawnDelay: 450 },
-  { wave: 9, enemyCount: 25, enemySpeed: 130, enemyLife: 60, spawnDelay: 400 },
-  { wave: 10, enemyCount: 30, enemySpeed: 140, enemyLife: 70, spawnDelay: 350 },
-];
+const enemyTypes = {
+  normal: {
+    texture: 'enemy',
+    baseHealth: 4,
+    speed: 100,
+    scale: 0.06,
+    xpReward: 10 // Valor base
+  },
+  fast: {
+    texture: 'enemy_fast',
+    baseHealth: 4,
+    speed: 180,
+    scale: 0.06,
+    xpReward: 15 // Valor base
+  },
+  tank: {
+    texture: 'enemy_tank',
+    baseHealth: 9,
+    speed: 70,
+    scale: 0.08,
+    xpReward: 25 // Valor base
+  }
+};
 
-let currentWaveIndex = 0;
-let enemiesRemaining = 0;
-let enemiesSpawnedInWave = 0;
-let waveInProgress = false;
-let spawnEvent;
-
-// Card Definitions
-// Ensure these cards refer to appropriate playerStats flags for uniqueness
-const cards = [{
-    nome: 'Mais Vida',
-    descricao: 'Aumenta sua vida máxima em 20.',
-    cor: 0x00ff00,
-    raridade: 'comum',
-    efeito: function() {
-      playerStats.maxLife += 20;
-      playerStats.life += 20; // Heal
-      this.hud.updateHealthBar();
-      this.hud.updatePlayerStatsPanel();
-    }
-  },
-  {
-    nome: 'Velocidade',
-    descricao: 'Aumenta sua velocidade em 50.',
-    cor: 0x0000ff,
-    raridade: 'comum',
-    efeito: function() {
-      playerStats.speed += 50;
-      this.hud.updatePlayerStatsPanel();
-    }
-  },
-  {
-    nome: 'Dano Extra',
-    descricao: 'Aumenta seu dano em 5.',
-    cor: 0xff0000,
-    raridade: 'comum',
-    efeito: function() {
-      playerStats.damage += 5;
-      this.hud.updatePlayerStatsPanel();
-    }
-  },
-  {
-    nome: 'Frenesi',
-    descricao: 'Aumenta a cadência de tiro em 100ms.',
-    cor: 0xffa500,
-    raridade: 'comum',
-    efeito: function() {
-      playerStats.fireRate = Math.max(50, playerStats.fireRate - 100); // Cap fireRate
-      this.hud.updatePlayerStatsPanel();
-    }
-  },
-  {
-    nome: 'Tiro Rápido',
-    descricao: 'Aumenta a velocidade do projétil em 100.',
-    cor: 0xffff00,
-    raridade: 'comum',
-    efeito: function() {
-      playerStats.bulletSpeed += 100;
-      this.hud.updatePlayerStatsPanel();
-    }
-  },
-  {
-    nome: 'Multi-Tiro',
-    descricao: 'Atira 2 projéteis extras em arco.',
-    cor: 0x8a2be2,
-    raridade: 'rara',
-    efeito: function() {
-      if (playerStats.numBullets < 5) { // Limit multi-shot stacks
-        playerStats.numBullets += 2;
-        playerStats.bulletSpread = Math.min(0.5, playerStats.bulletSpread + 0.1); // Increase spread
-      }
-      this.hud.updatePlayerStatsPanel();
-    }
-  },
-  {
-    nome: 'Dash',
-    descricao: 'Habilita a habilidade de Dash (SHIFT).',
-    cor: 0x00ced1,
-    raridade: 'rara',
-    efeito: function() {
-      if (!playerStats.dashAvailable) { // Prevent multiple activations
-        playerStats.dashAvailable = true;
-        // Add visual indicator for Dash if implemented
-      }
-      this.hud.updatePlayerStatsPanel();
-    }
-  },
-  {
-    nome: 'Aura de Espinhos',
-    descricao: 'Causa dano a inimigos próximos.',
-    cor: 0x8b0000,
-    raridade: 'epica',
-    efeito: function() {
-      if (!playerStats.spikeAuraActive) { // Prevent multiple activations
-        playerStats.spikeAuraActive = true;
-        // Logic for spike aura damage will be in update
-        // Add visual indicator for Aura if implemented
-      }
-      this.hud.updatePlayerStatsPanel();
-    }
-  },
-  {
-    nome: 'Trocar Arma: Escopeta',
-    descricao: 'Troca para a Escopeta.',
-    cor: 0x808080,
-    raridade: 'comum',
-    efeito: function() {
-      playerStats.currentWeapon = 'shotgun';
-      tiposDeArmas.shotgun.xp = 0; // Reset weapon XP
-      this.hud.updateWeaponStats();
-      this.hud.updatePlayerStatsPanel();
-    }
-  },
-  {
-    nome: 'Trocar Arma: Rifle',
-    descricao: 'Troca para o Rifle.',
-    cor: 0x4682b4,
-    raridade: 'comum',
-    efeito: function() {
-      playerStats.currentWeapon = 'rifle';
-      tiposDeArmas.rifle.xp = 0; // Reset weapon XP
-      this.hud.updateWeaponStats();
-      this.hud.updatePlayerStatsPanel();
-    }
-  },
-  {
-    nome: 'Nível Arma',
-    descricao: 'Aumenta o nível da arma atual.',
-    cor: 0xffd700,
-    raridade: 'rara',
-    efeito: function() {
-      const currentWeapon = tiposDeArmas[playerStats.currentWeapon];
-      if (currentWeapon && currentWeapon.level < currentWeapon.maxLevel) {
-        currentWeapon.upgrade(currentWeapon);
-        this.hud.updateWeaponStats();
-        this.hud.updatePlayerStatsPanel();
-      } else if (currentWeapon) {
-        console.log('Arma já está no nível máximo!');
-      }
-    }
-  },
-  {
-    nome: 'Recuperação',
-    descricao: 'Recupera 30% da vida máxima.',
-    cor: 0x00ff00,
-    raridade: 'comum',
-    efeito: function() {
-      playerStats.life = Math.min(playerStats.maxLife, playerStats.life + playerStats.maxLife * 0.3);
-      this.hud.updateHealthBar();
-    }
-  },
-];
-
-let playerCards = []; // Cards currently held by the player (not shown in HUD, but could be)
-let chosenCardTweens = []; // To store tweens of choice cards
+const game = new Phaser.Game(config);
 
 function preload() {
+  this.load.image('cardBg', 'assets/card.png');
   this.load.image('player', 'assets/player.png');
   this.load.image('bullet', 'assets/bullet.png');
-  this.load.image('enemy', 'assets/enemy.png');
-  this.load.image('enemyBullet', 'assets/enemy_bullet.png');
-  this.load.image('pistol', 'assets/pistolinha.png');
-  this.load.image('shotgun', 'assets/lancarrio.png');
-  this.load.image('rifle', 'assets/metralha.png');
-  this.load.image('background', 'assets/fundogame.png'); // Example background
+  this.load.image('arma1', 'assets/pistolinha.png');
+  this.load.image('arma2', 'assets/metralha.png');
+  this.load.image('arma3', 'assets/lancarrio.png');
+  this.load.image('fundogame', 'assets/fundogame.png');
+  this.load.image('cora', 'assets/cora.png');
+
+  this.load.image('enemy', 'assets/enemy_robot.png');
+  this.load.image('enemy_fast', 'assets/enemy_fast.png');
+  this.load.image('enemy_tank', 'assets/enemy_tank.png');
 }
 
 function create() {
-  this.add.image(config.width / 2, config.height / 2, 'background').setDepth(-1).setScrollFactor(0);
+  this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1);
 
-  // Initialize HUD and Groups
-  hudGroup = this.add.group();
-  cardsHUDGroup = this.add.group(); // Group for the player's held cards in the HUD
-  choiceCardsGroup = this.add.group(); // Group for the cards presented for choice
-  playerEffectsPanel = this.add.group(); // New: Group for active effects display
+  player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true).setScale(0.05);
+  player.health = playerStats.life;
+  player.maxHealth = playerStats.maxLife;
 
-  player = this.physics.add.sprite(config.width / 2, config.height / 2, 'player').setCollideWorldBounds(true);
-  player.setDrag(100);
+  this.hud = new HUD(this, player);
+
+  bullets = this.physics.add.group();
+  enemies = this.physics.add.group();
+  enemyBullets = this.physics.add.group();
+  armas = this.physics.add.group();
 
   cursors = this.input.keyboard.createCursorKeys();
-  cursors.shift = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
 
-  bullets = this.physics.add.group({
-    classType: Bullet,
-    runChildUpdate: true
-  });
-  enemies = this.physics.add.group({
-    classType: Enemy,
-    runChildUpdate: true
-  });
-  enemyBullets = this.physics.add.group({
-    classType: EnemyBullet,
-    runChildUpdate: true
-  });
-  armas = this.physics.add.group({
-    classType: WeaponPickup,
-    runChildUpdate: true
+  spawnArmas.call(this);
+
+  this.physics.add.overlap(player, armas, (player, arma) => {
+    pegarArma.call(this, arma);
   });
 
-  this.physics.add.overlap(bullets, enemies, hitEnemy, null, this);
-  this.physics.add.overlap(player, enemies, enemyCollision, null, this);
-  this.physics.add.overlap(player, enemyBullets, playerHitByEnemyBullet, null, this);
-  this.physics.add.overlap(player, armas, pickUpWeapon, null, this);
-
-  // HUD elements setup
-  this.hud = new HUD(this); // Pass 'this' (scene) to the HUD class
-  this.hud.create();
-
-  this.input.on('pointermove', function(pointer) {
-    if (!showingCards) { // Only rotate player if not showing cards
-      let angle = Phaser.Math.Angle.Between(player.x, player.y, pointer.x, pointer.y);
-      player.setRotation(angle + Math.PI / 2); // Adjust for sprite's default orientation
+  this.input.keyboard.on('keydown-Z', () => {
+    if (playerStats.dashAvailable && !playerStats.dashCooldown) {
+      dashPlayer.call(this);
     }
-  }, this);
-
-  this.input.on('pointerdown', function() {
-    if (!showingCards) {
-      shootBullet(this);
-    }
-  }, this);
+  });
 
   this.input.keyboard.on('keydown-SPACE', () => {
-    if (!waveInProgress && !gameRestarting && playerStats.life <= 0) {
-      restartGame(this);
+    if (!player.active) {
+      this.time.delayedCall(500, () => {
+        this.scene.restart();
+      });
     }
   });
 
-  startGame(this);
-}
+  spawnWave.call(this);
 
-function update(time, delta) {
-  if (playerStats.life <= 0) {
-    if (!gameRestarting) {
-      displayGameOver(this);
-    }
-    return;
-  }
+  this.physics.add.overlap(bullets, enemies, (b, e) => {
+    if (b.active && e.active) {
+      e.health -= playerStats.bulletDamage;
 
-  // Player movement
-  if (!showingCards) {
-    player.setVelocity(0); // Reset velocity to stop movement if no keys are pressed
-
-    const currentSpeed = playerStats.speed;
-    if (cursors.left.isDown) {
-      player.setVelocityX(-currentSpeed);
-    } else if (cursors.right.isDown) {
-      player.setVelocityX(currentSpeed);
-    }
-
-    if (cursors.up.isDown) {
-      player.setVelocityY(-currentSpeed);
-    } else if (cursors.down.isDown) {
-      player.setVelocityY(currentSpeed);
-    }
-
-    // Dash functionality
-    if (playerStats.dashAvailable && cursors.shift.isDown) {
-      player.setVelocity(0); // Stop current movement
-      let dashDirectionX = 0;
-      let dashDirectionY = 0;
-
-      if (cursors.left.isDown) dashDirectionX = -1;
-      else if (cursors.right.isDown) dashDirectionX = 1;
-
-      if (cursors.up.isDown) dashDirectionY = -1;
-      else if (cursors.down.isDown) dashDirectionY = 1;
-
-      // If no direction key is pressed, dash in the direction the player is facing
-      if (dashDirectionX === 0 && dashDirectionY === 0) {
-        const angle = player.rotation - Math.PI / 2; // Adjust for sprite orientation
-        dashDirectionX = Math.cos(angle);
-        dashDirectionY = Math.sin(angle);
+      if (!playerStats.bulletPiercing) {
+        b.destroy();
+      } else {
+        const particles = this.add.particles('bullet');
+        particles.createEmitter({
+          x: e.x,
+          y: e.y,
+          speed: { min: -50, max: 50 },
+          scale: { start: 0.05, end: 0 },
+          lifespan: 300,
+          blendMode: 'ADD',
+          quantity: 6
+        });
       }
 
-      const dashSpeed = 800; // Increased dash speed
-      const dashDuration = 100; // Duration of dash in ms
-
-      player.body.setVelocity(dashDirectionX * dashSpeed, dashDirectionY * dashSpeed);
-
-      playerStats.dashAvailable = false; // Dash on cooldown
-      this.time.delayedCall(dashDuration, () => {
-        player.setVelocity(0);
-      });
-      this.time.delayedCall(2000, () => { // Dash cooldown
-        playerStats.dashAvailable = true;
-      });
-    }
-
-    // Apply Spike Aura damage if active
-    if (playerStats.spikeAuraActive) {
-      enemies.children.entries.forEach(enemy => {
-        const distance = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
-        if (distance < 100) { // Aura radius
-          enemy.takeDamage(1); // Small continuous damage
+      if (e.health <= 0) {
+        e.destroy();
+        gainXp.call(this, e.xpReward);
+        if (playerStats.healOnKill) {
+          playerStats.life = Math.min(playerStats.life + 0.5, playerStats.maxLife);
+          this.hud.update();
+          this.hud.updateActiveEffects(); // Ensure HUD updates after healing
         }
-      });
-    }
-
-    // Normalize diagonal movement speed
-    player.body.velocity.normalize().scale(currentSpeed);
-  }
-
-  // Update HUD
-  this.hud.update();
-
-  // Wave management
-  if (waveInProgress && enemies.countActive(true) === 0 && enemiesRemaining === 0 && enemiesSpawnedInWave >= waves[currentWaveIndex].enemyCount) {
-    waveInProgress = false;
-    currentWaveIndex++;
-    if (currentWaveIndex < waves.length) {
-      waveText.setText(`Wave ${currentWaveIndex + 1} will start soon...`);
-      this.time.delayedCall(3000, () => startNextWave(this), [], this);
-    } else {
-      waveText.setText('You cleared all waves! Game Over!');
-      // Implement game win condition / final screen
-    }
-  }
-}
-
-class Bullet extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, x, y) {
-    super(scene, x, y, 'bullet');
-    this.speed = playerStats.bulletSpeed; // Use dynamic bullet speed
-    this.damage = playerStats.damage; // Use dynamic player damage
-  }
-
-  fire(x, y, angle) {
-    this.body.reset(x, y);
-    this.setActive(true);
-    this.setVisible(true);
-    this.setRotation(angle + Math.PI / 2); // Adjust for sprite's orientation
-    this.scene.physics.velocityFromRotation(angle, this.speed, this.body.velocity);
-  }
-
-  preUpdate(time, delta) {
-    super.preUpdate(time, delta);
-    if (this.y <= 0 || this.y >= this.scene.sys.game.config.height ||
-      this.x <= 0 || this.x >= this.scene.sys.game.config.width) {
-      this.setActive(false);
-      this.setVisible(false);
-    }
-  }
-}
-
-class Enemy extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, x, y, life, speed) {
-    super(scene, x, y, 'enemy');
-    scene.add.existing(this);
-    scene.physics.add.existing(this);
-
-    this.life = life;
-    this.speed = speed;
-    this.points = 10; // XP / score from this enemy
-    this.setCollideWorldBounds(true);
-    this.setBounce(1); // Bounce off walls
-    this.setCircle(20); // Make collision body a circle for better movement
-    this.lastShot = 0;
-    this.fireRate = Phaser.Math.Between(1000, 3000); // Random fire rate for enemies
-  }
-
-  spawn(x, y, life, speed) {
-    this.body.reset(x, y);
-    this.life = life;
-    this.speed = speed;
-    this.setActive(true);
-    this.setVisible(true);
-    this.setVelocity(Phaser.Math.Between(-this.speed, this.speed), Phaser.Math.Between(-this.speed, this.speed));
-  }
-
-  takeDamage(amount) {
-    this.life -= amount;
-    if (this.life <= 0) {
-      this.die();
-      return true; // Enemy died
-    }
-    return false; // Enemy did not die
-  }
-
-  die() {
-    this.setActive(false);
-    this.setVisible(false);
-    this.destroy(); // Remove from scene
-
-    // Give XP to player
-    addXP(this.scene, this.points);
-  }
-
-  preUpdate(time, delta) {
-    super.preUpdate(time, delta);
-
-    // Make enemies chase player
-    const angle = Phaser.Math.Angle.Between(this.x, this.y, player.x, player.y);
-    this.scene.physics.velocityFromRotation(angle, this.speed, this.body.velocity);
-
-    // Enemy shooting (simple logic)
-    if (time > this.lastShot + this.fireRate) {
-      const enemyBullet = enemyBullets.get(this.x, this.y);
-      if (enemyBullet) {
-        enemyBullet.fire(this.x, this.y, angle);
-        this.lastShot = time;
       }
     }
-  }
-}
+  });
 
-class EnemyBullet extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, x, y) {
-    super(scene, x, y, 'enemyBullet');
-    this.speed = 200;
-    this.damage = 10;
-  }
+  this.physics.add.overlap(enemyBullets, player, (b, p) => {
+    if (b.active && p.active) {
+      b.destroy();
+      if (!playerStats.hasShield) {
+        playerStats.life--;
+        this.hud.update();
+        this.hud.updateActiveEffects(); // Ensure HUD updates after taking damage
+        p.setTint(0xff0000);
+        this.time.delayedCall(100, () => p.clearTint());
 
-  fire(x, y, angle) {
-    this.body.reset(x, y);
-    this.setActive(true);
-    this.setVisible(true);
-    this.setRotation(angle + Math.PI / 2);
-    this.scene.physics.velocityFromRotation(angle, this.speed, this.body.velocity);
-  }
+        if (playerStats.thorns) {
+          enemies.getChildren().forEach(enemy => {
+            const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
+            if (enemy.active && dist < 150) {
+              enemy.health -= 1;
+              if (enemy.health <= 0) {
+                enemy.destroy();
+                gainXp.call(this, enemy.xpReward);
+              }
+            }
+          });
+        }
 
-  preUpdate(time, delta) {
-    super.preUpdate(time, delta);
-    if (this.y <= 0 || this.y >= this.scene.sys.game.config.height ||
-      this.x <= 0 || this.x >= this.scene.sys.game.config.width) {
-      this.setActive(false);
-      this.setVisible(false);
+        if (playerStats.life <= 0) {
+          if (playerStats.reviveOnce) {
+            playerStats.life = 1;
+            playerStats.reviveOnce = false;
+            this.hud.update();
+            this.hud.updateActiveEffects(); // Ensure HUD updates after revive
+            p.clearTint();
+            const reviveText = this.add.text(config.width / 2, config.height / 2 - 50, 'REVIVED!', {
+              fontFamily: 'Cinzel',
+              fontSize: '36px',
+              color: '#00FF00',
+              stroke: '#000000',
+              strokeThickness: 6,
+              align: 'center'
+            }).setOrigin(0.5);
+            this.time.delayedCall(3000, () => reviveText.destroy());
+          } else {
+            p.setActive(false).setVisible(false);
+            const gameOverText = this.add.text(config.width / 2, config.height / 2, 'GAME OVER\nPress SPACE to Restart', {
+              fontFamily: 'Cinzel',
+              fontSize: '48px',
+              color: '#FF0000',
+              stroke: '#000000',
+              strokeThickness: 6,
+              align: 'center'
+            }).setOrigin(0.5);
+          }
+        }
+      } else {
+        playerStats.hasShield = false;
+        p.clearTint();
+        this.hud.updateActiveEffects(); // Ensure HUD updates when shield is consumed
+      }
     }
+  });
+
+  hudGroup = this.add.group();
+  cardsHUDGroup = this.add.group();
+
+  armaNomeText = this.add.text(config.width / 2, 20, 'Pistolinha', {
+    fontFamily: 'Cinzel',
+    fontSize: '28px',
+    color: '#A62E2E',
+    stroke: '#000000',
+    strokeThickness: 4,
+    shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 4, stroke: true, fill: true }
+  }).setOrigin(0.5, 0);
+
+  const box = this.add.rectangle(config.width / 2, 40, 300, 70, 0x111111, 0.3).setOrigin(0.5, 0);
+  box.setStrokeStyle(2, 0x00ffff, 0.1);
+  hudGroup.add(box);
+
+  armaImagem = this.add.image(config.width / 2, 70, 'arma1').setScale(0.1);
+  hudGroup.addMultiple([armaNomeText, armaImagem]);
+
+  waveText = this.add.text(config.width - 20, 20, `Fase ${wave}`, {
+    fontFamily: 'Cinzel',
+    fontSize: '24px',
+    color: '#FFFFFF',
+    stroke: '#000000',
+    strokeThickness: 4
+  }).setOrigin(1, 0);
+
+  this.time.addEvent({
+    delay: 9000,
+    loop: true,
+    callback: () => {
+      enemies.getChildren().forEach(enemy => {
+        if (!enemy.active) return;
+        const bullet = enemyBullets.create(enemy.x, enemy.y, 'bullet').setScale(0.03);
+        const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
+        this.physics.velocityFromRotation(angle, 150, bullet.body.velocity);
+      });
+    }
+  });
+}
+
+function spawnArmas() {
+  const tipos = Object.keys(tiposDeArmas);
+
+  let dropCount = 3;
+  if (playerStats.increasedDropRate && Phaser.Math.Between(0,100) < 50) {
+    dropCount++;
+  }
+
+  for (let i = 0; i < dropCount; i++) {
+    const tipo = Phaser.Utils.Array.GetRandom(tipos);
+    const x = Phaser.Math.Between(100, config.width - 100);
+    const y = Phaser.Math.Between(100, config.height - 100);
+    const arma = armas.create(x, y, tipo).setScale(0.02);
+    arma.tipo = tipo;
   }
 }
 
-class WeaponPickup extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, x, y, texture, weaponType) {
-    super(scene, x, y, texture);
-    this.weaponType = weaponType; // 'pistol', 'shotgun', 'rifle'
-    scene.add.existing(this);
-    scene.physics.add.existing(this);
-    this.setCircle(20);
-    this.setCollideWorldBounds(true);
-    this.setBounce(0.5);
-    this.setVelocity(Phaser.Math.Between(-50, 50), Phaser.Math.Between(-50, 50));
-  }
-}
+function pegarArma(arma) {
+  const props = tiposDeArmas[arma.tipo];
 
-// --- Game Logic Functions ---
+  playerStats.bulletDamage = props.dano;
+  playerStats.fireRate = props.fireRate;
 
-function startGame(scene) {
-  // Apply class stats
-  const selectedClass = classes[playerStats.playerClass];
-  playerStats.maxLife = selectedClass.baseLife;
-  playerStats.life = selectedClass.baseLife;
-  playerStats.speed = selectedClass.baseSpeed;
-  playerStats.damage = selectedClass.baseDamage;
-  playerStats.fireRate = selectedClass.baseFireRate;
+  arma.destroy();
 
-  // Initial HUD updates
-  scene.hud.updateHealthBar();
-  scene.hud.updateWeaponStats();
-  scene.hud.updatePlayerStatsPanel();
-  scene.hud.updateWaveText();
-
-  // Clear any existing cards in HUD or choice
-  cardsHUDGroup.clear(true, true);
-  choiceCardsGroup.clear(true, true);
-  playerEffectsPanel.clear(true, true); // Clear active effects
-
-  startNextWave(scene);
-}
-
-function restartGame(scene) {
-  if (gameRestarting) return; // Prevent multiple restarts
-  gameRestarting = true;
-
-  // Reset player stats to initial values
-  playerStats = {
-    level: 1,
-    xp: 0,
-    xpToNextLevel: 100,
-    life: 100,
-    maxLife: 100,
-    speed: 200,
-    fireRate: 500,
-    damage: 10,
-    critChance: 0.1,
-    critDamage: 1.5,
-    bulletSpeed: 500,
-    playerClass: 'Soldado',
-    currentWeapon: 'pistol',
-    numBullets: 1,
-    bulletSpread: 0,
-    dashAvailable: false,
-    spikeAuraActive: false,
+  const nomeArmasMap = {
+    arma1: 'Pistolinha',
+    arma2: 'Fúria de Eryon',
+    arma3: 'Lança-Raio'
   };
 
-  // Reset weapon stats
-  for (const weaponType in tiposDeArmas) {
-    if (tiposDeArmas.hasOwnProperty(weaponType)) {
-      const defaultWeapon = {
-        pistol: {
-          name: 'Pistola',
-          damageMultiplier: 1,
-          fireRateMultiplier: 1,
-          bulletSpeedMultiplier: 1,
-          numBullets: 1,
-          spread: 0,
-          image: 'pistol',
-          level: 1,
-          maxLevel: 5,
-          xp: 0,
-          xpToNextLevel: 50,
-        },
-        shotgun: {
-          name: 'Escopeta',
-          damageMultiplier: 0.8,
-          fireRateMultiplier: 1.5,
-          bulletSpeedMultiplier: 0.8,
-          numBullets: 3,
-          spread: 0.2,
-          image: 'shotgun',
-          level: 1,
-          maxLevel: 5,
-          xp: 0,
-          xpToNextLevel: 70,
-        },
-        rifle: {
-          name: 'Rifle',
-          damageMultiplier: 1.2,
-          fireRateMultiplier: 0.8,
-          bulletSpeedMultiplier: 1.2,
-          numBullets: 1,
-          spread: 0,
-          image: 'rifle',
-          level: 1,
-          maxLevel: 5,
-          xp: 0,
-          xpToNextLevel: 60,
-        }
-      };
-      // Simple deep copy for weapon stats reset
-      tiposDeArmas[weaponType] = JSON.parse(JSON.stringify(defaultWeapon[weaponType]));
-    }
-  }
+  atualizarHUDarma(nomeArmasMap[arma.tipo], arma.tipo);
 
-  currentWaveIndex = 0;
-  enemiesRemaining = 0;
-  enemiesSpawnedInWave = 0;
-  waveInProgress = false;
+  const pickupText = this.add.text(player.x, player.y - 30, `Pegou ${nomeArmasMap[arma.tipo]}!`, {
+    fontSize: '18px',
+    color: '#FFD700',
+    fontStyle: 'bold',
+    stroke: '#000',
+    strokeThickness: 3
+  }).setOrigin(0.5).setDepth(99).setScrollFactor(0).setAlpha(0.7);
+    this.time.delayedCall(2000, () => pickupText.destroy());
+}
 
-  // Stop any ongoing spawn events
-  if (spawnEvent) {
-    spawnEvent.remove();
-  }
+function atualizarHUDarma(nomeArma, keyImagem) {
+  armaNomeText.setText(nomeArma);
+  armaImagem.setTexture(keyImagem);
+}
 
-  // Clear all game objects
-  bullets.clear(true, true);
-  enemies.clear(true, true);
-  enemyBullets.clear(true, true);
-  armas.clear(true, true);
-
-  // Clear HUD elements
+function atualizarHUDCartas(scene) {
   cardsHUDGroup.clear(true, true);
-  choiceCardsGroup.clear(true, true);
-  playerEffectsPanel.clear(true, true); // Clear active effects
 
-  // Reset player position
-  player.setPosition(config.width / 2, config.height / 2);
-  player.setVelocity(0);
-  player.setRotation(0);
-  player.setActive(true);
-  player.setVisible(true);
-
-  // Hide Game Over text if it was shown
-  if (scene.gameOverText) {
-    scene.gameOverText.setVisible(false);
-  }
-  if (scene.restartText) {
-    scene.restartText.setVisible(false);
-  }
-
-  // Restart game state
-  startGame(scene);
-  gameRestarting = false;
-}
-
-
-function startNextWave(scene) {
-  if (currentWaveIndex >= waves.length) {
-    waveText.setText('You cleared all waves! Game Over!');
-    return;
-  }
-
-  const wave = waves[currentWaveIndex];
-  waveText.setText(`Wave ${wave.wave} - Spawning ${wave.enemyCount} enemies`);
-  enemiesRemaining = wave.enemyCount;
-  enemiesSpawnedInWave = 0;
-  waveInProgress = true;
-
-  // Spawn enemies at a delay
-  spawnEvent = scene.time.addEvent({
-    delay: wave.spawnDelay,
-    callback: () => spawnEnemy(scene, wave.enemyLife, wave.enemySpeed),
-    repeat: wave.enemyCount - 1 // Repeat for total enemy count
-  });
-}
-
-function spawnEnemy(scene, life, speed) {
-  if (enemiesSpawnedInWave >= waves[currentWaveIndex].enemyCount) {
-    return;
-  }
-
-  const x = Phaser.Math.Between(0, config.width);
-  const y = Phaser.Math.Between(0, config.height);
-  const enemy = enemies.get(x, y);
-
-  if (enemy) {
-    enemy.spawn(x, y, life, speed);
-    enemiesSpawnedInWave++;
-    enemiesRemaining--;
-  }
-}
-
-function shootBullet(scene) {
-  const currentWeapon = tiposDeArmas[playerStats.currentWeapon];
-  if (!currentWeapon) return; // Should not happen if currentWeapon is always valid
-
-  const time = scene.time.now;
-  const fireRateAdjusted = currentWeapon.fireRateMultiplier * playerStats.fireRate;
-
-  if (time > lastShoot + fireRateAdjusted) {
-    const angle = player.rotation - Math.PI / 2; // Adjust for sprite orientation
-
-    for (let i = 0; i < currentWeapon.numBullets; i++) {
-      const bullet = bullets.get(player.x, player.y);
-      if (bullet) {
-        const spreadAngle = (i - (currentWeapon.numBullets - 1) / 2) * currentWeapon.spread;
-        bullet.fire(player.x, player.y, angle + spreadAngle);
-      }
-    }
-    lastShoot = time;
-  }
-}
-
-function hitEnemy(bullet, enemy) {
-  bullet.setActive(false);
-  bullet.setVisible(false);
-
-  let damageDealt = playerStats.damage * tiposDeArmas[playerStats.currentWeapon].damageMultiplier;
-
-  // Critical hit chance
-  if (Math.random() < playerStats.critChance) {
-    damageDealt *= playerStats.critDamage;
-    // console.log('CRIT!', damageDealt); // For debugging
-  }
-
-  if (enemy.takeDamage(damageDealt)) { // If enemy died
-    // Random chance to drop a weapon upgrade (e.g., 5% chance)
-    if (Math.random() < 0.05) {
-      const weaponTypes = Object.keys(tiposDeArmas);
-      const randomWeaponType = Phaser.Utils.Array.GetRandom(weaponTypes);
-      const weaponImage = tiposDeArmas[randomWeaponType].image;
-      const weaponPickup = new WeaponPickup(this, enemy.x, enemy.y, weaponImage, randomWeaponType);
-      armas.add(weaponPickup);
-    }
-  }
-}
-
-function enemyCollision(player, enemy) {
-  playerStats.life -= 10; // Take damage on collision
-  this.hud.updateHealthBar();
-  enemy.die(); // Enemy is destroyed on collision for simplicity
-
-  if (playerStats.life <= 0) {
-    player.setActive(false).setVisible(false);
-    displayGameOver(this);
-  }
-}
-
-function playerHitByEnemyBullet(player, enemyBullet) {
-  enemyBullet.setActive(false);
-  enemyBullet.setVisible(false);
-  playerStats.life -= enemyBullet.damage;
-  this.hud.updateHealthBar();
-
-  if (playerStats.life <= 0) {
-    player.setActive(false).setVisible(false);
-    displayGameOver(this);
-  }
-}
-
-function pickUpWeapon(player, weaponPickup) {
-  playerStats.currentWeapon = weaponPickup.weaponType;
-  this.hud.updateWeaponStats();
-  weaponPickup.destroy(); // Remove pickup from game
-}
-
-function addXP(scene, amount) {
-  playerStats.xp += amount;
-  if (playerStats.xp >= playerStats.xpToNextLevel) {
-    levelUp(scene);
-  }
-  scene.hud.updateXPBar();
-
-  // Add XP to current weapon
-  const currentWeapon = tiposDeArmas[playerStats.currentWeapon];
-  if (currentWeapon && currentWeapon.level < currentWeapon.maxLevel) {
-    currentWeapon.xp += amount;
-    if (currentWeapon.xp >= currentWeapon.xpToNextLevel) {
-      currentWeapon.upgrade(currentWeapon);
-      scene.hud.updateWeaponStats();
-    }
-  }
-}
-
-function levelUp(scene) {
-  playerStats.level++;
-  playerStats.xp -= playerStats.xpToNextLevel; // Carry over excess XP
-  playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5); // Increase XP needed for next level
-
-  // Give player a choice of cards
-  displayCards(scene);
-
-  // Buff player stats on level up (optional, or handled by cards)
-  playerStats.maxLife += 5;
-  playerStats.life = playerStats.maxLife; // Full heal on level up
-  playerStats.damage += 1;
-  playerStats.speed += 5;
-
-  scene.hud.updateXPBar();
-  scene.hud.updateHealthBar();
-  scene.hud.updatePlayerStatsPanel();
-}
-
-
-function displayCards(scene) {
-  showingCards = true;
-  player.setVelocity(0); // Stop player movement
-
-  // Clear any previously chosen card tweens
-  chosenCardTweens.forEach(tween => tween.stop());
-  chosenCardTweens = []; // Clear the array
-
-  // Clear existing choice cards
-  choiceCardsGroup.clear(true, true);
-
-  const availableCards = [...cards]; // Copy the cards array
-  const chosen = [];
-
-  for (let i = 0; i < 3; i++) {
-    if (availableCards.length === 0) break;
-
-    const randomIndex = Phaser.Math.Between(0, availableCards.length - 1);
-    chosen.push(availableCards[randomIndex]);
-    availableCards.splice(randomIndex, 1); // Remove chosen card from available
-  }
-
-  const startX = config.width / 2 - (chosen.length - 1) * 100;
-  const startY = config.height / 2;
-
-  chosen.forEach((cardData, index) => {
-    const x = startX + index * 200;
-
-    const cardBg = scene.add.rectangle(x, startY, 150, 200, cardData.cor || 0x333333, 0.9)
-      .setStrokeStyle(4, 0xffffff)
-      .setOrigin(0.5)
-      .setInteractive()
-      .setDepth(100); // Very high depth to ensure it's on top
-
-    const cardTitle = scene.add.text(x, startY - 70, cardData.nome, {
-      fontSize: '20px',
-      color: '#fff',
-      fontStyle: 'bold',
-      align: 'center',
-      wordWrap: {
-        width: 130
-      },
-      shadow: {
-        offsetX: 2,
-        offsetY: 2,
-        color: '#000',
-        blur: 2,
-        stroke: true,
-        fill: true
-      }
-    }).setOrigin(0.5).setDepth(101);
-
-    const cardDesc = scene.add.text(x, startY + 20, cardData.descricao, {
-      fontSize: '14px',
-      color: '#eee',
-      align: 'center',
-      wordWrap: {
-        width: 130
-      }
-    }).setOrigin(0.5).setDepth(101);
-
-    choiceCardsGroup.addMultiple([cardBg, cardTitle, cardDesc]);
-
-    // Tween for visual effect
-    const tween = scene.tweens.add({
-      targets: [cardBg, cardTitle, cardDesc],
-      y: '+=10',
-      ease: 'Sine.easeInOut',
-      duration: 800,
-      yoyo: true,
-      repeat: -1
-    });
-    chosenCardTweens.push(tween); // Store the tween
-
-    cardBg.on('pointerover', () => {
-      cardBg.setStrokeStyle(4, 0xFFD700); // Gold highlight
-    });
-
-    cardBg.on('pointerout', () => {
-      cardBg.setStrokeStyle(4, 0xffffff);
-    });
-
-    cardBg.on('pointerdown', () => {
-      // Stop and remove all tweens for choice cards
-      chosenCardTweens.forEach(tween => tween.stop());
-      chosenCardTweens = []; // Clear the array
-
-      // Clear all choice cards from the screen
-      choiceCardsGroup.clear(true, true);
-      showingCards = false; // Allow player movement again
-
-      try {
-        cardData.efeito.call(scene); // Apply the chosen card's effect, passing the scene context
-      } catch (e) {
-        console.error("Error applying card effect:", e, cardData.nome);
-        // Optionally, display an error message to the player or log it more prominently
-      }
-      scene.hud.updateActiveEffects(); // Update HUD for new active effects
-    });
-  });
-}
-
-function displayGameOver(scene) {
-  // Stop enemies from moving and shooting
-  enemies.children.entries.forEach(enemy => {
-    enemy.setVelocity(0, 0);
-    enemy.setActive(false);
-  });
-  enemyBullets.clear(true, true); // Clear any lingering enemy bullets
-
-  waveInProgress = false;
-  if (spawnEvent) {
-    spawnEvent.remove();
-  }
-
-  if (!scene.gameOverText) {
-    scene.gameOverText = scene.add.text(config.width / 2, config.height / 2 - 50, 'GAME OVER', {
-      fontSize: '64px',
-      color: '#ff0000',
-      fontStyle: 'bold'
-    }).setOrigin(0.5).setDepth(1000).setScrollFactor(0);
-    scene.restartText = scene.add.text(config.width / 2, config.height / 2 + 20, 'Pressione ESPAÇO para Reiniciar', {
+  playerCards.forEach((card, index) => {
+    const bg = scene.add.rectangle(50 + index * 60, 140, 50, 70, card.cor || 0x999999, 0.8)
+      .setStrokeStyle(2, 0xffffff);
+    const title = scene.add.text(50 + index * 60, 140, card.nome[0], {
       fontSize: '24px',
       color: '#fff'
-    }).setOrigin(0.5).setDepth(1000).setScrollFactor(0);
-  } else {
-    scene.gameOverText.setVisible(true);
-    scene.restartText.setVisible(true);
+    }).setOrigin(0.5);
+
+    cardsHUDGroup.add(bg);
+    cardsHUDGroup.add(title);
+  });
+}
+
+function update(time) {
+  this.hud.update();
+  this.hud.updateActiveEffects(); // FIX 3: Call updateActiveEffects in the main update loop
+
+  if (!player.active) return;
+
+  let vx = 0, vy = 0;
+  if (cursors.left.isDown) vx = -1;
+  else if (cursors.right.isDown) vx = 1;
+
+  if (cursors.up.isDown) vy = -1;
+  else if (cursors.down.isDown) vy = 1;
+
+  const norm = Math.hypot(vx, vy) || 1;
+  player.setVelocity((vx / norm) * playerStats.playerSpeed, (vy / norm) * playerStats.playerSpeed);
+
+  if (time > lastShoot + playerStats.fireRate) {
+    shootRadial.call(this);
+    lastShoot = time;
+  }
+
+  enemies.getChildren().forEach(enemy => {
+    if (!enemy.active) return;
+    const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
+    this.physics.velocityFromRotation(angle, enemy.speed, enemy.body.velocity);
+  });
+
+  let closestEnemy = null;
+  let minDistance = Infinity;
+  enemies.getChildren().forEach(enemy => {
+    if (enemy.active) {
+      const distance = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestEnemy = enemy;
+      }
+    }
+  });
+  this.hud.setEnemy(closestEnemy);
+
+  if (playerStats.spiritAllyActive && spiritAlly) {
+    spiritAlly.x = player.x + 50;
+    spiritAlly.y = player.y - 50;
+  }
+
+
+  if (enemies.countActive() === 0 && !showingCards) {
+    showingCards = true;
+    showCardChoices.call(this);
   }
 }
 
-// --- HUD Class ---
-class HUD {
-  constructor(scene) {
-    this.scene = scene;
-    this.xpBarBg;
-    this.xpBarFill;
-    this.xpText;
-    this.playerHealthBarBg;
-    this.playerHealthBarFill;
-    this.playerStatsPanelBg;
-    this.playerStatsText;
-    this.weaponStatsBg;
-    this.weaponStatsText;
-    this.activeEffectsText; // New: for active effects
+function shootRadial() {
+  const count = playerStats.spreadUpgrade ? 24 : 12;
+  const speed = playerStats.bulletSpeedBoost ? 900 : 700;
+
+  for (let i = 0; i < count; i++) {
+    const baseAngle = Phaser.Math.DegToRad((360 / count) * i);
+
+    const criarBala = (angleOffset = 0) => {
+      const angle = baseAngle + angleOffset;
+      const bullet = bullets.create(player.x, player.y, 'bullet').setScale(0.02);
+
+      this.time.delayedCall(500, () => {
+        if (bullet && bullet.active) bullet.destroy();
+      });
+
+      this.physics.velocityFromRotation(angle, speed, bullet.body.velocity);
+    };
+
+    if (playerStats.tripleBullets) {
+      criarBala(Phaser.Math.DegToRad(-5));
+      criarBala(0);
+      criarBala(Phaser.Math.DegToRad(5));
+
+    } else if (playerStats.doubleBullets) {
+      criarBala(Phaser.Math.DegToRad(-3));
+      criarBala(Phaser.Math.DegToRad(3));
+
+    } else {
+      criarBala();
+    }
+  }
+}
+
+function showCardChoices() {
+    if (playerStats.xp < playerStats.waveXpGoal) {
+        player.setActive(false).setVisible(false);
+        const failureText = this.add.text(config.width / 2, config.height / 2, 'FALHA NA ONDA!\nXP Insuficiente\nVoltando para Fase 1\n(Pressione ESPAÇO para reiniciar)', {
+            fontFamily: 'Cinzel',
+            fontSize: '36px',
+            color: '#FF4500',
+            stroke: '#000000',
+            strokeThickness: 6,
+            align: 'center'
+        }).setOrigin(0.5);
+
+        playerStats = {
+            life: 3,
+            maxLife: 3,
+            bulletDamage: 1,
+            fireRate: 3000,
+            hasShield: false,
+            spiritAllyActive: false,
+            spreadUpgrade: false,
+            doubleBullets: false,
+            dashAvailable: false,
+            dashCooldown: false,
+            slowEnemies: false,
+            reviveOnce: false,
+            increasedDropRate: false,
+            tripleBullets: false,
+            playerSpeed: 400,
+            healOnKill: false,
+            damageAura: false,
+            speedBoost: false,
+            bulletPiercing: false,
+            thorns: false,
+            bulletSpeedBoost: false,
+            xp: 0,
+            level: 1,
+            xpToNextLevel: 100,
+            waveXpGoal: 20,
+            spikeAuraActive: false // FIX 1: Added spikeAuraActive to reset
+        };
+        wave = 0; // Will be 1 after restart due to scene.restart
+        showingCards = false;
+        return;
+    }
+
+  // FIX 2: Moved this line to be executed AFTER checking for wave failure.
+  // It should only run when the player successfully advances to the next wave.
+
+  const cardOptions = [
+    { nome: 'Escudo de Ivirik', desc: 'Proteção que te salva da morte uma vez', cor: 0xffc107, efeito: () => { playerStats.hasShield = true; } },
+    { nome: 'Tiro Duplo', desc: 'Dispara duas vezes mais balas', cor: 0x4caf50, efeito: () => { playerStats.doubleBullets = true; } },
+    { nome: 'Bênção do dr Anomoi', desc: 'Um automato te ajuda no ataque', cor: 0x00bcd4, efeito: ativarSpiritAlly },
+    { nome: 'Upgrade do Spread', desc: 'Dispara balas em círculo maior', cor: 0x9c27b0, efeito: () => { playerStats.spreadUpgrade = true; } },
+    { nome: 'Dash ', desc: 'Corrida rápida para escapar', cor: 0xf44336, efeito: () => { playerStats.dashAvailable = true; } },
+    { nome: 'Projétil Perfurante', desc: 'Balas atravessam inimigos de forma avassaladora', cor: 0x03a9f4, efeito: () => { playerStats.bulletPiercing = true; } },
+    { nome: 'Recuperação Instantânea', desc: 'Recupera 2 de vida', cor: 0x8bc34a, efeito: () => { playerStats.life = Math.min(playerStats.life + 2, playerStats.maxLife); this.hud.update(); } },
+    { nome: 'Fúria de Metalion', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.bulletDamage += 1; this.time.delayedCall(15000, () => playerStats.bulletDamage -= 1); } },
+    { nome: 'Vida Fantasma', desc: 'Sobrevive com 1 de vida ao morrer', cor: 0x673ab7, efeito: () => { playerStats.reviveOnce = true; } },
+    { nome: 'Energético da Meia-Noite', desc: 'Velocidade de movimento aumentada em 50% por 10s', cor: 0xffeb3b, efeito: () => {
+        const originalSpeed = playerStats.playerSpeed;
+        playerStats.playerSpeed *= 1.5;
+        this.time.delayedCall(10000, () => playerStats.playerSpeed = originalSpeed);
+      }
+    },
+    { nome: 'Aura Letal', desc: 'Causa dano contínuo nos inimigos próximos', cor: 0xcd201f, efeito: () => {
+        playerStats.damageAura = true;
+        this.time.addEvent({
+          delay: 1000,
+          loop: true,
+          callback: () => {
+            enemies.getChildren().forEach(e => {
+              const dist = Phaser.Math.Distance.Between(player.x, player.y, e.x, e.y);
+              if (e.active && dist < 100) {
+                e.health -= 1;
+                if (e.health <= 0) {
+                  e.destroy();
+                  gainXp.call(this, e.xpReward);}
+                }
+              });
+            }
+          });
+        }
+      },
+    { nome: 'Velocidade Neuronal', desc: 'Recarga de tiro 2x mais rápida por 10s', cor: 0x03a9f4, efeito: () => {
+        const originalRate = playerStats.fireRate;
+        playerStats.fireRate /= 2;
+        this.time.delayedCall(10000, () => playerStats.fireRate = originalRate);
+      }
+    },
+    { nome: 'Hack dos Fragmentos', desc: 'Chance dobrada de aparecer armas nas próximas ondas', cor: 0x607d8b, efeito: () => {
+        playerStats.increasedDropRate = true;
+      }
+    },
+    { nome: 'Respiro do Caos', desc: 'Recupera toda sua vida', cor: 0x009688, efeito: () => {
+        playerStats.life = playerStats.maxLife;
+        this.hud.update();
+      }
+    },
+    { nome: 'Espelho de Plasma', desc: 'Reflete 30% do dano de volta ao inimigo por 10s', cor: 0x673ab7, efeito: () => {
+        playerStats.hasShield = true;
+        const reflectText = this.add.text(config.width / 2, config.height / 2 - 100, 'Reflect not fully implemented!', { fontSize: '20px', color: '#FFF' }).setOrigin(0.5);
+        this.time.delayedCall(3000, () => reflectText.destroy());
+      }
+    },
+    { nome: 'Canhão Triplo', desc: 'Atira 3 balas em vez de 1', cor: 0xff9800, efeito: () => {
+        playerStats.tripleBullets = true;
+      }
+    },
+    { nome: 'Espinhos do Asfalto', desc: 'Dano nos inimigos ao ser atingido', cor: 0xe91e63, efeito: () => { playerStats.thorns = true; } },
+    { nome: 'Visão de Águia', desc: 'Suas balas voam mais rápido', cor: 0x5cb85c, efeito: () => { playerStats.bulletSpeedBoost = true; } },
+    { nome: 'Armadura Reforçada', desc: 'Aumenta sua vida máxima em 1', cor: 0x7e57c2, efeito: () => {
+        playerStats.maxLife += 1;
+        playerStats.life = playerStats.maxLife;
+        this.hud.updateHealthBar();
+        this.hud.update();
+      }
+    },
+    { nome: 'Toque Vampírico', desc: 'Recupere vida ao derrotar inimigos', cor: 0x8b0000, efeito: () => { playerStats.healOnKill = true; } },
+    { nome: 'Carga do Trovão', desc: 'Dash atordoa inimigos próximos', cor: 0x42a5f5, efeito: () => {
+        playerStats.dashAvailable = true;
+        playerStats.stunOnDash = true;
+      }
+    },
+    { nome: 'Aura de Espinhos', desc: 'Inimigos que te atacam recebem dano passivo', cor: 0x800080, efeito: () => {
+        playerStats.spikeAuraActive = true;
+        this.time.addEvent({
+          delay: 500, // Reduced delay for faster ticking damage
+          loop: true,
+          callback: () => {
+            if (!playerStats.spikeAuraActive) return;
+            enemies.getChildren().forEach(e => {
+              const dist = Phaser.Math.Distance.Between(player.x, player.y, e.x, e.y);
+              if (e.active && dist < 70) { // Smaller radius for direct contact
+                e.health -= 0.5; // Less damage per tick
+                if (e.health <= 0) {
+                  e.destroy();
+                  gainXp.call(this, e.xpReward);
+                }
+              }
+            });
+          }
+        });
+      }
+    },
+  ];
+
+
+  Phaser.Utils.Array.Shuffle(cardOptions);
+  const selectedCards = cardOptions.slice(0, 3);
+
+  cardsGroup = this.add.group();
+
+  const startX = this.cameras.main.centerX;
+  const startY = this.cameras.main.centerY;
+  const gap = 220;
+
+  selectedCards.forEach((card, i) => {
+    const x = startX + (i - 1) * gap;
+    const y = startY;
+
+    const container = this.add.container(x, y);
+    const bgImage = this.add.image(0, 0, 'cardBg').setDisplaySize(160, 240);
+
+    const title = this.add.text(0, -80, card.nome, { fontSize: '20px', color: '#fff', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
+    const desc = this.add.text(0, 0, card.desc, { fontSize: '14px', color: '#eee', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
+
+    container.add([bgImage, title, desc]);
+
+    container.setSize(160, 240);
+    container.setInteractive();
+
+    this.tweens.add({
+      targets: container,
+      y: y - 20,
+      yoyo: true,
+      repeat: -1,
+      duration: 1000,
+      ease: 'Sine.easeInOut'
+    });
+
+    container.on('pointerover', () => {
+      container.setScale(1.1);
+    });
+
+    container.on('pointerout', () => {
+      container.setScale(1);
+    });
+
+    container.on('pointerdown', () => {
+      this.tweens.add({
+        targets: container,
+        scale: 0.9,
+        duration: 100,
+        yoyo: true,
+        ease: 'Power1',
+        onComplete: () => {
+          card.efeito.call(this);
+          cardsGroup.clear(true, true);
+
+          playerCards.push(card);
+          atualizarHUDCartas(this);
+          this.hud.updateActiveEffects(); // FIX 3: Update active effects after card selection
+
+          showingCards = false;
+          wave++;
+          waveText.setText(`Fase ${wave}`);
+          playerStats.waveXpGoal = Math.floor(playerStats.waveXpGoal * 1.5); // FIX 2: Moved here
+          spawnWave.call(this);
+        }
+      });
+    });
+
+    cardsGroup.add(container);
+  });
+}
+
+function ativarSpiritAlly() {
+  if (spiritAlly) spiritAlly.destroy();
+
+  spiritAlly = this.physics.add.sprite(player.x, player.y, 'player').setScale(0.03).setAlpha(0.7);
+  playerStats.spiritAllyActive = true;
+
+  this.time.addEvent({
+    delay: 1500,
+    loop: true,
+    callback: () => {
+      if (!playerStats.spiritAllyActive || !spiritAlly || !spiritAlly.active) return;
+      const closestEnemy = enemies.getChildren().reduce((closest, enemy) => {
+        if (!enemy.active) return closest;
+        const dist = Phaser.Math.Distance.Between(spiritAlly.x, spiritAlly.y, enemy.x, enemy.y);
+        if (dist < closest.distance) {
+          return { enemy: enemy, distance: dist };
+        }
+        return closest;
+      }, { enemy: null, distance: Infinity });
+
+      if (closestEnemy.enemy) {
+        const bullet = bullets.create(spiritAlly.x, spiritAlly.y, 'bullet').setScale(0.02);
+        const angle = Phaser.Math.Angle.Between(spiritAlly.x, spiritAlly.y, closestEnemy.enemy.x, closestEnemy.enemy.y);
+        this.physics.velocityFromRotation(angle, 500, bullet.body.velocity);
+      }
+    }
+  });
+
+  this.time.delayedCall(15000, () => {
+    if (spiritAlly) spiritAlly.destroy();
+    playerStats.spiritAllyActive = false;
+    this.hud.updateActiveEffects(); // Ensure HUD updates when ally disappears
+  }, [], this);
+}
+
+function spawnWave() {
+  const totalEnemiesToSpawn = Math.floor(wave * 2.5);
+
+  for (let i = 0; i < totalEnemiesToSpawn; i++) {
+    const x = Phaser.Math.Between(100, config.width - 100);
+    const y = Phaser.Math.Between(100, config.height - 100);
+
+    let enemyTypeKey = 'normal';
+
+    if (wave >= 3 && Phaser.Math.Between(0, 100) < 30 + wave * 3) {
+      enemyTypeKey = 'fast';
+    }
+    if (wave >= 5 && Phaser.Math.Between(0, 100) < 20 + wave * 2) {
+      enemyTypeKey = 'tank';
+    }
+
+    if (wave >= 7 && Phaser.Math.Between(0, 100) < 60) {
+      enemyTypeKey = Phaser.Utils.Array.GetRandom(['fast', 'tank']);
+    }
+
+    const typeProps = enemyTypes[enemyTypeKey];
+    const enemy = enemies.create(x, y, typeProps.texture).setScale(typeProps.scale);
+
+    enemy.health = typeProps.baseHealth + Math.floor(wave / 2);
+    enemy.maxHealth = enemy.health;
+    enemy.speed = typeProps.speed + Math.floor(wave * 2);
+    enemy.setCollideWorldBounds(true);
+
+    // LÓGICA PARA AUMENTAR O XP NAS PRIMEIRAS ONDAS (1 a 5)
+    let bonusXP = 0;
+    if (wave <= 5) {
+        switch (wave) {
+            case 1: bonusXP = 20; break; // XP base 10 + 20 = 30 para normal
+            case 2: bonusXP = 15; break; // XP base 10 + 15 = 25 para normal
+            case 3: bonusXP = 10; break; // XP base 10 + 10 = 20 para normal
+            case 4: bonusXP = 5; break;  // XP base 10 + 5 = 15 para normal
+            case 5: bonusXP = 0; break;  // Volta ao XP normal
+        }
+    }
+    enemy.xpReward = typeProps.xpReward + bonusXP;
+    // FIM DA LÓGICA DE XP
+
+  }
+}
+
+function dashPlayer() {
+  if (playerStats.dashCooldown) return;
+
+  playerStats.dashCooldown = true;
+  this.hud.updateActiveEffects(); // Ensure HUD updates dash cooldown status
+
+  let dx = 0, dy = 0;
+  if (cursors.left.isDown) dx = -1;
+  else if (cursors.right.isDown) dx = 1;
+  if (cursors.up.isDown) dy = -1;
+  else if (cursors.down.isDown) dy = 1;
+
+  if (dx === 0 && dy === 0) {
+    playerStats.dashCooldown = false;
+    this.hud.updateActiveEffects(); // Ensure HUD updates dash cooldown status
+    return;
   }
 
-  create() {
-    // XP Bar
-    this.xpBarX = 10;
-    this.xpBarY = 10;
-    this.xpBarWidth = 200;
-    this.xpBarHeight = 20;
+  const dashDistance = 150;
 
-    this.xpBarBg = this.scene.add.graphics().setDepth(10).setScrollFactor(0);
-    this.xpBarFill = this.scene.add.graphics().setDepth(11).setScrollFactor(0);
-    this.xpText = this.scene.add.text(this.xpBarX + this.xpBarWidth / 2, this.xpBarY + this.xpBarHeight / 2, '', {
-      fontSize: '12px',
-      color: '#fff'
-    }).setOrigin(0.5).setDepth(12).setScrollFactor(0);
+  this.tweens.add({
+    targets: player,
+    x: player.x + dx * dashDistance,
+    y: player.y + dy * dashDistance,
+    duration: 150,
+    ease: 'Power2',
+    onComplete: () => {
+      playerStats.dashCooldown = false;
+      this.hud.updateActiveEffects(); // Ensure HUD updates dash cooldown status
+      if (playerStats.stunOnDash) {
+        enemies.getChildren().forEach(enemy => {
+          const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
+          if (enemy.active && dist < 100) {
+            enemy.body.setVelocity(0,0);
+            enemy.setTint(0x0000ff);
+            this.time.delayedCall(1000, () => enemy.clearTint());
+          }
+        });
+      }
+    }
+  });
+}
 
-    // Health Bar
-    this.playerHealthBarX = 10;
-    this.playerHealthBarY = 40;
-    this.playerHealthBarWidth = 200;
+function gainXp(amount) {
+  playerStats.xp += amount;
+  this.hud.updateXpBar();
+
+  if (playerStats.xp >= playerStats.xpToNextLevel) {
+    playerStats.level++;
+    playerStats.xp -= playerStats.xpToNextLevel;
+    playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5);
+    playerStats.bulletDamage *= 1.012;
+    this.hud.updateXpBar();
+    const levelUpText = this.add.text(config.width / 2, config.height / 2 + 50, `LEVEL UP! Level ${playerStats.level}`, {
+      fontFamily: 'Cinzel',
+      fontSize: '40px',
+      color: '#00FFFF',
+      stroke: '#000000',
+      strokeThickness: 6,
+      align: 'center'
+    }).setOrigin(0.5);
+    this.time.delayedCall(3000, () => levelUpText.destroy());
+  }
+}
+
+class HUD {
+  constructor(scene, player) {
+    this.scene = scene;
+    this.player = player;
+
+    this.playerHealthBarBg = this.scene.add.graphics();
+    this.playerHealthBarFill = this.scene.add.graphics();
+    this.playerHealthBarX = 20;
+    this.playerHealthBarY = 20;
+    this.playerHealthBarWidth = 150;
     this.playerHealthBarHeight = 20;
 
-    this.playerHealthBarBg = this.scene.add.graphics().setDepth(10).setScrollFactor(0);
-    this.playerHealthBarFill = this.scene.add.graphics().setDepth(11).setScrollFactor(0);
-
-    // Player Stats Panel
-    this.playerStatsPanelBg = this.scene.add.graphics().setDepth(10).setScrollFactor(0);
-    this.playerStatsText = this.scene.add.text(20, 100, '', {
-      fontSize: '14px',
-      color: '#fff',
-      lineSpacing: 5
-    }).setDepth(11).setScrollFactor(0);
-
-    // Weapon Stats Panel
-    this.weaponStatsBg = this.scene.add.graphics().setDepth(10).setScrollFactor(0);
-    this.weaponStatsText = this.scene.add.text(config.width - 210, 10, '', {
-      fontSize: '14px',
-      color: '#fff',
-      align: 'right',
-      lineSpacing: 5
-    }).setOrigin(1, 0).setDepth(11).setScrollFactor(0);
-
-    armaImagem = this.scene.add.image(config.width - 110, 100, 'pistol').setScale(0.5).setDepth(11).setScrollFactor(0);
-
-    // Wave Text
-    waveText = this.scene.add.text(config.width / 2, 20, '', {
-      fontSize: '20px',
-      color: '#fff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5).setDepth(10).setScrollFactor(0);
-
-    // Active Effects Panel (New)
-    this.activeEffectsText = this.scene.add.text(config.width - 210, 150, 'Efeitos Ativos:\n', {
-      fontSize: '14px',
-      color: '#00FFFF', // Cyan for effects
-      align: 'right',
-      wordWrap: { width: 200 }
-    }).setOrigin(1, 0).setDepth(11).setScrollFactor(0);
-    playerEffectsPanel.add(this.activeEffectsText); // Add to the group
-
-    // Initial updates
-    this.updateXPBar();
     this.updateHealthBar();
-    this.updatePlayerStatsPanel();
-    this.updateWeaponStats();
-    this.updateWaveText();
-    this.updateHUDCartas(this.scene); // Initial call for HUD cards
-    this.updateActiveEffects(); // Initial call for active effects
+
+    this.enemyHealthBarBg = this.scene.add.graphics();
+    this.enemyHealthBarFill = this.scene.add.graphics();
+
+    this.enemyHealthBarX = 20;
+    this.enemyHealthBarY = 60;
+    this.enemyHealthBarWidth = 150;
+    this.enemyHealthBarHeight = 20;
+
+    this.enemy = null;
+
+    this.xpBarBg = this.scene.add.graphics();
+    this.xpBarFill = this.scene.add.graphics();
+    this.xpText = this.scene.add.text(config.width / 2, config.height - 30, `LV ${playerStats.level} XP: ${playerStats.xp}/${playerStats.xpToNextLevel}`, {
+      fontSize: '18px',
+      color: '#FFFFFF'
+    }).setOrigin(0.5);
+
+    this.xpBarX = config.width / 2 - 150;
+    this.xpBarY = config.height - 20;
+    this.xpBarWidth = 300;
+    this.xpBarHeight = 10;
+
+    this.activeEffectsText = this.scene.add.text(config.width - 20, 100, "Efeitos Ativos:\nNenhum", {
+      fontSize: '16px',
+      color: '#FFFFFF',
+      align: 'right'
+    }).setOrigin(1, 0);
+
+    this.updateXpBar();
+    this.updateActiveEffects();
   }
 
   update() {
-    // These are updated in the main update loop or when stats change
-    // this.updateXPBar();
-    // this.updateHealthBar();
-    // this.updatePlayerStatsPanel();
-    // this.updateWeaponStats();
-    // this.updateActiveEffects(); // Update active effects regularly
+    this.updateHealthBar();
+
+    if (this.enemy && this.enemy.active) {
+      this.enemyHealthBarBg.clear();
+      this.enemyHealthBarFill.clear();
+
+      this.enemyHealthBarBg.fillStyle(0x000000, 0.6);
+      this.enemyHealthBarBg.fillRect(this.enemyHealthBarX, this.enemyHealthBarY, this.enemyHealthBarWidth, this.enemyHealthBarHeight);
+
+      const healthPercent = Phaser.Math.Clamp(this.enemy.health / this.enemy.maxHealth, 0, 1);
+      this.enemyHealthBarFill.fillStyle(0xff0000, 1);
+      this.enemyHealthBarFill.fillRect(this.enemyHealthBarX, this.enemyHealthBarY, this.enemyHealthBarWidth * healthPercent, this.enemyHealthBarHeight);
+    } else {
+      this.enemyHealthBarBg.clear();
+      this.enemyHealthBarFill.clear();
+    }
   }
 
-  updateXPBar() {
+  setEnemy(enemy) {
+    this.enemy = enemy;
+  }
+
+  updateXpBar() {
     this.xpBarBg.clear();
     this.xpBarFill.clear();
 
@@ -1137,7 +883,7 @@ class HUD {
     this.xpBarBg.fillRect(this.xpBarX, this.xpBarY, this.xpBarWidth, this.xpBarHeight);
 
     const xpPercent = Phaser.Math.Clamp(playerStats.xp / playerStats.xpToNextLevel, 0, 1);
-    this.xpBarFill.fillStyle(0x00ff00, 1);
+    this.xpBarFill.fillStyle(0x00FF00, 1);
     this.xpBarFill.fillRect(this.xpBarX, this.xpBarY, this.xpBarWidth * xpPercent, this.xpBarHeight);
 
     this.xpText.setText(`LV ${playerStats.level} XP: ${playerStats.xp}/${playerStats.xpToNextLevel}`);
@@ -1155,107 +901,6 @@ class HUD {
     this.playerHealthBarFill.fillRect(this.playerHealthBarX, this.playerHealthBarY, this.playerHealthBarWidth * healthPercent, this.playerHealthBarHeight);
   }
 
-  updatePlayerStatsPanel() {
-    this.playerStatsPanelBg.clear();
-    this.playerStatsPanelBg.fillStyle(0x111111, 0.5);
-    this.playerStatsPanelBg.fillRect(10, 90, 200, 120); // Posição e tamanho do painel
-
-    const fireRateMs = playerStats.fireRate / 1000;
-    const statsText = `
-      Classe: ${playerStats.playerClass}
-      Vida: ${Math.floor(playerStats.life)}/${playerStats.maxLife}
-      Velocidade: ${playerStats.speed}
-      Dano: ${playerStats.damage}
-      Cadência: ${fireRateMs.toFixed(2)}s
-      Vel. Projétil: ${playerStats.bulletSpeed}
-    `;
-    this.playerStatsText.setText(statsText);
-  }
-
-  updateWeaponStats() {
-    this.weaponStatsBg.clear();
-    this.weaponStatsBg.fillStyle(0x111111, 0.5);
-    this.weaponStatsBg.fillRect(config.width - 210, 10, 200, 120); // Posição e tamanho do painel
-
-    const currentWeapon = tiposDeArmas[playerStats.currentWeapon];
-
-    if (currentWeapon) { // Bug fix: Validate if currentWeapon exists
-      const weaponStatsString = `
-        Arma: ${currentWeapon.name} (Lv ${currentWeapon.level})
-        Dano Base: ${(playerStats.damage * currentWeapon.damageMultiplier).toFixed(1)}
-        Cadência: ${(currentWeapon.fireRateMultiplier * playerStats.fireRate / 1000).toFixed(2)}s
-        Projéteis: ${currentWeapon.numBullets}
-        XP: ${currentWeapon.xp}/${currentWeapon.xpToNextLevel}
-      `;
-      this.weaponStatsText.setText(weaponStatsString);
-      armaImagem.setTexture(currentWeapon.image);
-      armaImagem.setPosition(config.width - 110, 100);
-    } else {
-      this.weaponStatsText.setText("Arma: N/A"); // Handle case where currentWeapon is invalid
-      armaImagem.setVisible(false);
-    }
-  }
-
-  updateWaveText() {
-    waveText.setText(`Wave ${currentWaveIndex + 1}`);
-  }
-
-  // Updated: Bug fixes and visual improvements for HUD cards
-  atualizarHUDCartas(scene) {
-    cardsHUDGroup.clear(true, true); // Always clear to prevent ghost elements
-
-    const startX = 50;
-    const startY = 240; // Adjusted Y position to avoid overlapping with player stats panel
-    const gap = 60;
-
-    // This array should ideally be `playerHeldCards` or similar if the player
-    // accumulates cards to see them. For now, it just shows a placeholder if any.
-    // If `playerCards` is meant to be the cards a player *has*, then this logic is fine.
-    // If it's just for the choice, then this HUD might be removed or repurposed.
-    // Assuming `playerCards` is meant to show *chosen* passive cards in HUD.
-    // For this example, I'm just making sure it doesn't break if `playerCards` is empty.
-    if (playerCards.length === 0) {
-      // Optionally display "No Cards Yet" or just keep it empty
-      // this.scene.add.text(startX, startY, "No Cards Yet", { fontSize: '16px', color: '#888' }).setDepth(5).setScrollFactor(0);
-      return;
-    }
-
-    playerCards.forEach((card, index) => {
-      const x = startX + index * gap;
-
-      const bg = scene.add.rectangle(x, startY, 50, 70, card.cor || 0x999999, 0.9)
-        .setStrokeStyle(2, 0xFFD700)
-        .setDepth(5)
-        .setScrollFactor(0);
-
-      const title = scene.add.text(x, startY - 10, card.nome[0], {
-        fontSize: '22px',
-        color: '#fff',
-        fontStyle: 'bold',
-        shadow: {
-          offsetX: 2,
-          offsetY: 2,
-          color: '#000',
-          blur: 2,
-          stroke: true,
-          fill: true
-        }
-      }).setOrigin(0.5).setDepth(6).setScrollFactor(0);
-
-      const nameTip = scene.add.text(x, startY + 30, card.nome, {
-        fontSize: '11px',
-        color: '#FFD700',
-        fontStyle: 'italic',
-        wordWrap: {
-          width: 60
-        },
-        align: 'center'
-      }).setOrigin(0.5).setDepth(6).setScrollFactor(0);
-
-      cardsHUDGroup.addMultiple([bg, title, nameTip]);
-    });
-  }
-
   // New: Update active effects display
   updateActiveEffects() {
     let effectsText = "Efeitos Ativos:\n";
@@ -1266,9 +911,37 @@ class HUD {
     if (playerStats.spikeAuraActive) {
       effectsText += "- Aura de Espinhos\n";
     }
-    // Add more conditions for other active effects/buffs
-    // Example: if (playerStats.temporarySpeedBoost) { effectsText += "- Velocidade Temporária\n"; }
-    // For temporary effects, you'd need a timer associated with playerStats or a separate object.
+    if (playerStats.spiritAllyActive) { // Added this check
+      effectsText += "- Aliado Espiritual\n";
+    }
+    if (playerStats.hasShield) { // Added this check
+        effectsText += "- Escudo Ativo\n";
+    }
+    if (playerStats.reviveOnce) { // Added this check
+        effectsText += "- Vida Fantasma\n";
+    }
+    if (playerStats.damageAura) { // Added this check
+        effectsText += "- Aura Letal\n";
+    }
+    if (playerStats.increasedDropRate) { // Added this check
+        effectsText += "- Hack dos Fragmentos\n";
+    }
+    if (playerStats.thorns) { // Added this check
+        effectsText += "- Espinhos do Asfalto\n";
+    }
+    if (playerStats.bulletPiercing) { // Added this check
+        effectsText += "- Projétil Perfurante\n";
+    }
+    if (playerStats.bulletSpeedBoost) { // Added this check
+        effectsText += "- Visão de Águia\n";
+    }
+    if (playerStats.stunOnDash) { // Added this check
+        effectsText += "- Carga do Trovão\n";
+    }
+    if (playerStats.dashCooldown) { // Added this check for visual feedback on cooldown
+        effectsText += "- Dash em Recarga\n";
+    }
+
 
     if (effectsText === "Efeitos Ativos:\n") {
       effectsText += "Nenhum";
@@ -1291,22 +964,12 @@ class HUD {
         stroke: true,
         fill: true
       }
-    }).setOrigin(0.5).setDepth(1000).setScrollFactor(0);
-
-    this.scene.tweens.add({
-      targets: tempText,
-      alpha: 0,
-      duration: durationSeconds * 1000,
-      ease: 'Power1',
-      onComplete: () => {
-        tempText.destroy();
-      }
-    });
+    }).setOrigin(0.5);
+    this.scene.time.delayedCall(durationSeconds * 1000, () => tempText.destroy());
   }
-
 }
 
-game = new Phaser.Game(config);
 </script>
+
 </body>
 </html>
