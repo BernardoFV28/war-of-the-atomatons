@@ -22,8 +22,8 @@
 <script>
 const config = {
   type: Phaser.AUTO,
-  width: 1300,
-  height: 580,
+  width: 1580,
+  height: 670,
   backgroundColor: '#000000',
   physics: {
     default: 'arcade',
@@ -260,7 +260,7 @@ function create() {
 
   armaNomeText = this.add.text(config.width / 2, 20, 'Pistolinha', {
     fontFamily: 'Cinzel',
-    fontSize: '28px',
+    fontSize: '18px',
     color: '#A62E2E',
     stroke: '#000000',
     strokeThickness: 4,
@@ -330,7 +330,7 @@ function pegarArma(arma) {
   atualizarHUDarma(nomeArmasMap[arma.tipo], arma.tipo);
 
   const pickupText = this.add.text(player.x, player.y - 30, `Pegou ${nomeArmasMap[arma.tipo]}!`, {
-    fontSize: '18px',
+    fontSize: '8px',
     color: '#FFD700',
     fontStyle: 'bold',
     stroke: '#000',
@@ -362,8 +362,7 @@ function atualizarHUDCartas(scene) {
 
 function update(time) {
   this.hud.update();
-  this.hud.updateActiveEffects(); // FIX 3: Call updateActiveEffects in the main update loop
-
+  this.hud.updateActiveEffects(); 
   if (!player.active) return;
 
   let vx = 0, vy = 0;
@@ -448,7 +447,7 @@ function shootRadial() {
 function showCardChoices() {
     if (playerStats.xp < playerStats.waveXpGoal) {
         player.setActive(false).setVisible(false);
-        const failureText = this.add.text(config.width / 2, config.height / 2, 'FALHA NA ONDA!\nXP Insuficiente\nVoltando para Fase 1\n(Pressione ESPAÇO para reiniciar)', {
+        const failureText = this.add.text(config.width / 2, config.height / 2, '\nXP Insuficiente\nVoltando para Fase 1\n(Pressione ESPAÇO para reiniciar)', {
             fontFamily: 'Cinzel',
             fontSize: '36px',
             color: '#FF4500',
@@ -721,17 +720,17 @@ function spawnWave() {
 
     enemy.health = typeProps.baseHealth + Math.floor(wave / 2);
     enemy.maxHealth = enemy.health;
-    enemy.speed = typeProps.speed + Math.floor(wave * 2);
+    enemy.speed = typeProps.speed + Math.floor(wave * 3);
     enemy.setCollideWorldBounds(true);
 
     // LÓGICA PARA AUMENTAR O XP NAS PRIMEIRAS ONDAS (1 a 5)
     let bonusXP = 0;
     if (wave <= 5) {
         switch (wave) {
-            case 1: bonusXP = 20; break; // XP base 10 + 20 = 30 para normal
-            case 2: bonusXP = 15; break; // XP base 10 + 15 = 25 para normal
-            case 3: bonusXP = 10; break; // XP base 10 + 10 = 20 para normal
-            case 4: bonusXP = 30; break;  // XP base 10 + 5 = 15 para normal
+            case 1: bonusXP = 50; break; 
+            case 2: bonusXP = 50; break; 
+            case 3: bonusXP = 50; break; 
+            case 4: bonusXP = 50; break;  
             case 5: bonusXP = 0; break;  // Volta ao XP normal
         }
     }
@@ -794,7 +793,7 @@ function gainXp(amount) {
     playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5);
     playerStats.bulletDamage *= 1.012;
     this.hud.updateXpBar();
-    const levelUpText = this.add.text(config.width / 2, config.height / 2 + 50, `LEVEL UP! Level ${playerStats.level}`, {
+    const levelUpText = this.add.text(config.width / 2, config.height / 2 + 50, `lv ${playerStats.level}`, {
       fontFamily: 'Cinzel',
       fontSize: '40px',
       color: '#00FFFF',
