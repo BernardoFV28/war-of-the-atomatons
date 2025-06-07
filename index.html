@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V.1.3.0 -  a cruzada da rainha</title>
+  <title>War of the Automatons <V class="1 3"></V> -A Cruzada da Rainha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -23,7 +23,7 @@
 const config = {
   type: Phaser.AUTO,
   width: 1580,
-  height: 570,
+  height: 670,
   backgroundColor: '#000000',
   physics: {
     default: 'arcade',
@@ -76,7 +76,7 @@ let playerStats = {
   xp: 0,
   level: 1,
   xpToNextLevel: 100,
-  waveXpGoal: 20,
+  // waveXpGoal: 20, // REMOVIDO: Não é mais necessário com a meta de XP removida
   spikeAuraActive: false
 };
 
@@ -472,49 +472,50 @@ function shootRadial() {
 }
 
 function showCardChoices() {
-    if (playerStats.xp < playerStats.waveXpGoal) {
-        player.setActive(false).setVisible(false);
-        const failureText = this.add.text(config.width / 2, config.height / 2, '\nXP Insuficiente\nVoltando para Fase 1\n(Pressione ESPAÇO para reiniciar)', {
-            fontFamily: 'Cinzel',
-            fontSize: '36px',
-            color: '#FF4500',
-            stroke: '#000000',
-            strokeThickness: 6,
-            align: 'center'
-        }).setOrigin(0.5);
+    // REMOVIDO: A verificação de XP e a lógica de reset do jogo por XP insuficiente
+    // if (playerStats.xp < playerStats.waveXpGoal) {
+    //     player.setActive(false).setVisible(false);
+    //     const failureText = this.add.text(config.width / 2, config.height / 2, '\nXP Insuficiente\nVoltando para Fase 1\n(Pressione ESPAÇO para reiniciar)', {
+    //         fontFamily: 'Cinzel',
+    //         fontSize: '36px',
+    //         color: '#FF4500',
+    //         stroke: '#000000',
+    //         strokeThickness: 6,
+    //         align: 'center'
+    //     }).setOrigin(0.5);
 
-        playerStats = {
-            life: 3,
-            maxLife: 3,
-            bulletDamage: 1,
-            fireRate: 3000,
-            hasShield: false,
-            spiritAllyActive: false,
-            spreadUpgrade: false,
-            doubleBullets: false,
-            dashAvailable: false,
-            dashCooldown: false,
-            slowEnemies: false,
-            reviveOnce: false,
-            increasedDropRate: false,
-            tripleBullets: false,
-            playerSpeed: 400,
-            healOnKill: false,
-            damageAura: false,
-            speedBoost: false,
-            bulletPiercing: false,
-            thorns: false,
-            bulletSpeedBoost: false,
-            xp: 0,
-            level: 1,
-            xpToNextLevel: 100,
-            waveXpGoal: 20,
-            spikeAuraActive: false
-        };
-        wave = 0; // Will be 1 after restart due to scene.restart
-        showingCards = false;
-        return;
-    }
+    //     playerStats = {
+    //         life: 3,
+    //         maxLife: 3,
+    //         bulletDamage: 1,
+    //         fireRate: 3000,
+    //         hasShield: false,
+    //         spiritAllyActive: false,
+    //         spreadUpgrade: false,
+    //         doubleBullets: false,
+    //         dashAvailable: false,
+    //         dashCooldown: false,
+    //         slowEnemies: false,
+    //         reviveOnce: false,
+    //         increasedDropRate: false,
+    //         tripleBullets: false,
+    //         playerSpeed: 400,
+    //         healOnKill: false,
+    //         damageAura: false,
+    //         speedBoost: false,
+    //         bulletPiercing: false,
+    //         thorns: false,
+    //         bulletSpeedBoost: false,
+    //         xp: 0,
+    //         level: 1,
+    //         xpToNextLevel: 100,
+    //         waveXpGoal: 20, // Keep this if you want to use it for initial setup, but it won't be updated anymore.
+    //         spikeAuraActive: false
+    //     };
+    //     wave = 0; // Will be 1 after restart due to scene.restart
+    //     showingCards = false;
+    //     return;
+    // }
 
   const cardOptions = [
     { nome: 'Escudo de Ivirik', desc: 'Proteção que te salva da morte uma vez', cor: 0xffc107, efeito: () => { playerStats.hasShield = true; } },
@@ -674,7 +675,8 @@ function showCardChoices() {
           showingCards = false;
           wave++;
           waveText.setText(`Fase ${wave}`);
-          playerStats.waveXpGoal = Math.floor(playerStats.waveXpGoal * 1.5);
+          // REMOVIDO: A atualização de waveXpGoal
+          // playerStats.waveXpGoal = Math.floor(playerStats.waveXpGoal * 1.5);
           spawnWave.call(this);
         }
       });
@@ -723,7 +725,7 @@ function spawnWave() {
   // Clear existing enemies before spawning a new wave
   enemies.clear(true, true);
 
-  if (wave === 5) { // Spawn boss at wave 5
+  if (wave === 5) { // Spawn boss at wave 5 (ou mude o número da onda para o que preferir)
     const typeProps = enemyTypes.boss;
     const x = config.width / 2;
     const y = config.height / 2;
