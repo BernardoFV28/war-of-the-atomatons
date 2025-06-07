@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V.1.2.8 - Multi-Enemy Update + Classes + Weapon Levels</title>
+  <title>War of the Automatons V.1.2.9 - a saga da rainha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -77,7 +77,7 @@ let playerStats = {
   level: 1,
   xpToNextLevel: 100,
   waveXpGoal: 20,
-  spikeAuraActive: false // Added in the new version
+  spikeAuraActive: false
 };
 
 const tiposDeArmas = {
@@ -92,21 +92,21 @@ const enemyTypes = {
     baseHealth: 4,
     speed: 100,
     scale: 0.06,
-    xpReward: 20 // Valor base
+    xpReward: 20
   },
   fast: {
     texture: 'enemy_fast',
     baseHealth: 4,
     speed: 180,
     scale: 0.06,
-    xpReward: 25 // Valor base
+    xpReward: 25
   },
   tank: {
     texture: 'enemy_tank',
     baseHealth: 9,
     speed: 70,
     scale: 0.08,
-    xpReward: 35 // Valor base
+    xpReward: 35
   }
 };
 
@@ -121,6 +121,7 @@ function preload() {
   this.load.image('arma3', 'assets/lancarrio.png');
   this.load.image('fundogame', 'assets/fundogame.png');
   this.load.image('cora', 'assets/cora.png');
+  this.load.image('boss', 'assets/boss_robot.png');
 
   this.load.image('enemy', 'assets/enemy_robot.png');
   this.load.image('enemy_fast', 'assets/enemy_fast.png');
@@ -143,13 +144,9 @@ function create() {
 
   cursors = this.input.keyboard.createCursorKeys();
 
-  spawnArmas.call(this);
-
-  this.physics.add.overlap(player, armas, (player, arma) => {
-    pegarArma.call(this, arma);
-  });
-
-  this.input.keyboard.on('keydown-Z', () => {
+  // Changed key from 'Z' to 'SHIFT' for dash, as 'Z' is often used for other actions in games.
+  // SHIFT is a common key for dash/sprint.
+  this.input.keyboard.on('keydown-SHIFT', () => {
     if (playerStats.dashAvailable && !playerStats.dashCooldown) {
       dashPlayer.call(this);
     }
@@ -163,7 +160,12 @@ function create() {
     }
   });
 
-  spawnWave.call(this);
+  spawnArmas.call(this);
+  spawnWave.call(this); // Ensure wave 1 spawns at the start
+
+  this.physics.add.overlap(player, armas, (player, arma) => {
+    pegarArma.call(this, arma);
+  });
 
   this.physics.add.overlap(bullets, enemies, (b, e) => {
     if (b.active && e.active) {
@@ -190,7 +192,6 @@ function create() {
         if (playerStats.healOnKill) {
           playerStats.life = Math.min(playerStats.life + 0.5, playerStats.maxLife);
           this.hud.update();
-          this.hud.updateActiveEffects(); // Ensure HUD updates after healing
         }
       }
     }
@@ -202,7 +203,6 @@ function create() {
       if (!playerStats.hasShield) {
         playerStats.life--;
         this.hud.update();
-        this.hud.updateActiveEffects(); // Ensure HUD updates after taking damage
         p.setTint(0xff0000);
         this.time.delayedCall(100, () => p.clearTint());
 
@@ -224,7 +224,6 @@ function create() {
             playerStats.life = 1;
             playerStats.reviveOnce = false;
             this.hud.update();
-            this.hud.updateActiveEffects(); // Ensure HUD updates after revive
             p.clearTint();
             const reviveText = this.add.text(config.width / 2, config.height / 2 - 50, 'REVIVED!', {
               fontFamily: 'Cinzel',
@@ -256,7 +255,7 @@ function create() {
   });
 
   hudGroup = this.add.group();
-  cardsHUDGroup = this.add.group();
+  cardsHUDGroup = this.add.group(); // Initialize cardsHUDGroup here
 
   armaNomeText = this.add.text(config.width / 2, 20, 'Pistolinha', {
     fontFamily: 'Cinzel',
@@ -344,25 +343,48 @@ function atualizarHUDarma(nomeArma, keyImagem) {
   armaImagem.setTexture(keyImagem);
 }
 
+// === UPDATED FUNCTION FOR CARDS HUD ===
 function atualizarHUDCartas(scene) {
-  cardsHUDGroup.clear(true, true);
+  cardsHUDGroup.clear(true, true); // Clear existing cards in the HUD
+
+  const cardDisplayStartX = 20; // X position for the first card
+  const cardDisplayStartY = config.height - 60; // Y position for the cards (bottom-left, adjusted slightly up)
+  const cardDisplayGap = 70; // Gap between cards
 
   playerCards.forEach((card, index) => {
-    const bg = scene.add.rectangle(50 + index * 60, 140, 50, 70, card.cor || 0x999999, 0.8)
-      .setStrokeStyle(2, 0xffffff);
-    const title = scene.add.text(50 + index * 60, 140, card.nome[0], {
-      fontSize: '24px',
-      color: '#fff'
+    const x = cardDisplayStartX + index * cardDisplayGap;
+    const y = cardDisplayStartY;
+
+    // Background rectangle for the card
+    const bg = scene.add.rectangle(x, y, 60, 80, card.cor || 0x999999, 0.9)
+      .setStrokeStyle(2, 0xffffff, 1)
+      .setOrigin(0.5);
+
+    // Card title (first letter)
+    const title = scene.add.text(x, y - 20, card.nome[0], {
+      fontSize: '28px',
+      color: '#fff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // Optional: Add a small icon or more detailed text
+    const descSnippet = scene.add.text(x, y + 10, card.desc.split(' ')[0], { // Show only the first word of description
+      fontSize: '10px',
+      color: '#eee',
+      wordWrap: { width: 50 },
+      align: 'center'
     }).setOrigin(0.5);
 
     cardsHUDGroup.add(bg);
     cardsHUDGroup.add(title);
+    cardsHUDGroup.add(descSnippet);
   });
 }
+// ====================================
 
 function update(time) {
   this.hud.update();
-  this.hud.updateActiveEffects(); 
+  this.hud.updateActiveEffects();
   if (!player.active) return;
 
   let vx = 0, vy = 0;
@@ -482,15 +504,12 @@ function showCardChoices() {
             level: 1,
             xpToNextLevel: 100,
             waveXpGoal: 20,
-            spikeAuraActive: false // FIX 1: Added spikeAuraActive to reset
+            spikeAuraActive: false
         };
         wave = 0; // Will be 1 after restart due to scene.restart
         showingCards = false;
         return;
     }
-
-  // FIX 2: Moved this line to be executed AFTER checking for wave failure.
-  // It should only run when the player successfully advances to the next wave.
 
   const cardOptions = [
     { nome: 'Escudo de Ivirik', desc: 'Proteção que te salva da morte uma vez', cor: 0xffc107, efeito: () => { playerStats.hasShield = true; } },
@@ -645,12 +664,12 @@ function showCardChoices() {
 
           playerCards.push(card);
           atualizarHUDCartas(this);
-          this.hud.updateActiveEffects(); // FIX 3: Update active effects after card selection
+          this.hud.updateActiveEffects();
 
           showingCards = false;
           wave++;
           waveText.setText(`Fase ${wave}`);
-          playerStats.waveXpGoal = Math.floor(playerStats.waveXpGoal * 1.5); // FIX 2: Moved here
+          playerStats.waveXpGoal = Math.floor(playerStats.waveXpGoal * 1.5);
           spawnWave.call(this);
         }
       });
@@ -691,7 +710,7 @@ function ativarSpiritAlly() {
   this.time.delayedCall(15000, () => {
     if (spiritAlly) spiritAlly.destroy();
     playerStats.spiritAllyActive = false;
-    this.hud.updateActiveEffects(); // Ensure HUD updates when ally disappears
+    this.hud.updateActiveEffects();
   }, [], this);
 }
 
@@ -727,10 +746,10 @@ function spawnWave() {
     let bonusXP = 0;
     if (wave <= 5) {
         switch (wave) {
-            case 1: bonusXP = 50; break; 
-            case 2: bonusXP = 50; break; 
-            case 3: bonusXP = 50; break; 
-            case 4: bonusXP = 50; break;  
+            case 1: bonusXP = 50; break;
+            case 2: bonusXP = 50; break;
+            case 3: bonusXP = 50; break;
+            case 4: bonusXP = 50; break;
             case 5: bonusXP = 0; break;  // Volta ao XP normal
         }
     }
@@ -744,7 +763,7 @@ function dashPlayer() {
   if (playerStats.dashCooldown) return;
 
   playerStats.dashCooldown = true;
-  this.hud.updateActiveEffects(); // Ensure HUD updates dash cooldown status
+  this.hud.updateActiveEffects();
 
   let dx = 0, dy = 0;
   if (cursors.left.isDown) dx = -1;
@@ -754,7 +773,7 @@ function dashPlayer() {
 
   if (dx === 0 && dy === 0) {
     playerStats.dashCooldown = false;
-    this.hud.updateActiveEffects(); // Ensure HUD updates dash cooldown status
+    this.hud.updateActiveEffects();
     return;
   }
 
@@ -768,7 +787,7 @@ function dashPlayer() {
     ease: 'Power2',
     onComplete: () => {
       playerStats.dashCooldown = false;
-      this.hud.updateActiveEffects(); // Ensure HUD updates dash cooldown status
+      this.hud.updateActiveEffects();
       if (playerStats.stunOnDash) {
         enemies.getChildren().forEach(enemy => {
           const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
@@ -781,6 +800,12 @@ function dashPlayer() {
       }
     }
   });
+
+  // Set a cooldown for the dash
+  this.time.delayedCall(1500, () => { // 1.5 second cooldown
+      playerStats.dashCooldown = false;
+      this.hud.updateActiveEffects();
+  }, [], this);
 }
 
 function gainXp(amount) {
@@ -900,47 +925,54 @@ class HUD {
     this.playerHealthBarFill.fillRect(this.playerHealthBarX, this.playerHealthBarY, this.playerHealthBarWidth * healthPercent, this.playerHealthBarHeight);
   }
 
-  // New: Update active effects display
   updateActiveEffects() {
     let effectsText = "Efeitos Ativos:\n";
 
     if (playerStats.dashAvailable) {
-      effectsText += "- Dash (SHIFT)\n";
+      effectsText += `- Dash (SHIFT)${playerStats.dashCooldown ? ' (Recarga)' : ''}\n`; // Added cooldown status
     }
     if (playerStats.spikeAuraActive) {
       effectsText += "- Aura de Espinhos\n";
     }
-    if (playerStats.spiritAllyActive) { // Added this check
+    if (playerStats.spiritAllyActive) {
       effectsText += "- Aliado Espiritual\n";
     }
-    if (playerStats.hasShield) { // Added this check
+    if (playerStats.hasShield) {
         effectsText += "- Escudo Ativo\n";
     }
-    if (playerStats.reviveOnce) { // Added this check
+    if (playerStats.reviveOnce) {
         effectsText += "- Vida Fantasma\n";
     }
-    if (playerStats.damageAura) { // Added this check
+    if (playerStats.damageAura) {
         effectsText += "- Aura Letal\n";
     }
-    if (playerStats.increasedDropRate) { // Added this check
+    if (playerStats.increasedDropRate) {
         effectsText += "- Hack dos Fragmentos\n";
     }
-    if (playerStats.thorns) { // Added this check
+    if (playerStats.thorns) {
         effectsText += "- Espinhos do Asfalto\n";
     }
-    if (playerStats.bulletPiercing) { // Added this check
+    if (playerStats.bulletPiercing) {
         effectsText += "- Projétil Perfurante\n";
     }
-    if (playerStats.bulletSpeedBoost) { // Added this check
+    if (playerStats.bulletSpeedBoost) {
         effectsText += "- Visão de Águia\n";
     }
-    if (playerStats.stunOnDash) { // Added this check
+    if (playerStats.stunOnDash) {
         effectsText += "- Carga do Trovão\n";
     }
-    if (playerStats.dashCooldown) { // Added this check for visual feedback on cooldown
-        effectsText += "- Dash em Recarga\n";
+    if (playerStats.doubleBullets) { // Added missing effects
+        effectsText += "- Tiro Duplo\n";
     }
-
+    if (playerStats.tripleBullets) { // Added missing effects
+        effectsText += "- Canhão Triplo\n";
+    }
+    if (playerStats.spreadUpgrade) { // Added missing effects
+        effectsText += "- Upgrade do Spread\n";
+    }
+    if (playerStats.healOnKill) { // Added missing effects
+        effectsText += "- Toque Vampírico\n";
+    }
 
     if (effectsText === "Efeitos Ativos:\n") {
       effectsText += "Nenhum";
@@ -949,7 +981,6 @@ class HUD {
     this.activeEffectsText.setText(effectsText);
   }
 
-  // Placeholder for temporary visual feedback
   displayTemporaryEffect(effectName, durationSeconds) {
     const tempText = this.scene.add.text(config.width / 2, config.height / 2 + 100, effectName, {
       fontSize: '32px',
