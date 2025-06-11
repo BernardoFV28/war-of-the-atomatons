@@ -2,8 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons -A Cruzada da Rainha</title>
-  <V class="1 3"></V>
+  <title>War of the Automatons <V class="1 3"></V> -A Cruzada da Rainha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -23,8 +22,8 @@
 <script>
 const config = {
   type: Phaser.AUTO,
-  width: 1200,
-  height: 580,
+  width: 1580,
+  height: 670,
   backgroundColor: '#000000',
   physics: {
     default: 'arcade',
@@ -42,7 +41,7 @@ let hudGroup;
 let armaNomeText;
 let armaImagem;
 let player, cursors;
-let bullets, enemies, enemyBullets, armas;
+let bullets, enemies, enemyBullets, armas, itemsGroup; // Adicionado itemsGroup
 let lastShoot = 0;
 let showingCards = false;
 let wave = 1; //onda
@@ -51,6 +50,16 @@ let spiritAlly = null; //aliado
 let playerCards = []; // Cartas que o jogador pegou
 let cardsHUDGroup; // Grupo visual do HUD de cartas
 
+// Novo objeto para o inventário do jogador
+let playerInventory = {
+    passiveItems: [],
+    activableItems: {
+        "Óculos de Visão Térmica Obsoleta": { count: 0, ready: true, cooldown: 20000, lastUsed: 0 },
+        "Módulo de Salto Modificado": { count: 0, ready: true, cooldown: 10000, lastUsed: 0 },
+        "Circuito de Overclock Pessoal": { count: 0, ready: true, cooldown: 30000, lastUsed: 0 },
+        "Dispositivo de Pulso Eletromagnético (DPE)": { count: 0, ready: true, cooldown: 25000, lastUsed: 0 }
+    }
+};
 
 let playerStats = {
   life: 3,
@@ -77,8 +86,21 @@ let playerStats = {
   xp: 0,
   level: 1,
   xpToNextLevel: 100,
-  // waveXpGoal: 20, // REMOVIDO: Não é mais necessário com a meta de XP removida
-  spikeAuraActive: false
+  spikeAuraActive: false,
+  // Novos stats para itens
+  reflectDamage: 0, // Para Capacitor de Feedback
+  lifestealOnKill: 0, // Para Transdutor de Matéria Orgânica (já existe healOnKill, mas vamos diferenciar)
+  touchDamage: 0, // Para Cadeia de Choque Reciclada
+  passiveRegenActive: false, // Para Respirador de Ar Envenenado
+  evasionChance: 0, // Para Armadura Camuflada Sintética
+  bulletRange: 1, // Para Bateria de Nêutrons Reciclada
+  droneActive: false, // Para Drone Sentinela 'Pivete'
+  dashVulnerability: 0, // Para Conexão Fantasma (carta)
+  distortionFieldActive: false, // Para Campo de Distorção Caótica (carta)
+  incomingDamageMultiplier: 1, // Para Engenharia Reversa Instável (carta)
+  safeZoneActive: false, // Para Refúgio do Ferro-Velho (carta)
+  bulletCountMultiplier: 1, // Para Chuva de Fio-Máquina (carta)
+  cloneActive: false // Para Glitch da Imagem Espelhada (carta)
 };
 
 const tiposDeArmas = {
@@ -118,6 +140,272 @@ const enemyTypes = {
   }
 };
 
+// Definição dos Itens
+const itemOptions = [
+    {
+        nome: "Núcleo de Cristal Corrompido",
+        descricao: "Um fragmento de energia anômala que pulsa com poder bruto e perigoso.",
+        tipo: "passivo",
+        textura: 'item_core', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            playerStats.bulletDamage *= 1.15; // +15% de dano
+            playerStats.maxLife = Math.max(1, playerStats.maxLife - 1); // -1 vida máxima (min 1)
+            playerStats.life = Math.min(playerStats.life, playerStats.maxLife); // Ajusta vida atual
+            scene.hud.updateHealthBar();
+            // Adiciona sinergia para Vida Fantasma aqui se ela estiver ativa
+            const vidaFantasmaCard = playerCards.find(c => c.nome === 'Vida Fantasma');
+            if (vidaFantasmaCard) {
+                // Se Vida Fantasma estiver ativa, anula a penalidade de vida máxima deste item
+                playerStats.maxLife++; // Reverte a penalidade
+                playerStats.life = Math.min(playerStats.life, playerStats.maxLife); // Ajusta vida atual novamente
+                scene.hud.displayTemporaryEffect("Sinergia: Núcleo + Vida Fantasma!", 2);
+            }
+        }
+    },
+    {
+        nome: "Óculos de Visão Térmica Obsoleta",
+        descricao: "Lentes rachadas que ainda revelam os pontos quentes dos inimigos, mesmo nas sombras mais densas.",
+        tipo: "ativável",
+        textura: 'item_goggles', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            // Este efeito é mais complexo e pode ser implementado no HUD ou como um overlay
+            // Por enquanto, apenas marca como coletado e disponível para uso (futuro)
+            // Lógica de ativação e display de vida inimiga seria implementada via um novo input de teclado e uma função separada
+            // Exemplo de efeito: Revela HP de inimigos na tela por um tempo.
+            enemies.getChildren().forEach(enemy => {
+                if (enemy.active) {
+                    const hpText = scene.add.text(enemy.x, enemy.y - 30, `${enemy.health.toFixed(1)}/${enemy.maxHealth}`, { fontSize: '10px', color: '#FF0000', backgroundColor: '#000000' }).setOrigin(0.5);
+                    scene.time.delayedCall(3000, () => hpText.destroy()); // Mostra por 3 segundos
+                }
+            });
+            scene.hud.displayTemporaryEffect("Visão Térmica Ativada!", 2);
+        }
+    },
+    {
+        nome: "Módulo de Salto Modificado",
+        descricao: "Dispositivo improvisado que permite saltos dimensionais curtos, confundindo os sistemas de rastreamento inimigos.",
+        tipo: "ativável",
+        textura: 'item_jump_module', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            const currentX = player.x;
+            const currentY = player.y;
+            const teleX = Phaser.Math.Between(100, config.width - 100);
+            const teleY = Phaser.Math.Between(100, config.height - 100);
+            player.setPosition(teleX, teleY);
+            scene.hud.displayTemporaryEffect("Teleporte!", 1);
+            // Partículas ou efeito visual no local de origem/destino
+            const particles = scene.add.particles('bullet');
+            particles.createEmitter({
+                x: currentX, y: currentY,
+                lifespan: 500,
+                speed: { min: 100, max: 200 },
+                scale: { start: 0.1, end: 0 },
+                quantity: 10,
+                tint: 0x00FF00
+            });
+            particles.createEmitter({
+                x: teleX, y: teleY,
+                lifespan: 500,
+                speed: { min: 100, max: 200 },
+                scale: { start: 0.1, end: 0 },
+                quantity: 10,
+                tint: 0x00FF00
+            });
+        }
+    },
+    {
+        nome: "Cadeia de Choque Reciclada",
+        descricao: "Fios desencapados e eletricidade estática que pulsam em seu rastro, eletrificando o ar.",
+        tipo: "passivo",
+        textura: 'item_chain', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            playerStats.touchDamage = (playerStats.touchDamage || 0) + 0.5; // Dano por toque
+            scene.hud.displayTemporaryEffect("Cadeia de Choque Ativa!", 2);
+        }
+    },
+    {
+        nome: "Respirador de Ar Envenenado",
+        descricao: "Um filtro rudimentar que purifica o ar tóxico, transformando-o em um néctar revigorante.",
+        tipo: "passivo",
+        textura: 'item_mask', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            if (!playerStats.passiveRegenActive) { // Ativa a regeneração apenas uma vez
+                playerStats.passiveRegenActive = true;
+                scene.time.addEvent({
+                    delay: 5000, // Regenera a cada 5 segundos
+                    loop: true,
+                    callback: () => {
+                        if (playerStats.life < playerStats.maxLife) {
+                            playerStats.life = Math.min(playerStats.life + 0.25, playerStats.maxLife);
+                            scene.hud.updateHealthBar();
+                        }
+                    }
+                });
+            }
+            scene.hud.displayTemporaryEffect("Regeneração Ativa!", 2);
+        }
+    },
+    {
+        nome: "Reforço de Blindagem de Sucata",
+        descricao: "Placas de metal e polímeros recolhidos das carcaças caídas, adicionando uma camada extra de proteção.",
+        tipo: "passivo",
+        textura: 'item_armor', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            playerStats.maxLife += 2;
+            playerStats.life = Math.min(playerStats.life + 2, playerStats.maxLife); // Cura um pouco ao coletar
+            scene.hud.updateHealthBar();
+            // Sinergia com Armadura Reforçada (carta)
+            const armaduraReforcadaCard = playerCards.find(c => c.nome === 'Armadura Reforçada');
+            if (armaduraReforcadaCard) {
+                playerStats.maxLife += 2; // Dobra o bônus de vida máxima
+                playerStats.life = Math.min(playerStats.life + 2, playerStats.maxLife);
+                scene.hud.displayTemporaryEffect("Sinergia: Blindagem + Armadura!", 2);
+            }
+        }
+    },
+    {
+        nome: "Circuito de Overclock Pessoal",
+        descricao: "Um chip pirata que força seus sistemas ao limite, mas a um custo.",
+        tipo: "ativável",
+        textura: 'item_overclock', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            const originalFireRate = playerStats.fireRate;
+            const originalSpeed = playerStats.playerSpeed;
+
+            playerStats.fireRate = Math.max(50, playerStats.fireRate * 0.2); // 5x mais rápido
+            playerStats.playerSpeed = 0; // Imobiliza
+            scene.hud.displayTemporaryEffect("Overclock Ativado!", 2);
+            scene.time.delayedCall(3000, () => { // Dura 3 segundos
+                playerStats.fireRate = originalFireRate;
+                playerStats.playerSpeed = originalSpeed;
+                scene.hud.displayTemporaryEffect("Overclock Desativado.", 1);
+            });
+        }
+    },
+    {
+        nome: "Dispositivo de Pulso Eletromagnético (DPE)",
+        descricao: "Um aparelho improvisado capaz de liberar uma onda de energia que atordoa sistemas eletrônicos.",
+        tipo: "ativável",
+        textura: 'item_emp', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            enemies.getChildren().forEach(enemy => {
+                if (enemy.active) {
+                    enemy.body.setVelocity(0,0);
+                    enemy.setTint(0x0000ff);
+                    scene.time.delayedCall(2000, () => enemy.clearTint()); // Atordoado por 2 segundos
+                }
+            });
+            enemyBullets.clear(true, true); // Destrói todas as balas inimigas
+            scene.hud.displayTemporaryEffect("DPE Ativado!", 2);
+        }
+    },
+    {
+        nome: "Armadura Camuflada Sintética",
+        descricao: "Tecidos reativos e circuitos furtivos que distorcem sua silhueta no espectro inimigo.",
+        tipo: "passivo",
+        textura: 'item_camouflage', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            playerStats.evasionChance = (playerStats.evasionChance || 0) + 0.10; // 10% de chance de evitar projéteis
+            // Sinergia com Sombra do Andarilho Fantasma (carta)
+            const sombraCard = playerCards.find(c => c.nome === 'Sombra do Andarilho Fantasma');
+            if (sombraCard) {
+                playerStats.evasionChance += 0.20; // +20% adicionais
+                scene.hud.displayTemporaryEffect("Sinergia: Camuflagem + Sombra!", 2);
+            }
+            scene.hud.displayTemporaryEffect("Camuflagem Ativa!", 2);
+        }
+    },
+    {
+        nome: "Bateria de Nêutrons Reciclada",
+        descricao: "Um acumulador de energia instável, mas poderoso, retirado de um protótipo obsoleto.",
+        tipo: "passivo",
+        textura: 'item_battery', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            playerStats.bulletSpeedBoost = true; // Já existe, mas este item reforça ou garante
+            playerStats.bulletRange = (playerStats.bulletRange || 1) + 0.5; // Aumenta o alcance das balas
+            scene.hud.displayTemporaryEffect("Balas Turbo!", 2);
+        }
+    },
+    {
+        nome: "Drone Sentinela 'Pivete'",
+        descricao: "Um pequeno autômato adaptado, programado para defender seu mestre com lealdade inabalável.",
+        tipo: "passivo",
+        textura: 'item_drone', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            if (!playerStats.droneActive) { // Ativa o drone apenas uma vez
+                playerStats.droneActive = true;
+                // Cria o sprite do drone (ajuste a textura)
+                const drone = scene.physics.add.sprite(player.x + 30, player.y + 30, 'enemy').setScale(0.03).setTint(0x00FF00); // Exemplo de textura
+                scene.time.addEvent({
+                    delay: 1000, // Atira a cada 1 segundo
+                    loop: true,
+                    callback: () => {
+                        if (!playerStats.droneActive || !drone || !drone.active) return;
+                        const closestEnemy = enemies.getChildren().reduce((closest, enemy) => {
+                            if (!enemy.active) return closest;
+                            const dist = Phaser.Math.Distance.Between(drone.x, drone.y, enemy.x, enemy.y);
+                            if (dist < closest.distance) {
+                                return { enemy: enemy, distance: dist };
+                            }
+                            return closest;
+                        }, { enemy: null, distance: Infinity });
+
+                        if (closestEnemy.enemy) {
+                            const bullet = bullets.create(drone.x, drone.y, 'bullet').setScale(0.015).setTint(0x00FF00);
+                            const angle = Phaser.Math.Angle.Between(drone.x, drone.y, closestEnemy.enemy.x, closestEnemy.enemy.y);
+                            scene.physics.velocityFromRotation(angle, 400, bullet.body.velocity);
+                        }
+                    }
+                });
+            }
+            scene.hud.displayTemporaryEffect("Drone Ativo!", 2);
+        }
+    },
+    {
+        nome: "Capacitor de Feedback",
+        descricao: "Um componente que absorve e redireciona o dano, devolvendo-o ao remetente.",
+        tipo: "passivo",
+        textura: 'item_capacitor', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            playerStats.reflectDamage = (playerStats.reflectDamage || 0) + 0.5; // 50% de chance de refletir 50% do dano
+            scene.hud.displayTemporaryEffect("Capacitor Ativo!", 2);
+            // Sinergia com Espelho de Plasma (carta)
+            const mirrorCard = playerCards.find(c => c.nome === 'Espelho de Plasma');
+            if (mirrorCard) {
+                playerStats.reflectDamage += 0.3; // Aumenta a chance e dano
+                scene.hud.displayTemporaryEffect("Sinergia: Capacitor + Espelho!", 2);
+            }
+        }
+    },
+    {
+        nome: "Módulos de Refrigeração Turbinados",
+        descricao: "Ventoinhas e dissipadores de calor de alta performance, permitindo que seus sistemas operem mais rápido.",
+        tipo: "passivo",
+        textura: 'item_cooler', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            playerStats.fireRate = Math.max(100, playerStats.fireRate * 0.95); // Reduz fireRate em 5% (tiros mais rápidos)
+            scene.hud.displayTemporaryEffect("Refrigeração Ativa!", 2);
+        }
+    },
+    {
+        nome: "Transdutor de Matéria Orgânica",
+        descricao: "Um dispositivo bizarro que converte a biomassa inimiga em recursos vitais.",
+        tipo: "passivo",
+        textura: 'item_transducer', // Necessário carregar esta imagem
+        efeito: (scene) => {
+            playerStats.lifestealOnKill = (playerStats.lifestealOnKill || 0) + 0.1; // 10% de cura ao matar
+            scene.hud.displayTemporaryEffect("Transdutor Ativo!", 2);
+            // Sinergia com Toque Vampírico (carta)
+            const vampiricCard = playerCards.find(c => c.nome === 'Toque Vampírico');
+            if (vampiricCard) {
+                playerStats.lifestealOnKill += 0.1; // Aumenta para 20%
+                scene.hud.displayTemporaryEffect("Sinergia: Transdutor + Vampírico!", 2);
+            }
+        }
+    }
+];
+
+
 const game = new Phaser.Game(config);
 
 function preload() {
@@ -134,6 +422,22 @@ function preload() {
   this.load.image('enemy_fast', 'assets/enemy_fast.png');
   this.load.image('enemy_tank', 'assets/enemy_tank.png');
   this.load.image('boss_robot', 'assets/boss_robot.png'); // Preload boss image
+
+  // Preload de Texturas para os Novos Itens
+  this.load.image('item_core', 'assets/item_core.png'); // Imagem para Núcleo de Cristal Corrompido
+  this.load.image('item_goggles', 'assets/item_goggles.png'); // Imagem para Óculos de Visão Térmica Obsoleta
+  this.load.image('item_jump_module', 'assets/item_jump_module.png'); // Imagem para Módulo de Salto Modificado
+  this.load.image('item_chain', 'assets/item_chain.png'); // Imagem para Cadeia de Choque Reciclada
+  this.load.image('item_mask', 'assets/item_mask.png'); // Imagem para Respirador de Ar Envenenado
+  this.load.image('item_armor', 'assets/item_armor.png'); // Imagem para Reforço de Blindagem de Sucata
+  this.load.image('item_overclock', 'assets/item_overclock.png'); // Imagem para Circuito de Overclock Pessoal
+  this.load.image('item_emp', 'assets/item_emp.png'); // Imagem para Dispositivo de Pulso Eletromagnético (DPE)
+  this.load.image('item_camouflage', 'assets/item_camouflage.png'); // Imagem para Armadura Camuflada Sintética
+  this.load.image('item_battery', 'assets/item_battery.png'); // Imagem para Bateria de Nêutrons Reciclada
+  this.load.image('item_drone', 'assets/item_drone.png'); // Imagem para Drone Sentinela 'Pivete'
+  this.load.image('item_capacitor', 'assets/item_capacitor.png'); // Imagem para Capacitor de Feedback
+  this.load.image('item_cooler', 'assets/item_cooler.png'); // Imagem para Módulos de Refrigeração Turbinados
+  this.load.image('item_transducer', 'assets/item_transducer.png'); // Imagem para Transdutor de Matéria Orgânica
 }
 
 function create() {
@@ -149,11 +453,10 @@ function create() {
   enemies = this.physics.add.group();
   enemyBullets = this.physics.add.group();
   armas = this.physics.add.group();
+  itemsGroup = this.physics.add.group(); // Inicializa o grupo de itens
 
   cursors = this.input.keyboard.createCursorKeys();
 
-  // Changed key from 'Z' to 'SHIFT' for dash, as 'Z' is often used for other actions in games.
-  // SHIFT is a common key for dash/sprint.
   this.input.keyboard.on('keydown-SHIFT', () => {
     if (playerStats.dashAvailable && !playerStats.dashCooldown) {
       dashPlayer.call(this);
@@ -168,6 +471,25 @@ function create() {
     }
   });
 
+  // Listener para uso de itens ativáveis (Exemplos, você pode definir as teclas)
+  this.input.keyboard.on('keydown-Q', (event) => {
+      const itemKey = "Óculos de Visão Térmica Obsoleta";
+      this.useActivableItem(itemKey);
+  });
+  this.input.keyboard.on('keydown-E', (event) => {
+      const itemKey = "Módulo de Salto Modificado";
+      this.useActivableItem(itemKey);
+  });
+  this.input.keyboard.on('keydown-R', (event) => {
+      const itemKey = "Circuito de Overclock Pessoal";
+      this.useActivableItem(itemKey);
+  });
+  this.input.keyboard.on('keydown-F', (event) => {
+      const itemKey = "Dispositivo de Pulso Eletromagnético (DPE)";
+      this.useActivableItem(itemKey);
+  });
+
+
   spawnArmas.call(this);
   spawnWave.call(this); // Ensure wave 1 spawns at the start
 
@@ -175,9 +497,14 @@ function create() {
     pegarArma.call(this, arma);
   });
 
+  // Novo overlap para itens
+  this.physics.add.overlap(player, itemsGroup, (player, item) => {
+    collectItem.call(this, item);
+  });
+
   this.physics.add.overlap(bullets, enemies, (b, e) => {
     if (b.active && e.active) {
-      e.health -= playerStats.bulletDamage;
+      e.health -= playerStats.bulletDamage * playerStats.bulletCountMultiplier; // Aplica o multiplicador de balas
 
       if (!playerStats.bulletPiercing) {
         b.destroy();
@@ -201,6 +528,8 @@ function create() {
           playerStats.life = Math.min(playerStats.life + 0.5, playerStats.maxLife);
           this.hud.update();
         }
+        // Nova Lógica de Drop de Item
+        dropItem.call(this, e.x, e.y); // Chance de dropar item ao destruir inimigo
       }
     }
   });
@@ -208,8 +537,21 @@ function create() {
   this.physics.add.overlap(enemyBullets, player, (b, p) => {
     if (b.active && p.active) {
       b.destroy();
+
+      // Campo de Distorção Caótica (Carta)
+      if (playerStats.distortionFieldActive) {
+          this.hud.displayTemporaryEffect("Distorção Ativa!", 1);
+          return; // Não toma dano
+      }
+
+      // Chance de Evasão (Armadura Camuflada Sintética)
+      if (playerStats.evasionChance && Phaser.Math.Between(0, 100) < playerStats.evasionChance * 100) {
+          this.hud.displayTemporaryEffect("Evasão!", 1);
+          return; // Não toma dano
+      }
+
       if (!playerStats.hasShield) {
-        playerStats.life--;
+        playerStats.life -= (1 * playerStats.incomingDamageMultiplier); // Aplica o multiplicador de dano recebido
         this.hud.update();
         p.setTint(0xff0000);
         this.time.delayedCall(100, () => p.clearTint());
@@ -226,6 +568,19 @@ function create() {
             }
           });
         }
+        // Dano de Reflexão (Capacitor de Feedback)
+        if (playerStats.reflectDamage && Phaser.Math.Between(0, 100) < playerStats.reflectDamage * 100) {
+            const enemyThatShot = enemies.getChildren().find(enemy => Phaser.Math.Distance.Between(enemy.x, enemy.y, b.x, b.y) < 100); // Tenta achar o inimigo que atirou
+            if (enemyThatShot) {
+                enemyThatShot.health -= playerStats.bulletDamage * 0.5; // Reflete 50% do dano da bala do jogador
+                this.hud.displayTemporaryEffect("Refletido!", 1);
+                if (enemyThatShot.health <= 0) {
+                    enemyThatShot.destroy();
+                    gainXp.call(this, enemyThatShot.xpReward);
+                }
+            }
+        }
+
 
         if (playerStats.life <= 0) {
           if (playerStats.reviveOnce) {
@@ -301,7 +656,31 @@ function create() {
       });
     }
   });
+
+    // Função para usar itens ativáveis
+    this.useActivableItem = (itemKey) => {
+        const itemData = itemOptions.find(item => item.nome === itemKey);
+        if (itemData && playerInventory.activableItems[itemKey].count > 0 && playerInventory.activableItems[itemKey].ready) {
+            console.log(`Usando item ativável: ${itemKey}`);
+            itemData.efeito(this); // Passa a cena para o efeito
+            playerInventory.activableItems[itemKey].ready = false;
+            playerInventory.activableItems[itemKey].lastUsed = this.time.now;
+
+            this.time.delayedCall(playerInventory.activableItems[itemKey].cooldown, () => {
+                playerInventory.activableItems[itemKey].ready = true;
+                console.log(`${itemKey} está pronto novamente!`);
+                this.hud.updateInventoryDisplay(); // Atualiza HUD para mostrar item pronto
+            }, [], this);
+            this.hud.updateInventoryDisplay(); // Atualiza HUD para mostrar item em cooldown
+        } else if (playerInventory.activableItems[itemKey].count > 0 && !playerInventory.activableItems[itemKey].ready) {
+            const remainingTime = Math.ceil((playerInventory.activableItems[itemKey].cooldown - (this.time.now - playerInventory.activableItems[itemKey].lastUsed)) / 1000);
+            this.hud.displayTemporaryEffect(`Recarga: ${itemKey} (${remainingTime}s)`, 1);
+        } else {
+            this.hud.displayTemporaryEffect(`${itemKey} não possuído!`, 1);
+        }
+    };
 }
+
 
 function spawnArmas() {
   const tipos = Object.keys(tiposDeArmas);
@@ -344,6 +723,50 @@ function pegarArma(arma) {
     strokeThickness: 3
   }).setOrigin(0.5).setDepth(99).setScrollFactor(0).setAlpha(0.7);
     this.time.delayedCall(2000, () => pickupText.destroy());
+}
+
+// Nova função para dropar itens
+function dropItem(x, y) {
+    // 20% de chance de dropar um item
+    if (Phaser.Math.Between(0, 100) < 20 + (playerStats.increasedDropRate ? 10 : 0)) {
+        const item = Phaser.Utils.Array.GetRandom(itemOptions);
+        if (item) {
+            const droppedItem = itemsGroup.create(x, y, item.textura || 'bullet').setScale(0.05); // Use a textura do item
+            droppedItem.itemName = item.nome; // Armazena o nome do item para referência
+            droppedItem.itemType = item.tipo;
+            droppedItem.itemEffect = item.efeito;
+            droppedItem.itemDesc = item.descricao;
+
+            this.time.delayedCall(10000, () => { // Item desaparece após 10 segundos
+                if (droppedItem.active) droppedItem.destroy();
+            });
+        }
+    }
+}
+
+// Nova função para coletar itens
+function collectItem(item) {
+    console.log(`Coletou item: ${item.itemName}`);
+    this.hud.displayTemporaryEffect(`Coletou: ${item.itemName}`, 2);
+
+    // Aplica o efeito do item
+    item.itemEffect(this); // Passa a cena para o efeito
+
+    // Adiciona ao inventário
+    if (item.itemType === "passivo") {
+        const existingItem = playerInventory.passiveItems.find(i => i.nome === item.itemName);
+        if (existingItem) {
+            existingItem.count++;
+        } else {
+            playerInventory.passiveItems.push({ nome: item.itemName, count: 1, desc: item.itemDesc, type: item.itemType });
+        }
+    } else if (item.itemType === "ativável") {
+        if (playerInventory.activableItems[item.itemName]) {
+            playerInventory.activableItems[item.itemName].count++;
+        }
+    }
+    this.hud.updateInventoryDisplay();
+    item.destroy();
 }
 
 function atualizarHUDarma(nomeArma, keyImagem) {
@@ -389,8 +812,9 @@ function atualizarHUDCartas(scene) {
 }
 
 function update(time) {
-  this.hud.update();
+  this.hud.update(time); // Passa o tempo para o HUD
   this.hud.updateActiveEffects();
+  this.hud.updateInventoryDisplay(time); // Atualiza o display do inventário
   if (!player.active) return;
 
   let vx = 0, vy = 0;
@@ -407,6 +831,20 @@ function update(time) {
     shootRadial.call(this);
     lastShoot = time;
   }
+    // Lógica para Cadeia de Choque Reciclada (dano de toque)
+    if (playerStats.touchDamage && playerStats.touchDamage > 0) {
+        enemies.getChildren().forEach(enemy => {
+            const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
+            if (enemy.active && dist < (player.width * player.scaleX / 2) + (enemy.width * enemy.scaleX / 2)) { // Colisão de raio
+                enemy.health -= playerStats.touchDamage / 60; // Dano por segundo (dividido por 60 para ser por frame)
+                if (enemy.health <= 0) {
+                    enemy.destroy();
+                    gainXp.call(this, enemy.xpReward);
+                }
+            }
+        });
+    }
+
 
   enemies.getChildren().forEach(enemy => {
     if (!enemy.active) return;
@@ -442,6 +880,7 @@ function update(time) {
 function shootRadial() {
   const count = playerStats.spreadUpgrade ? 24 : 12;
   const speed = playerStats.bulletSpeedBoost ? 900 : 700;
+  const range = playerStats.bulletRange ? playerStats.bulletRange : 1; // Usar bulletRange para tempo de vida da bala
 
   for (let i = 0; i < count; i++) {
     const baseAngle = Phaser.Math.DegToRad((360 / count) * i);
@@ -450,7 +889,8 @@ function shootRadial() {
       const angle = baseAngle + angleOffset;
       const bullet = bullets.create(player.x, player.y, 'bullet').setScale(0.02);
 
-      this.time.delayedCall(500, () => {
+      // Tempo de vida da bala baseado no alcance
+      this.time.delayedCall(500 * range, () => {
         if (bullet && bullet.active) bullet.destroy();
       });
 
@@ -473,57 +913,12 @@ function shootRadial() {
 }
 
 function showCardChoices() {
-    // REMOVIDO: A verificação de XP e a lógica de reset do jogo por XP insuficiente
-    // if (playerStats.xp < playerStats.waveXpGoal) {
-    //     player.setActive(false).setVisible(false);
-    //     const failureText = this.add.text(config.width / 2, config.height / 2, '\nXP Insuficiente\nVoltando para Fase 1\n(Pressione ESPAÇO para reiniciar)', {
-    //         fontFamily: 'Cinzel',
-    //         fontSize: '36px',
-    //         color: '#FF4500',
-    //         stroke: '#000000',
-    //         strokeThickness: 6,
-    //         align: 'center'
-    //     }).setOrigin(0.5);
-
-    //     playerStats = {
-    //         life: 3,
-    //         maxLife: 3,
-    //         bulletDamage: 1,
-    //         fireRate: 3000,
-    //         hasShield: false,
-    //         spiritAllyActive: false,
-    //         spreadUpgrade: false,
-    //         doubleBullets: false,
-    //         dashAvailable: false,
-    //         dashCooldown: false,
-    //         slowEnemies: false,
-    //         reviveOnce: false,
-    //         increasedDropRate: false,
-    //         tripleBullets: false,
-    //         playerSpeed: 400,
-    //         healOnKill: false,
-    //         damageAura: false,
-    //         speedBoost: false,
-    //         bulletPiercing: false,
-    //         thorns: false,
-    //         bulletSpeedBoost: false,
-    //         xp: 0,
-    //         level: 1,
-    //         xpToNextLevel: 100,
-    //         waveXpGoal: 20, // Keep this if you want to use it for initial setup, but it won't be updated anymore.
-    //         spikeAuraActive: false
-    //     };
-    //     wave = 0; // Will be 1 after restart due to scene.restart
-    //     showingCards = false;
-    //     return;
-    // }
-
   const cardOptions = [
     { nome: 'Escudo de Ivirik', desc: 'Proteção que te salva da morte uma vez', cor: 0xffc107, efeito: () => { playerStats.hasShield = true; } },
     { nome: 'Tiro Duplo', desc: 'Dispara duas vezes mais balas', cor: 0x4caf50, efeito: () => { playerStats.doubleBullets = true; } },
     { nome: 'Bênção do dr Anomoi', desc: 'Um automato te ajuda no ataque', cor: 0x00bcd4, efeito: ativarSpiritAlly },
     { nome: 'Upgrade do Spread', desc: 'Dispara balas em círculo maior', cor: 0x9c27b0, efeito: () => { playerStats.spreadUpgrade = true; } },
-    { nome: 'Dash ', desc: 'Corrida rápida para escapar', cor: 0xf44336, efeito: () => { playerStats.dashAvailable = true; } },
+    { nome: 'Dash', desc: 'Corrida rápida para escapar', cor: 0xf44336, efeito: () => { playerStats.dashAvailable = true; } },
     { nome: 'Projétil Perfurante', desc: 'Balas atravessam inimigos de forma avassaladora', cor: 0x03a9f4, efeito: () => { playerStats.bulletPiercing = true; } },
     { nome: 'Recuperação Instantânea', desc: 'Recupera 2 de vida', cor: 0x8bc34a, efeito: () => { playerStats.life = Math.min(playerStats.life + 2, playerStats.maxLife); this.hud.update(); } },
     { nome: 'Fúria de Metalion', desc: 'Aumenta o dano por 15s', cor: 0xff5722, efeito: () => { playerStats.bulletDamage += 1; this.time.delayedCall(15000, () => playerStats.bulletDamage -= 1); } },
@@ -569,10 +964,10 @@ function showCardChoices() {
       }
     },
     { nome: 'Espelho de Plasma', desc: 'Reflete 30% do dano de volta ao inimigo por 10s', cor: 0x673ab7, efeito: () => {
-        playerStats.hasShield = true;
-        const reflectText = this.add.text(config.width / 2, config.height / 2 - 100, 'Reflect not fully implemented!', { fontSize: '20px', color: '#FFF' }).setOrigin(0.5);
-        this.time.delayedCall(3000, () => reflectText.destroy());
-      }
+        // Este efeito é mais complexo e pode precisar de ajustes na função de colisão para funcionar
+        playerStats.reflectDamage = (playerStats.reflectDamage || 0) + 0.3; // Aumenta a chance de refletir (se já tiver o item capacitor)
+        this.hud.displayTemporaryEffect("Espelho de Plasma Ativo!", 2);
+    }
     },
     { nome: 'Canhão Triplo', desc: 'Atira 3 balas em vez de 1', cor: 0xff9800, efeito: () => {
         playerStats.tripleBullets = true;
@@ -614,6 +1009,53 @@ function showCardChoices() {
         });
       }
     },
+    { nome: 'Conexão Fantasma', desc: 'Seu rastro digital confunde os sensores inimigos. Inimigos atingidos por sua aura ficam vulneráveis.', cor: 0xADD8E6, efeito: () => { playerStats.dashVulnerability = (playerStats.dashVulnerability || 0) + 0.2; } },
+    { nome: 'Recarga Relâmpago', desc: 'O pulso da batalha se alinha aos seus circuitos, acelerando o retorno de sua força.', cor: 0xFFD700, efeito: () => {
+        for (const itemKey in playerInventory.activableItems) {
+            playerInventory.activableItems[itemKey].cooldown *= 0.8; // Reduz em 20%
+        }
+    } },
+    { nome: 'Campo de Distorção Caótica', desc: 'O éter da favela se dobra à sua vontade, desviando e fragmentando projéteis.', cor: 0x800080, efeito: () => {
+        playerStats.distortionFieldActive = true;
+        this.time.delayedCall(4000, () => { // 4 segundos de duração
+            playerStats.distortionFieldActive = false;
+        });
+    } },
+    { nome: 'Engenharia Reversa Instável', desc: 'Aprenda com o inimigo, mas cuidado: o conhecimento pode ser uma lâmina de dois gumes.', cor: 0xDC143C, efeito: () => {
+        playerStats.bulletDamage *= 1.3; // +30% dano
+        playerStats.incomingDamageMultiplier = (playerStats.incomingDamageMultiplier || 1) * 1.1; // +10% dano recebido
+        this.time.delayedCall(8000, () => {
+            playerStats.bulletDamage /= 1.3;
+            playerStats.incomingDamageMultiplier /= 1.1;
+        });
+    } },
+    { nome: 'Refúgio do Ferro-Velho', desc: 'No caos da destruição, encontre um breve momento de paz para se reerguer.', cor: 0x7CFC00, efeito: () => {
+        playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
+        this.hud.updateHealthBar();
+        playerStats.safeZoneActive = true;
+        this.time.delayedCall(3000, () => { // 3 segundos de invulnerabilidade
+            playerStats.safeZoneActive = false;
+        });
+    } },
+    { nome: 'Chuva de Fio-Máquina', desc: 'De suas armas, um véu de chumbo digital se derrama sobre os autômatos.', cor: 0x696969, efeito: () => {
+        playerStats.bulletCountMultiplier = (playerStats.bulletCountMultiplier || 1) * 1.2; // Aumenta 20% de balas
+        playerStats.fireRate = Math.max(100, playerStats.fireRate * 0.9); // 10% mais rápido
+        this.time.delayedCall(10000, () => {
+            playerStats.bulletCountMultiplier /= 1.2;
+            playerStats.fireRate /= 0.9;
+        });
+    } },
+    { nome: 'Glitch da Imagem Espelhada', desc: 'Seus movimentos se replicam em um eco espectral, confundindo os sistemas inimigos.', cor: 0xFFC0CB, efeito: () => {
+        if (!playerStats.cloneActive) {
+            playerStats.cloneActive = true;
+            // Cria um clone visual (não interage)
+            const clone = this.add.sprite(player.x, player.y, 'player').setScale(0.05).setAlpha(0.5).setTint(0x00AADD);
+            this.time.delayedCall(5000, () => {
+                if (clone) clone.destroy();
+                playerStats.cloneActive = false;
+            });
+        }
+    } }
   ];
 
 
@@ -676,8 +1118,6 @@ function showCardChoices() {
           showingCards = false;
           wave++;
           waveText.setText(`Fase ${wave}`);
-          // REMOVIDO: A atualização de waveXpGoal
-          // playerStats.waveXpGoal = Math.floor(playerStats.waveXpGoal * 1.5);
           spawnWave.call(this);
         }
       });
@@ -824,6 +1264,12 @@ function dashPlayer() {
             enemy.body.setVelocity(0,0);
             enemy.setTint(0x0000ff);
             this.time.delayedCall(1000, () => enemy.clearTint());
+            // Aplicar vulnerabilidade de Conexão Fantasma
+            if (playerStats.dashVulnerability && enemy.active) {
+                enemy.health -= playerStats.bulletDamage * playerStats.dashVulnerability; // Causa dano extra
+                enemy.setTint(0xFF00FF); // Sinaliza vulnerabilidade
+                this.time.delayedCall(300, () => enemy.clearTint());
+            }
           }
         });
       }
@@ -850,6 +1296,11 @@ function gainXp(amount) {
       align: 'center'
     }).setOrigin(0.5);
     this.time.delayedCall(3000, () => levelUpText.destroy());
+  }
+  // Cura por Transdutor de Matéria Orgânica
+  if (playerStats.lifestealOnKill && playerStats.lifestealOnKill > 0) {
+      playerStats.life = Math.min(playerStats.life + playerStats.maxLife * playerStats.lifestealOnKill, playerStats.maxLife);
+      this.hud.updateHealthBar();
   }
 }
 
@@ -895,12 +1346,20 @@ class HUD {
       align: 'right'
     }).setOrigin(1, 0);
 
+    this.inventoryText = this.scene.add.text(config.width - 20, 250, "Itens:\nNenhum", {
+        fontSize: '14px',
+        color: '#ADD8E6',
+        align: 'right'
+    }).setOrigin(1, 0);
+
     this.updateXpBar();
     this.updateActiveEffects();
+    this.updateInventoryDisplay();
   }
 
-  update() {
+  update(time) { // Agora recebe o tempo
     this.updateHealthBar();
+    this.updateInventoryDisplay(time); // Atualiza o display do inventário a cada frame
 
     if (this.enemy && this.enemy.active) {
       this.enemyHealthBarBg.clear();
@@ -996,12 +1455,89 @@ class HUD {
     if (playerStats.healOnKill) {
         effectsText += "- Toque Vampírico\n";
     }
+    if (playerStats.dashVulnerability && playerStats.dashVulnerability > 0) { // Nova carta
+        effectsText += `- Conexão Fantasma (${Math.round(playerStats.dashVulnerability * 100)}% Vulnerabilidade)\n`;
+    }
+    if (playerStats.distortionFieldActive) { // Nova carta
+        effectsText += "- Campo de Distorção (ATIVO)\n";
+    }
+    if (playerStats.incomingDamageMultiplier && playerStats.incomingDamageMultiplier > 1) { // Nova carta
+        effectsText += `- Engenharia Reversa (+${Math.round((playerStats.incomingDamageMultiplier - 1) * 100)}% Dano Recebido)\n`;
+    }
+    if (playerStats.safeZoneActive) { // Nova carta
+        effectsText += "- Refúgio do Ferro-Velho (ATIVO)\n";
+    }
+    if (playerStats.bulletCountMultiplier && playerStats.bulletCountMultiplier > 1) { // Nova carta
+        effectsText += `- Chuva de Fio-Máquina (+${Math.round((playerStats.bulletCountMultiplier - 1) * 100)}% Balas)\n`;
+    }
+    if (playerStats.cloneActive) { // Nova carta
+        effectsText += "- Glitch da Imagem Espelhada (CLONE)\n";
+    }
+    if (playerStats.passiveRegenActive) { // Novo item
+        effectsText += "- Respirador de Ar Envenenado\n";
+    }
+    if (playerStats.touchDamage && playerStats.touchDamage > 0) { // Novo item
+        effectsText += `- Cadeia de Choque (${playerStats.touchDamage} Dano)\n`;
+    }
+    if (playerStats.evasionChance && playerStats.evasionChance > 0) { // Novo item
+        effectsText += `- Camuflagem Sintética (${Math.round(playerStats.evasionChance * 100)}% Evasão)\n`;
+    }
+    if (playerStats.bulletRange && playerStats.bulletRange > 1) { // Novo item
+        effectsText += `- Bateria de Nêutrons (Alcance: ${playerStats.bulletRange})\n`;
+    }
+    if (playerStats.droneActive) { // Novo item
+        effectsText += "- Drone Sentinela 'Pivete'\n";
+    }
+    if (playerStats.reflectDamage && playerStats.reflectDamage > 0) { // Novo item
+        effectsText += `- Capacitor de Feedback (${Math.round(playerStats.reflectDamage * 100)}% Reflete)\n`;
+    }
+    if (playerStats.lifestealOnKill && playerStats.lifestealOnKill > 0) { // Novo item
+        effectsText += `- Transdutor Orgânico (${Math.round(playerStats.lifestealOnKill * 100)}% Vida ao Matar)\n`;
+    }
+
 
     if (effectsText === "Efeitos Ativos:\n") {
       effectsText += "Nenhum";
     }
 
     this.activeEffectsText.setText(effectsText);
+  }
+
+  // Novo método para atualizar o display do inventário
+  updateInventoryDisplay(time) {
+      let inventoryDisplay = "ITENS PASSIVOS:\n";
+      if (playerInventory.passiveItems.length === 0) {
+          inventoryDisplay += "Nenhum\n";
+      } else {
+          playerInventory.passiveItems.forEach(item => {
+              inventoryDisplay += `- ${item.nome} (${item.count})\n`;
+          });
+      }
+
+      inventoryDisplay += "\nITENS ATIVÁVEIS:\n";
+      let hasActivable = false;
+      for (const itemKey in playerInventory.activableItems) {
+          const itemData = playerInventory.activableItems[itemKey];
+          if (itemData.count > 0) {
+              hasActivable = true;
+              let status = "";
+              if (!itemData.ready) {
+                  const remainingTime = Math.ceil((itemData.cooldown - (time - itemData.lastUsed)) / 1000);
+                  status = ` (Recarga: ${remainingTime}s)`;
+              } else {
+                  status = " (PRONTO)";
+              }
+              const itemInfo = itemOptions.find(opt => opt.nome === itemKey);
+              const hotkey = itemInfo ? ` (${itemKey.includes("Óculos") ? 'Q' : itemKey.includes("Módulo") ? 'E' : itemKey.includes("Circuito") ? 'R' : itemKey.includes("DPE") ? 'F' : ''})` : '';
+
+              inventoryDisplay += `- ${itemKey}${hotkey}${status}\n`;
+          }
+      }
+      if (!hasActivable) {
+          inventoryDisplay += "Nenhum\n";
+      }
+
+      this.inventoryText.setText(inventoryDisplay);
   }
 
   displayTemporaryEffect(effectName, durationSeconds) {
