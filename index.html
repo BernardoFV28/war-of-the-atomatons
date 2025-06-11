@@ -22,8 +22,8 @@
 <script>
 const config = {
   type: Phaser.AUTO,
-  width: 1580,
-  height: 670,
+  width: 1380,
+  height: 500,
   backgroundColor: '#000000',
   physics: {
     default: 'arcade',
@@ -286,7 +286,7 @@ const itemOptions = [
         nome: "Dispositivo de Pulso Eletromagnético (DPE)",
         descricao: "Um aparelho improvisado capaz de liberar uma onda de energia que atordoa sistemas eletrônicos.",
         tipo: "ativável",
-        textura: 'item_emp', // Necessário carregar esta imagem
+        textura: 'ammo.png', // Necessário carregar esta imagem
         efeito: (scene) => {
             enemies.getChildren().forEach(enemy => {
                 if (enemy.active) {
@@ -303,7 +303,7 @@ const itemOptions = [
         nome: "Armadura Camuflada Sintética",
         descricao: "Tecidos reativos e circuitos furtivos que distorcem sua silhueta no espectro inimigo.",
         tipo: "passivo",
-        textura: 'item_camouflage', // Necessário carregar esta imagem
+        textura: 'b', // Necessário carregar esta imagem
         efeito: (scene) => {
             playerStats.evasionChance = (playerStats.evasionChance || 0) + 0.10; // 10% de chance de evitar projéteis
             // Sinergia com Sombra do Andarilho Fantasma (carta)
@@ -319,7 +319,7 @@ const itemOptions = [
         nome: "Bateria de Nêutrons Reciclada",
         descricao: "Um acumulador de energia instável, mas poderoso, retirado de um protótipo obsoleto.",
         tipo: "passivo",
-        textura: 'item_battery', // Necessário carregar esta imagem
+        textura: 'b', // Necessário carregar esta imagem
         efeito: (scene) => {
             playerStats.bulletSpeedBoost = true; // Já existe, mas este item reforça ou garante
             playerStats.bulletRange = (playerStats.bulletRange || 1) + 0.5; // Aumenta o alcance das balas
@@ -330,7 +330,7 @@ const itemOptions = [
         nome: "Drone Sentinela 'Pivete'",
         descricao: "Um pequeno autômato adaptado, programado para defender seu mestre com lealdade inabalável.",
         tipo: "passivo",
-        textura: 'item_drone', // Necessário carregar esta imagem
+        textura: 'b', // Necessário carregar esta imagem
         efeito: (scene) => {
             if (!playerStats.droneActive) { // Ativa o drone apenas uma vez
                 playerStats.droneActive = true;
@@ -365,7 +365,7 @@ const itemOptions = [
         nome: "Capacitor de Feedback",
         descricao: "Um componente que absorve e redireciona o dano, devolvendo-o ao remetente.",
         tipo: "passivo",
-        textura: 'item_capacitor', // Necessário carregar esta imagem
+        textura: 'b', // Necessário carregar esta imagem
         efeito: (scene) => {
             playerStats.reflectDamage = (playerStats.reflectDamage || 0) + 0.5; // 50% de chance de refletir 50% do dano
             scene.hud.displayTemporaryEffect("Capacitor Ativo!", 2);
@@ -381,7 +381,7 @@ const itemOptions = [
         nome: "Módulos de Refrigeração Turbinados",
         descricao: "Ventoinhas e dissipadores de calor de alta performance, permitindo que seus sistemas operem mais rápido.",
         tipo: "passivo",
-        textura: 'item_cooler', // Necessário carregar esta imagem
+        textura: 'b', // Necessário carregar esta imagem
         efeito: (scene) => {
             playerStats.fireRate = Math.max(100, playerStats.fireRate * 0.95); // Reduz fireRate em 5% (tiros mais rápidos)
             scene.hud.displayTemporaryEffect("Refrigeração Ativa!", 2);
@@ -391,7 +391,7 @@ const itemOptions = [
         nome: "Transdutor de Matéria Orgânica",
         descricao: "Um dispositivo bizarro que converte a biomassa inimiga em recursos vitais.",
         tipo: "passivo",
-        textura: 'item_transducer', // Necessário carregar esta imagem
+        textura: 'b', // Necessário carregar esta imagem
         efeito: (scene) => {
             playerStats.lifestealOnKill = (playerStats.lifestealOnKill || 0) + 0.1; // 10% de cura ao matar
             scene.hud.displayTemporaryEffect("Transdutor Ativo!", 2);
@@ -424,20 +424,20 @@ function preload() {
   this.load.image('boss_robot', 'assets/boss_robot.png'); // Preload boss image
 
   // Preload de Texturas para os Novos Itens
-  this.load.image('item_core', 'assets/item_core.png'); // Imagem para Núcleo de Cristal Corrompido
-  this.load.image('item_goggles', 'assets/item_goggles.png'); // Imagem para Óculos de Visão Térmica Obsoleta
-  this.load.image('item_jump_module', 'assets/item_jump_module.png'); // Imagem para Módulo de Salto Modificado
-  this.load.image('item_chain', 'assets/item_chain.png'); // Imagem para Cadeia de Choque Reciclada
-  this.load.image('item_mask', 'assets/item_mask.png'); // Imagem para Respirador de Ar Envenenado
-  this.load.image('item_armor', 'assets/item_armor.png'); // Imagem para Reforço de Blindagem de Sucata
-  this.load.image('item_overclock', 'assets/item_overclock.png'); // Imagem para Circuito de Overclock Pessoal
-  this.load.image('item_emp', 'assets/item_emp.png'); // Imagem para Dispositivo de Pulso Eletromagnético (DPE)
-  this.load.image('item_camouflage', 'assets/item_camouflage.png'); // Imagem para Armadura Camuflada Sintética
-  this.load.image('item_battery', 'assets/item_battery.png'); // Imagem para Bateria de Nêutrons Reciclada
-  this.load.image('item_drone', 'assets/item_drone.png'); // Imagem para Drone Sentinela 'Pivete'
-  this.load.image('item_capacitor', 'assets/item_capacitor.png'); // Imagem para Capacitor de Feedback
-  this.load.image('item_cooler', 'assets/item_cooler.png'); // Imagem para Módulos de Refrigeração Turbinados
-  this.load.image('item_transducer', 'assets/item_transducer.png'); // Imagem para Transdutor de Matéria Orgânica
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Núcleo de Cristal Corrompido
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Óculos de Visão Térmica Obsoleta
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Módulo de Salto Modificado
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Cadeia de Choque Reciclada
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Respirador de Ar Envenenado
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Reforço de Blindagem de Sucata
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Circuito de Overclock Pessoal
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Dispositivo de Pulso Eletromagnético (DPE)
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Armadura Camuflada Sintética
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Bateria de Nêutrons Reciclada
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Drone Sentinela 'Pivete'
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Capacitor de Feedback
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Módulos de Refrigeração Turbinados
+  this.load.image('b', 'assets/ammo.png'); // Imagem para Transdutor de Matéria Orgânica
 }
 
 function create() {
