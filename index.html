@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V1.5.1 - A Cruzada da Rainha</title>
+  <title>War of the Automatons V1.3 - A Cruzada da Rainha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -16,7 +16,6 @@
       margin: auto;
     }
   </style>
-
 </head>
 <body>
 <script>
@@ -30,16 +29,16 @@ const config = {
     arcade: { debug: false }
   },
   scene: {
-    preload,
+    preload: preloadScene, // Renomeado para evitar conflito com a função global preload
     create,
     update
   }
 };
 
 let waveText;
-let hudGroup; // Not used in provided code, but kept
-let armaNomeText; // Not used in provided code, but kept
-let armaImagem; // Not used in provided code, but kept
+let hudGroup;
+let armaNomeText;
+let armaImagem;
 let player, cursors;
 let bullets, enemies, enemyBullets, armas, itemsGroup;
 let lastShoot = 0;
@@ -92,7 +91,11 @@ const playerInventory = {
     "Ampola de Cura": { count: 1, cooldown: 10000, lastUsed: 0, ready: true },
     "Projetor Holográfico": { count: 1, cooldown: 45000, lastUsed: 0, ready: true }
   },
-  passiveItems: {}
+  passiveItems: {
+    "Blindagem Reforçada": { description: "Reduz o dano recebido em 10%." },
+    "Calibragem de Precisão": { description: "Aumenta a velocidade do projétil em 20%." },
+    "Fonte de Energia Extra": { description: "Reduz o tempo de recarga das habilidades ativáveis em 15%." }
+  }
 };
 
 const itemOptions = [
@@ -103,6 +106,16 @@ const itemOptions = [
   { nome: "Ampola de Cura", tipo: "activable", hotkey: "G" },
   { nome: "Projetor Holográfico", tipo: "activable", hotkey: "T" }
 ];
+
+// Weapon system variables
+const weapons = {
+    'pistol': { damage: 10, fireRate: 200, bulletSpeed: 400, sprite: 'pistol' },
+    'shotgun': { damage: 15, fireRate: 600, bulletSpeed: 300, sprite: 'shotgun', pellets: 3, spread: 0.2 },
+    'rifle': { damage: 20, fireRate: 100, bulletSpeed: 600, sprite: 'rifle' },
+    'laserGun': { damage: 25, fireRate: 50, bulletSpeed: 800, sprite: 'laserGun' },
+    'plasmaGun': { damage: 30, fireRate: 400, bulletSpeed: 350, sprite: 'plasmaGun', areaDamage: true }
+};
+let currentWeapon = 'pistol'; // Default weapon
 
 // UI Class for Inventory Display
 class InventoryUI {
@@ -115,8 +128,15 @@ class InventoryUI {
           padding: { x: 5, y: 5 }
       }).setScrollFactor(0).setDepth(100);
 
-      this.inventoryText.setText('Inventário:\n');
+      this.weaponSelectorText = this.scene.add.text(config.width - 200, config.height - 50, '', {
+          fontSize: '18px',
+          color: '#00FFFF',
+          backgroundColor: '#333333',
+          padding: { x: 5, y: 5 }
+      }).setScrollFactor(0).setDepth(100);
+
       this.updateInventoryDisplay();
+      this.updateWeaponDisplay();
   }
 
   updateInventoryDisplay() {
@@ -142,10 +162,27 @@ class InventoryUI {
           }
       }
       if (!hasActivable) {
-          inventoryDisplay += "Nenhum\n";
+          inventoryDisplay += "Nenhum Ativável\n";
+      }
+
+      inventoryDisplay += "\nItens Passivos:\n";
+      let hasPassive = false;
+      for (const itemKey in playerInventory.passiveItems) {
+        const itemData = playerInventory.passiveItems[itemKey];
+        if (itemData) {
+            hasPassive = true;
+            inventoryDisplay += `- ${itemKey}: ${itemData.description}\n`;
+        }
+      }
+      if (!hasPassive) {
+          inventoryDisplay += "Nenhum Passivo\n";
       }
 
       this.inventoryText.setText(inventoryDisplay);
+  }
+
+  updateWeaponDisplay() {
+      this.weaponSelectorText.setText(`Arma: ${currentWeapon.toUpperCase()}`);
   }
 
   displayTemporaryEffect(effectName, durationSeconds) {
@@ -179,34 +216,53 @@ class InventoryUI {
 }
 
 let inventoryUI;
+let preloadBar;
+let preloadBox;
 
-function preload() {
+function preloadScene() {
+    // Preload Bar
+    preloadBox = this.add.graphics();
+    preloadBox.fillStyle(0x222222, 0.8);
+    preloadBox.fillRect(config.width / 2 - 160, config.height / 2 - 20, 320, 50);
+
+    preloadBar = this.add.graphics();
+
+    this.load.on('progress', (value) => {
+        preloadBar.clear();
+        preloadBar.fillStyle(0xffffff, 1);
+        preloadBar.fillRect(config.width / 2 - 150, config.height / 2 - 10, 300 * value, 30);
+    });
+
+    this.load.on('complete', () => {
+        preloadBox.destroy();
+        preloadBar.destroy();
+    });
+
     // Background Image
-    this.load.image('bg', 'assets/fundogame.png'); // Added background image
+    this.load.image('bg', 'assets/fundogame.png');
 
     // Player and Projectiles
     this.load.image('player', 'assets/player.png');
     this.load.image('bullet', 'assets/bullet.png');
-    this.load.image('enemyBullet', 'assets/enemy_bullet.png'); // Assuming enemy_bullet.png exists
+    this.load.image('enemyBullet', 'assets/enemy_bullet.png');
 
     // Enemies (using specific enemy types if you have them, otherwise fallback to generic 'enemy.png')
-    this.load.image('enemy', 'assets/enemy_robot.png'); // Default generic enemy
     this.load.image('enemy_robot', 'assets/enemy_robot.png');
     this.load.image('enemy_fast', 'assets/enemy_fast.png');
     this.load.image('enemy_tank', 'assets/enemy_tank.png');
-    this.load.image('boss_robot', 'assets/boss_robot.png'); // For the boss
+    this.load.image('boss_robot', 'assets/boss_robot.png');
 
-    // Weapons (if you plan to have them as pickups or player weapons)
+    // Weapons
     this.load.image('pistol', 'assets/pistolinha.png');
-    this.load.image('shotgun', 'assets/lancarraio.png'); // Assuming lancarraio.png is your shotgun
-    this.load.image('rifle', 'assets/rifle.png'); // From your list
-    this.load.image('laserGun', 'assets/laser_gun.png'); // From your list
-    this.load.image('plasmaGun', 'assets/plasma_gun.png'); // From your list
+    this.load.image('shotgun', 'assets/lancarraio.png');
+    this.load.image('rifle', 'assets/metralha.png');
+    this.load.image('laserGun', 'assets/laser_gun.png');
+    this.load.image('plasmaGun', 'assets/plasma_gun.png');
 
     // Obstacle Assets
     this.load.image('scrapBlock', 'assets/scrap_block.png');
     this.load.image('electricCoil', 'assets/electric_coil.png');
-    this.load.image('explosiveDrone', 'assets/explosive_drone.png'); // This was referenced but not in your asset list, adding it.
+    this.load.image('explosiveDrone', 'assets/explosive_drone.png');
     this.load.image('turret', 'assets/turret.png');
     this.load.image('magneticDistortion', 'assets/magnetic_distortion.png');
 
@@ -230,7 +286,7 @@ function preload() {
     this.load.image('granade', 'assets/granade.png');
     this.load.image('m', 'assets/m.png');
     this.load.image('o', 'assets/o.png');
-    this.load.image('metralha', 'assets/metralha.png'); // Assuming metralha.png is a weapon
+    this.load.image('metralha', 'assets/metralha.png');
 }
 
 function create() {
@@ -242,6 +298,7 @@ function create() {
     player.setCollideWorldBounds(true);
     player.setOrigin(0.5);
     player.setDepth(5);
+    player.setDamping(true).setDrag(0.99); // Adicionado para dar um "feeling" melhor de movimento
 
     cursors = this.input.keyboard.createCursorKeys();
 
@@ -252,8 +309,8 @@ function create() {
     });
     enemies = this.physics.add.group();
     enemyBullets = this.physics.add.group();
-    armas = this.physics.add.group();
-    itemsGroup = this.physics.add.group();
+    armas = this.physics.add.group(); // Group for weapon pickups
+    itemsGroup = this.physics.add.group(); // Group for generic item pickups
 
     // New groups for obstacles and mechanics
     obstaclesGroup = this.physics.add.group();
@@ -299,6 +356,8 @@ function create() {
     this.physics.add.overlap(player, cursedItemGroup, pickUpCursedItem, null, this);
     this.physics.add.collider(holographicClonesGroup, enemies, (clone, enemy) => {
         // Enemies will be distracted by the clone.
+        // Optional: enemies could deal "damage" to clone, and it disappears after a certain amount
+        // For now, they just collide and are distracted.
     }, null, this);
     this.physics.add.collider(holographicClonesGroup, enemyBullets, (clone, enemyBullet) => {
         enemyBullet.destroy(); // Enemy bullets hit clone and are destroyed
@@ -313,9 +372,20 @@ function create() {
     this.input.keyboard.on('keydown-G', () => useActivableItem("Ampola de Cura", this));
     this.input.keyboard.on('keydown-T', () => useActivableItem("Projetor Holográfico", this));
 
+    // Keyboard control for shooting (event listener instead of checking every frame)
+    this.input.keyboard.on('keydown-SPACE', (event) => {
+        if (this.time.now > lastShoot) {
+            shootBullet(player.x, player.y, currentWeapon);
+            lastShoot = this.time.now + weapons[currentWeapon].fireRate;
+        }
+    });
+
     // Store original player damage
     playerOriginalDamage = playerDamage;
     playerOriginalTint = player.tint;
+
+    // Initial weapon pickup for testing
+    // pickUpArma.call(this, player, { texture: { key: 'shotgun' }, destroy: () => {} });
 }
 
 function update(time, delta) {
@@ -335,16 +405,11 @@ function update(time, delta) {
     } else if (cursors.down.isDown) {
         player.setVelocityY(playerSpeed);
     }
-
-    // Player Shooting (simplified for example, assume 'Space' to shoot)
-    if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)) && time > lastShoot) {
-        shootBullet(player.x, player.y);
-        lastShoot = time + 200; // Cooldown of 200ms
-    }
+    player.body.velocity.normalize().scale(playerSpeed); // Normaliza para que o movimento diagonal não seja mais rápido
 
     // Enemy AI and Spawning
     enemies.children.each(function(enemy) {
-        if (enemy.active) {
+        if (enemy && enemy.active) { // Adicionada verificação de nulidade
             // Simple enemy movement: move towards player or clone if active
             let target = player;
             if (holographicClonesGroup.getLength() > 0) {
@@ -354,7 +419,6 @@ function update(time, delta) {
                 }
             }
             this.physics.moveToObject(enemy, target, enemy.speed);
-
 
             // Simple enemy shooting
             if (time > enemy.lastShotTime + enemy.fireRate) {
@@ -370,10 +434,10 @@ function update(time, delta) {
     }
 
     // Wave progression and enemy spawning
-    if (enemiesKilledThisWave >= enemiesToSpawn && !bossMode) {
-        startNextWave.call(this); // Ensure context is passed
+    if (enemiesKilledThisWave >= enemiesToSpawn && !bossMode && enemies.countActive(true) === 0) { // Added enemies.countActive check
+        startNextWave.call(this);
     } else if (!bossMode && time > lastEnemySpawnTime + enemySpawnDelay && enemies.countActive(true) < enemiesToSpawn) {
-        spawnEnemies.call(this); // Ensure context is passed
+        spawnEnemies.call(this);
         lastEnemySpawnTime = time;
     }
 
@@ -392,12 +456,34 @@ function update(time, delta) {
     }
 }
 
-function shootBullet(x, y) {
-    const bullet = bullets.get(x, y);
-    if (bullet) {
-        bullet.setActive(true).setVisible(true);
-        bullet.setVelocityX(400);
-        bullet.setTint(frenzyActive ? 0xFFD700 : 0xFFFFFF);
+function shootBullet(x, y, weaponType) {
+    const weapon = weapons[weaponType];
+    const bulletSpeed = weapon.bulletSpeed;
+    const bulletDamage = weapon.damage;
+
+    if (weapon.pellets) { // Shotgun-like behavior
+        for (let i = 0; i < weapon.pellets; i++) {
+            const bullet = bullets.get(x, y);
+            if (bullet) {
+                const angle = Phaser.Math.Angle.Between(x, y, this.input.mousePointer.x, this.input.mousePointer.y);
+                const spread = Phaser.Math.RND.between(-weapon.spread * 100, weapon.spread * 100) / 100;
+                const finalAngle = angle + spread;
+
+                bullet.setActive(true).setVisible(true).setRotation(finalAngle);
+                this.physics.velocityFromRotation(finalAngle, bulletSpeed, bullet.body.velocity);
+                bullet.setTint(frenzyActive ? 0xFFD700 : 0xFFFFFF);
+                bullet.setData('damage', bulletDamage); // Store damage in bullet data
+            }
+        }
+    } else { // Single projectile
+        const bullet = bullets.get(x, y);
+        if (bullet) {
+            const angle = Phaser.Math.Angle.Between(x, y, this.input.mousePointer.x, this.input.mousePointer.y);
+            bullet.setActive(true).setVisible(true).setRotation(angle);
+            this.physics.velocityFromRotation(angle, bulletSpeed, bullet.body.velocity);
+            bullet.setTint(frenzyActive ? 0xFFD700 : 0xFFFFFF);
+            bullet.setData('damage', bulletDamage); // Store damage in bullet data
+        }
     }
 }
 
@@ -410,8 +496,10 @@ function shootEnemyBullet(x, y, target) {
 }
 
 function hitEnemy(bullet, enemy) {
+    if (!bullet.active || !enemy.active) return; // Adicionada verificação de nulidade/ativação
+
     bullet.setActive(false).setVisible(false);
-    enemy.health -= playerDamage;
+    enemy.health -= bullet.getData('damage') || playerDamage; // Use bullet damage if available, else playerDamage
     if (enemy.health <= 0) {
         enemy.destroy();
         score += 100;
@@ -424,6 +512,8 @@ function hitEnemy(bullet, enemy) {
 }
 
 function hitPlayer(player, target) {
+    if (!player.active || !target.active) return; // Adicionada verificação de nulidade/ativação
+
     if (player.immune) {
         this.add.tween({
             targets: player,
@@ -433,7 +523,7 @@ function hitPlayer(player, target) {
             yoyo: true,
             repeat: 0
         });
-        if (target.active) target.destroy(); // Ensure target is active before destroying
+        if (target.active) target.destroy();
         return;
     }
 
@@ -441,6 +531,11 @@ function hitPlayer(player, target) {
     if (player.damageMultiplier) {
         damageTaken *= player.damageMultiplier;
     }
+    // Aplica efeito de item passivo "Blindagem Reforçada"
+    if (playerInventory.passiveItems["Blindagem Reforçada"]) {
+        damageTaken *= 0.9; // Reduz dano em 10%
+    }
+
 
     if (target.active) target.destroy();
     playerHealth -= damageTaken;
@@ -456,19 +551,31 @@ function hitPlayer(player, target) {
 }
 
 function pickUpArma(player, arma) {
+    if (!arma.active) return; // Adicionada verificação de ativação
+
+    const weaponType = arma.getData('weaponType');
+    if (weaponType && weapons[weaponType]) {
+        currentWeapon = weaponType;
+        playerDamage = weapons[currentWeapon].damage; // Update player damage based on weapon
+        inventoryUI.updateWeaponDisplay();
+        inventoryUI.displayTemporaryEffect(`Nova Arma: ${weaponType.toUpperCase()}`, 2);
+    }
     arma.destroy();
-    // Update player weapon, change shooting behavior, etc.
 }
 
 function pickUpItem(player, item) {
+    if (!item.active) return; // Adicionada verificação de ativação
     item.destroy();
-    // Apply item effects
+    // Apply item effects - this function was empty, now it's just a placeholder
+    // If you add other generic items, their logic would go here.
 }
 
 // New Obstacle Collision Handlers
 function hitObstacle(projectile, obstacle) {
+    if (!projectile.active || !obstacle.active) return; // Adicionada verificação de nulidade/ativação
+
     if (obstacle.getData('type') === 'explosiveDrone') {
-        obstacle.health -= projectile.getData('damage') || 10;
+        obstacle.health -= projectile.getData('damage') || 10; // Use bullet damage
         if (obstacle.health <= 0) {
             obstacle.detonate();
         }
@@ -477,6 +584,8 @@ function hitObstacle(projectile, obstacle) {
 }
 
 function playerHitObstacle(player, obstacle) {
+    if (!player.active || !obstacle.active) return; // Adicionada verificação de nulidade/ativação
+
     if (obstacle.getData('type') === 'explosiveDrone') {
         obstacle.detonate();
     } else if (obstacle.getData('type') === 'electricCoil') {
@@ -487,7 +596,7 @@ function playerHitObstacle(player, obstacle) {
 
 // Obstacle Spawning
 function spawnObstacles(wave) {
-    obstaclesGroup.clear(true, true);
+    obstaclesGroup.clear(true, true); // Garante que obstáculos da onda anterior são limpos
 
     const obstacleTypes = [];
     if (wave >= 2) {
@@ -584,10 +693,14 @@ function spawnObstacles(wave) {
                             });
                         } else {
                             if (player.damageMultiplier) damage *= player.damageMultiplier;
+                            // Aplica efeito de item passivo "Blindagem Reforçada"
+                            if (playerInventory.passiveItems["Blindagem Reforçada"]) {
+                                damage *= 0.9;
+                            }
                             playerHealth -= damage;
                             healthText.setText(`Health: ${Math.max(0, playerHealth)}/${playerMaxHealth}`);
                             killStreak = 0;
-                            if (frenzyActive) deactivateFrenzy.call(this.scene); // Pass scene context
+                            if (frenzyActive) deactivateFrenzy.call(this.scene);
                             if (playerHealth <= 0) endGame(this.scene);
                         }
                     }
@@ -596,7 +709,7 @@ function spawnObstacles(wave) {
                 this.physics.add.collider(bullets, obstacle, (bullet, drone) => {
                     if (bullet.active && drone.active) {
                         bullet.destroy();
-                        drone.health -= playerDamage;
+                        drone.health -= bullet.getData('damage') || playerDamage;
                         if (drone.health <= 0) {
                             drone.detonate();
                         }
@@ -657,11 +770,11 @@ function applySlowEffect(target, duration) {
         }
     } else {
         playerIsSlowed = true;
-        // originalPlayerSpeed is already stored globally
+        originalPlayerSpeed = playerSpeed; // Garante que a velocidade original seja capturada no momento da desaceleração
         playerSpeed *= 0.5;
     }
 
-    inventoryUI.displayTemporaryEffect("Redução de Velocidade", duration); // More descriptive text
+    inventoryUI.displayTemporaryEffect("Redução de Velocidade", duration);
 
     playerSpeedRestoreTimer = this.time.delayedCall(duration * 1000, () => {
         playerSpeed = originalPlayerSpeed;
@@ -682,7 +795,7 @@ function shootTurretBullet(turret) {
 }
 
 function deflectProjectile(projectile, distortionZone) {
-    if (!projectile.active) return;
+    if (!projectile.active || !distortionZone.active) return; // Adicionada verificação de nulidade/ativação
 
     const angleToDistortion = Phaser.Math.Angle.Between(distortionZone.x, distortionZone.y, projectile.x, projectile.y);
     const deflectionForce = 150;
@@ -714,7 +827,7 @@ function activateFrenzy() {
     frenzyActive = true;
     playerDamage *= 2;
     player.setTint(0xFFD700);
-    inventoryUI.displayTemporaryEffect("FRENESI ATIVO!", 10); // More descriptive text
+    inventoryUI.displayTemporaryEffect("FRENESI ATIVO!", 10);
 
     frenzyTimer = this.time.delayedCall(10000, deactivateFrenzy, [], this);
 }
@@ -749,26 +862,34 @@ function dropPowerUp(x, y) {
                 powerUp = powerUpGroup.create(x, y, 'powerUpShield');
                 break;
         }
-        powerUp.setData('type', type);
-        powerUp.setDepth(6);
-        powerUp.setVelocityY(50);
-        powerUp.setCollideWorldBounds(true);
-        powerUp.setBounceY(0.5);
+        if (powerUp) { // Adicionada verificação para garantir que o powerUp foi criado
+            powerUp.setData('type', type);
+            powerUp.setDepth(6);
+            powerUp.setVelocityY(50);
+            powerUp.setCollideWorldBounds(true);
+            powerUp.setBounceY(0.5);
+        }
     }
 }
 
 function pickUpPowerUp(player, powerUp) {
+    if (!powerUp.active) return; // Adicionada verificação de ativação
     powerUp.destroy();
     const type = powerUp.getData('type');
     let effectDuration = 10;
 
+    // Aplica efeito de item passivo "Fonte de Energia Extra"
+    if (playerInventory.passiveItems["Fonte de Energia Extra"]) {
+        effectDuration *= 1.15; // Aumenta duração em 15%
+    }
+
     switch (type) {
         case 'speed':
-            const originalSpeedBeforeBoost = playerSpeed; // Store this before applying boost
+            const originalSpeedBeforeBoost = playerSpeed;
             playerSpeed *= 1.5;
             inventoryUI.displayTemporaryEffect("Aumento de Velocidade!", effectDuration);
             this.time.delayedCall(effectDuration * 1000, () => {
-                playerSpeed = originalSpeedBeforeBoost; // Restore to speed before this boost
+                playerSpeed = originalSpeedBeforeBoost;
             }, [], this);
             break;
         case 'health':
@@ -790,6 +911,7 @@ function pickUpPowerUp(player, powerUp) {
 
 // Cursed Items
 function dropCursedItem(x, y) {
+    // Chance de dropar item amaldiçoado é menor
     if (Math.random() < 0.05) {
         const cursedItem = cursedItemGroup.create(x, y, 'cursedItem');
         cursedItem.setData('type', 'random');
@@ -800,11 +922,12 @@ function dropCursedItem(x, y) {
 }
 
 function pickUpCursedItem(player, cursedItem) {
+    if (!cursedItem.active) return; // Adicionada verificação de ativação
     cursedItem.destroy();
     const cursedEffects = [
         { name: "Vida Máxima Reduzida!", effect: () => { playerMaxHealth = Math.max(50, playerMaxHealth - 20); playerHealth = Math.min(playerHealth, playerMaxHealth); healthText.setText(`Health: ${playerHealth}/${playerMaxHealth}`); } },
         { name: "Vulnerabilidade!", effect: () => { player.damageMultiplier = 1.5; }, revert: () => { player.damageMultiplier = 1; } },
-        { name: "Lentidão!", effect: () => { playerSpeed *= 0.7; }, revert: () => { playerSpeed /= 0.7; } }
+        { name: "Lentidão!", effect: () => { playerSpeed *= 0.7; }, revert: () => { playerSpeed = originalPlayerSpeed; } } // Restaura para originalPlayerSpeed
     ];
 
     const chosenEffect = Phaser.Utils.Array.GetRandom(cursedEffects);
@@ -822,24 +945,22 @@ function createHolographicClone() {
     clone.setDepth(4);
     clone.setAlpha(0.6);
     clone.setImmovable(true);
-    clone.health = 1000; // Not used for damage, but good for conceptual health
+    clone.health = 1000;
 
-    // Remove clone after 5 seconds
     this.time.delayedCall(5000, () => {
         if (clone.active) clone.destroy();
     }, [], this);
 }
 
-
 function spawnEnemies() {
     let enemyCount = Math.floor(wave * 1.5);
-    const enemySprites = ['enemy_robot', 'enemy_fast', 'enemy_tank']; // Use specific enemy sprites
+    const enemySprites = ['enemy_robot', 'enemy_fast', 'enemy_tank'];
 
     for (let i = 0; i < enemyCount; i++) {
         const x = Phaser.Math.Between(config.width * 0.7, config.width * 0.95);
         const y = Phaser.Math.Between(50, config.height - 50);
-        const randomEnemySprite = Phaser.Utils.Array.GetRandom(enemySprites); // Choose random enemy type
-        let enemy = enemies.create(x, y, randomEnemySprite); // Use random sprite
+        const randomEnemySprite = Phaser.Utils.Array.GetRandom(enemySprites);
+        let enemy = enemies.create(x, y, randomEnemySprite);
         enemy.setCollideWorldBounds(true);
         enemy.setBounce(1);
         enemy.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
@@ -860,6 +981,10 @@ function startNextWave() {
     enemySpawnDelay = Math.max(500, 1000 - (wave * 50));
     lastEnemySpawnTime = this.time.now;
 
+    // Garante que todos os projéteis inimigos são limpos ao iniciar nova onda
+    enemyBullets.clear(true, true);
+    bullets.clear(true, true);
+
     if (wave % 3 === 0) {
         spawnMiniBoss.call(this, wave);
     } else {
@@ -871,9 +996,9 @@ function startNextWave() {
 
 function spawnMiniBoss(currentWave) {
     bossMode = true;
-    enemies.clear(true, true);
+    enemies.clear(true, true); // Clear any remaining normal enemies
 
-    const miniBoss = this.physics.add.sprite(config.width * 0.8, config.height / 2, 'boss_robot'); // Use boss_robot sprite
+    const miniBoss = this.physics.add.sprite(config.width * 0.8, config.height / 2, 'boss_robot');
     miniBoss.setCollideWorldBounds(true);
     miniBoss.setBounce(1);
     miniBoss.setVelocity(-50, 0);
@@ -884,11 +1009,10 @@ function spawnMiniBoss(currentWave) {
     if (miniBoss.fireRate < 300) miniBoss.fireRate = 300;
     miniBoss.lastShotTime = 0;
     miniBoss.setTint(0xFF0000);
-    miniBoss.setScale(2); // Make boss even larger
+    miniBoss.setScale(2);
     miniBoss.setDepth(3);
 
     enemies.add(miniBoss);
-
     boss = miniBoss;
 
     // Create Boss Health Bar
@@ -913,19 +1037,19 @@ function spawnMiniBoss(currentWave) {
 }
 
 function hitBoss(bullet, boss) {
-    if (bullet.active && boss.active) {
-        bullet.setActive(false).setVisible(false);
-        boss.health -= playerDamage;
-        if (boss.health <= 0) {
-            boss.destroy();
-            score += 5000;
-            scoreText.setText('Score: ' + score);
-            bossMode = false;
-            if (bossHealthBar) bossHealthBar.destroy();
-            if (bossHealthBarBackground) bossHealthBarBackground.destroy();
-            if (bossNameText) bossNameText.destroy();
-            startNextWave.call(this);
-        }
+    if (!bullet.active || !boss.active) return; // Adicionada verificação de nulidade/ativação
+
+    bullet.setActive(false).setVisible(false);
+    boss.health -= bullet.getData('damage') || playerDamage; // Use bullet damage
+    if (boss.health <= 0) {
+        boss.destroy();
+        score += 5000;
+        scoreText.setText('Score: ' + score);
+        bossMode = false;
+        if (bossHealthBar) bossHealthBar.destroy();
+        if (bossHealthBarBackground) bossHealthBarBackground.destroy();
+        if (bossNameText) bossNameText.destroy();
+        startNextWave.call(this);
     }
 }
 
@@ -934,13 +1058,30 @@ function useActivableItem(itemName, scene) {
   const time = scene.time.now;
 
   if (itemData && itemData.count > 0 && itemData.ready) {
+      // Aplica efeito de item passivo "Fonte de Energia Extra" para cooldown
+      let finalCooldown = itemData.cooldown;
+      if (playerInventory.passiveItems["Fonte de Energia Extra"]) {
+          finalCooldown *= 0.85; // Reduz cooldown em 15%
+      }
+
       itemData.ready = false;
       itemData.lastUsed = time;
 
       switch (itemName) {
           case "Óculos de Visão Térmica":
               inventoryUI.displayTemporaryEffect("Visão Térmica Ativada!", 5);
-              // Implement visual effect for thermal vision (e.g., tinting screen, highlighting enemies)
+              enemies.children.each(enemy => {
+                  if (enemy.active) {
+                      enemy.setTint(0x00FF00); // Exemplo: inimigos ficam verdes
+                  }
+              });
+              scene.time.delayedCall(5000, () => {
+                enemies.children.each(enemy => {
+                    if (enemy.active) {
+                        enemy.setTint(0xFFFFFF); // Restaura cor original
+                    }
+                });
+              }, [], scene);
               break;
           case "Módulo de Escudo":
               player.setAlpha(0.5);
@@ -976,7 +1117,7 @@ function useActivableItem(itemName, scene) {
                 break;
       }
 
-      scene.time.delayedCall(itemData.cooldown, () => {
+      scene.time.delayedCall(finalCooldown, () => {
           itemData.ready = true;
           inventoryUI.updateInventoryDisplay();
       }, [], scene);
@@ -991,6 +1132,25 @@ function endGame(scene) {
     player.setTint(0xff0000);
     scene.physics.pause();
 
+    // Clear all groups
+    bullets.clear(true, true);
+    enemies.clear(true, true);
+    enemyBullets.clear(true, true);
+    armas.clear(true, true);
+    itemsGroup.clear(true, true);
+    obstaclesGroup.clear(true, true);
+    powerUpGroup.clear(true, true);
+    cursedItemGroup.clear(true, true);
+    holographicClonesGroup.clear(true, true);
+
+    if (bossHealthBar) bossHealthBar.destroy();
+    if (bossHealthBarBackground) bossHealthBarBackground.destroy();
+    if (bossNameText) bossNameText.destroy();
+    if (temporaryEffectText) temporaryEffectText.destroy();
+    if (temporaryEffectTimer) temporaryEffectTimer.destroy();
+    if (frenzyTimer) frenzyTimer.remove(false);
+    if (playerSpeedRestoreTimer) playerSpeedRestoreTimer.remove(false);
+
     scene.add.text(config.width / 2, config.height / 2, 'GAME OVER', {
         fontSize: '64px',
         fill: '#FF0000',
@@ -1002,6 +1162,12 @@ function endGame(scene) {
         fill: '#FFFFFF'
     }).setOrigin(0.5).setDepth(200);
 
+    scene.add.text(config.width / 2, config.height / 2 + 120, 'Clique para Reiniciar', {
+        fontSize: '24px',
+        fill: '#FFFFFF'
+    }).setOrigin(0.5).setDepth(200);
+
+
     scene.input.once('pointerdown', () => {
         resetGameVariables();
         scene.scene.restart();
@@ -1012,7 +1178,7 @@ function resetGameVariables() {
     playerHealth = 100;
     playerMaxHealth = 100;
     playerSpeed = 400;
-    originalPlayerSpeed = 400; // Reset this too
+    originalPlayerSpeed = 400;
     playerDamage = 10;
     score = 0;
     wave = 1;
@@ -1022,27 +1188,24 @@ function resetGameVariables() {
     lastEnemySpawnTime = 0;
     gameOver = false;
     bossMode = false;
-    if (bossHealthBar) bossHealthBar.destroy();
-    if (bossHealthBarBackground) bossHealthBarBackground.destroy();
-    if (bossNameText) bossNameText.destroy();
+    boss = null; // Reset boss reference
     killStreak = 0;
     frenzyActive = false;
-    if (frenzyTimer) {
-        frenzyTimer.remove(false);
-        frenzyTimer = null;
-    }
+    frenzyTimer = null;
     playerOriginalDamage = 10;
     playerOriginalTint = 0xFFFFFF;
     playerIsSlowed = false;
-    if (playerSpeedRestoreTimer) {
-        playerSpeedRestoreTimer.remove(false);
-        playerSpeedRestoreTimer = null;
-    }
+    playerSpeedRestoreTimer = null;
+    temporaryEffectText = null;
+    temporaryEffectTimer = null;
+    currentWeapon = 'pistol'; // Reset weapon
 
     for (const itemKey in playerInventory.activableItems) {
         playerInventory.activableItems[itemKey].ready = true;
         playerInventory.activableItems[itemKey].lastUsed = 0;
     }
+    // No need to reset passive items, they persist unless specifically removed
+    // For this game, they seem to be permanent once acquired conceptually
 }
 
 const game = new Phaser.Game(config);
