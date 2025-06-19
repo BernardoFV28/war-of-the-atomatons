@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V1.3 - A Cruzada da Rainha</title>
+  <title>War of the Automatons V1.5.1 - A Cruzada da Rainha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -37,9 +37,9 @@ const config = {
 };
 
 let waveText;
-let hudGroup;
-let armaNomeText;
-let armaImagem;
+let hudGroup; // Not used in provided code, but kept
+let armaNomeText; // Not used in provided code, but kept
+let armaImagem; // Not used in provided code, but kept
 let player, cursors;
 let bullets, enemies, enemyBullets, armas, itemsGroup;
 let lastShoot = 0;
@@ -47,9 +47,9 @@ let score = 0;
 let scoreText;
 let healthText;
 let playerHealth = 100;
-let playerMaxHealth = 100; // New: Max health variable
-let playerSpeed = 400; // New: Player speed variable
-let playerDamage = 10; // New: Player base damage
+let playerMaxHealth = 100;
+let playerSpeed = 400;
+let playerDamage = 10;
 let wave = 1;
 let enemiesToSpawn = 5;
 let enemiesKilledThisWave = 0;
@@ -60,28 +60,29 @@ let bossMode = false;
 let bossHealthBar;
 let bossHealthBarBackground;
 let bossNameText;
-let boss; // Declarar a variável boss globalmente
+let boss;
 
 // New variables for Obstacles and Mechanics
 let obstaclesGroup;
 let powerUpGroup;
-let cursedItemGroup; // For cursed items
-let holographicClonesGroup; // For holographic clones
+let cursedItemGroup;
+let holographicClonesGroup;
 
 let killStreak = 0;
 let comboText;
 let frenzyActive = false;
 let frenzyTimer;
-let playerOriginalDamage; // To store original damage before frenzy
-let playerOriginalTint; // To store original tint for visual feedback
-let playerIsSlowed = false; // Flag to check if player is currently slowed
-let playerSpeedRestoreTimer = null; // Timer for speed restoration
+let playerOriginalDamage;
+let playerOriginalTint;
+let playerIsSlowed = false;
+let playerSpeedRestoreTimer = null;
+let originalPlayerSpeed; // Declare globally for applySlowEffect
 
 // Temporary effect display
 let temporaryEffectText;
 let temporaryEffectTimer;
 
-// Player Inventory and Items (from your original code)
+// Player Inventory and Items
 const playerInventory = {
   activableItems: {
     "Óculos de Visão Térmica": { count: 1, cooldown: 15000, lastUsed: 0, ready: true },
@@ -89,7 +90,6 @@ const playerInventory = {
     "Circuito de Sobrecarga": { count: 1, cooldown: 25000, lastUsed: 0, ready: true },
     "DPE (Dispositivo de Posicionamento Espacial)": { count: 1, cooldown: 30000, lastUsed: 0, ready: true },
     "Ampola de Cura": { count: 1, cooldown: 10000, lastUsed: 0, ready: true },
-    // New item for Holographic Clone
     "Projetor Holográfico": { count: 1, cooldown: 45000, lastUsed: 0, ready: true }
   },
   passiveItems: {}
@@ -178,41 +178,70 @@ class InventoryUI {
   }
 }
 
-let inventoryUI; // Instance of InventoryUI
+let inventoryUI;
 
 function preload() {
+    // Background Image
+    this.load.image('bg', 'assets/fundogame.png'); // Added background image
+
+    // Player and Projectiles
     this.load.image('player', 'assets/player.png');
     this.load.image('bullet', 'assets/bullet.png');
-    this.load.image('enemy', 'assets/enemy.png');
-    this.load.image('enemyBullet', 'assets/enemy_bullet.png');
+    this.load.image('enemyBullet', 'assets/enemy_bullet.png'); // Assuming enemy_bullet.png exists
+
+    // Enemies (using specific enemy types if you have them, otherwise fallback to generic 'enemy.png')
+    this.load.image('enemy', 'assets/enemy_robot.png'); // Default generic enemy
+    this.load.image('enemy_robot', 'assets/enemy_robot.png');
+    this.load.image('enemy_fast', 'assets/enemy_fast.png');
+    this.load.image('enemy_tank', 'assets/enemy_tank.png');
+    this.load.image('boss_robot', 'assets/boss_robot.png'); // For the boss
+
+    // Weapons (if you plan to have them as pickups or player weapons)
     this.load.image('pistol', 'assets/pistolinha.png');
-    this.load.image('shotgun', 'assets/lancarraio.png');
-    this.load.image('rifle', 'assets/rifle.png');
-    this.load.image('laserGun', 'assets/laser_gun.png');
-    this.load.image('plasmaGun', 'assets/plasma_gun.png');
-    // New: Obstacle Assets
+    this.load.image('shotgun', 'assets/lancarraio.png'); // Assuming lancarraio.png is your shotgun
+    this.load.image('rifle', 'assets/rifle.png'); // From your list
+    this.load.image('laserGun', 'assets/laser_gun.png'); // From your list
+    this.load.image('plasmaGun', 'assets/plasma_gun.png'); // From your list
+
+    // Obstacle Assets
     this.load.image('scrapBlock', 'assets/scrap_block.png');
     this.load.image('electricCoil', 'assets/electric_coil.png');
-    this.load.image('explosiveDrone', 'assets/explosive_drone.png');
+    this.load.image('explosiveDrone', 'assets/explosive_drone.png'); // This was referenced but not in your asset list, adding it.
     this.load.image('turret', 'assets/turret.png');
     this.load.image('magneticDistortion', 'assets/magnetic_distortion.png');
-    // New: Power-up Assets
+
+    // Power-up Assets
     this.load.image('powerUpSpeed', 'assets/powerup_speed.png');
     this.load.image('powerUpHealth', 'assets/powerup_health.png');
     this.load.image('powerUpShield', 'assets/powerup_shield.png');
-    // New: Cursed Item Asset
+
+    // Cursed Item Asset
     this.load.image('cursedItem', 'assets/cursed_item.png');
-    // New: Holographic Clone Asset
+
+    // Holographic Clone Asset
     this.load.image('holographicClone', 'assets/holographic_clone.png');
-    this.load.image('bg', 'assets/fundogame.png');
+
+    // Other potentially missing assets based on your list:
+    this.load.image('ammo', 'assets/ammo.png');
+    this.load.image('card', 'assets/card.png');
+    this.load.image('cor.a', 'assets/cor.a.png');
+    this.load.image('f', 'assets/f.png');
+    this.load.image('fundo-errado', 'assets/fundo-errado.png');
+    this.load.image('granade', 'assets/granade.png');
+    this.load.image('m', 'assets/m.png');
+    this.load.image('o', 'assets/o.png');
+    this.load.image('metralha', 'assets/metralha.png'); // Assuming metralha.png is a weapon
 }
 
 function create() {
+    // Background image
+    this.add.image(config.width / 2, config.height / 2, 'bg').setScrollFactor(0).setDepth(0);
+
     // Player
     player = this.physics.add.sprite(config.width / 4, config.height / 2, 'player');
     player.setCollideWorldBounds(true);
     player.setOrigin(0.5);
-    player.setDepth(5); // Player depth above obstacles
+    player.setDepth(5);
 
     cursors = this.input.keyboard.createCursorKeys();
 
@@ -224,7 +253,7 @@ function create() {
     enemies = this.physics.add.group();
     enemyBullets = this.physics.add.group();
     armas = this.physics.add.group();
-    itemsGroup = this.physics.add.group(); // This group is likely for drops from enemies
+    itemsGroup = this.physics.add.group();
 
     // New groups for obstacles and mechanics
     obstaclesGroup = this.physics.add.group();
@@ -243,33 +272,38 @@ function create() {
         fill: '#FFD700', // Gold color
         fontStyle: 'bold',
         shadow: { offsetX: 2, offsetY: 2, color: '#000000', blur: 4, stroke: true, fill: true }
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(100).setVisible(false); // Hidden initially
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(100).setVisible(false);
 
     // Initialize Inventory UI
     inventoryUI = new InventoryUI(this);
 
+    // Store original player speed for slow effect restoration
+    originalPlayerSpeed = playerSpeed;
+
     // Initial Spawns
     spawnEnemies();
-    spawnObstacles(wave); // Spawn initial obstacles for Wave 1 (will be empty unless wave >= 2)
+    spawnObstacles(wave);
 
     // Collisions
     this.physics.add.collider(bullets, enemies, hitEnemy, null, this);
     this.physics.add.overlap(player, enemies, hitPlayer, null, this);
     this.physics.add.overlap(player, enemyBullets, hitPlayer, null, this);
     this.physics.add.overlap(player, armas, pickUpArma, null, this);
-    this.physics.add.overlap(player, itemsGroup, pickUpItem, null, this); // For general drops
+    this.physics.add.overlap(player, itemsGroup, pickUpItem, null, this);
 
     // New Collisions for Obstacles and Mechanics
-    this.physics.add.collider(bullets, obstaclesGroup, hitObstacle, null, this); // Bullets hit obstacles
-    this.physics.add.collider(player, obstaclesGroup, playerHitObstacle, null, this); // Player hit obstacles
-    this.physics.add.collider(enemyBullets, obstaclesGroup, hitObstacle, null, this); // Enemy bullets hit obstacles
+    this.physics.add.collider(bullets, obstaclesGroup, hitObstacle, null, this);
+    this.physics.add.collider(player, obstaclesGroup, playerHitObstacle, null, this);
+    this.physics.add.collider(enemyBullets, obstaclesGroup, hitObstacle, null, this);
     this.physics.add.overlap(player, powerUpGroup, pickUpPowerUp, null, this);
     this.physics.add.overlap(player, cursedItemGroup, pickUpCursedItem, null, this);
-    // Holographic clone collision - enemies should target it but it won't take damage in the traditional sense
     this.physics.add.collider(holographicClonesGroup, enemies, (clone, enemy) => {
-        // Enemies will be distracted by the clone. No damage to clone.
-        // You can add logic here for enemy behavior if they hit the clone, e.g., brief stun or re-target.
+        // Enemies will be distracted by the clone.
     }, null, this);
+    this.physics.add.collider(holographicClonesGroup, enemyBullets, (clone, enemyBullet) => {
+        enemyBullet.destroy(); // Enemy bullets hit clone and are destroyed
+    }, null, this);
+
 
     // Keyboard controls for activable items
     this.input.keyboard.on('keydown-Q', () => useActivableItem("Óculos de Visão Térmica", this));
@@ -312,29 +346,18 @@ function update(time, delta) {
     enemies.children.each(function(enemy) {
         if (enemy.active) {
             // Simple enemy movement: move towards player or clone if active
+            let target = player;
             if (holographicClonesGroup.getLength() > 0) {
-                // If a clone exists, make enemies target the closest one for distraction
                 const closestClone = this.physics.closest(enemy, holographicClonesGroup.getChildren());
                 if (closestClone) {
-                    this.physics.moveToObject(enemy, closestClone, enemy.speed);
-                } else {
-                     this.physics.moveToObject(enemy, player, enemy.speed);
+                    target = closestClone;
                 }
-            } else {
-                this.physics.moveToObject(enemy, player, enemy.speed);
             }
+            this.physics.moveToObject(enemy, target, enemy.speed);
 
 
             // Simple enemy shooting
             if (time > enemy.lastShotTime + enemy.fireRate) {
-                // Enemies shoot at their current target (player or clone)
-                let target = player;
-                if (holographicClonesGroup.getLength() > 0) {
-                    const closestClone = this.physics.closest(enemy, holographicClonesGroup.getChildren());
-                    if (closestClone) {
-                        target = closestClone;
-                    }
-                }
                 shootEnemyBullet(enemy.x, enemy.y, target);
                 enemy.lastShotTime = time;
             }
@@ -348,9 +371,9 @@ function update(time, delta) {
 
     // Wave progression and enemy spawning
     if (enemiesKilledThisWave >= enemiesToSpawn && !bossMode) {
-        startNextWave();
+        startNextWave.call(this); // Ensure context is passed
     } else if (!bossMode && time > lastEnemySpawnTime + enemySpawnDelay && enemies.countActive(true) < enemiesToSpawn) {
-        spawnEnemies();
+        spawnEnemies.call(this); // Ensure context is passed
         lastEnemySpawnTime = time;
     }
 
@@ -361,7 +384,7 @@ function update(time, delta) {
     if (killStreak > 0) {
         comboText.setVisible(true);
         comboText.setText(`Combo: ${killStreak}`);
-        if (killStreak >= 15 && !frenzyActive) { // Activate frenzy if 15+ combo and not already active
+        if (killStreak >= 15 && !frenzyActive) {
             activateFrenzy.call(this);
         }
     } else {
@@ -374,7 +397,7 @@ function shootBullet(x, y) {
     if (bullet) {
         bullet.setActive(true).setVisible(true);
         bullet.setVelocityX(400);
-        bullet.setTint(frenzyActive ? 0xFFD700 : 0xFFFFFF); // Yellow tint for frenzy bullets
+        bullet.setTint(frenzyActive ? 0xFFD700 : 0xFFFFFF);
     }
 }
 
@@ -382,31 +405,26 @@ function shootEnemyBullet(x, y, target) {
     const enemyBullet = enemyBullets.get(x, y);
     if (enemyBullet) {
         enemyBullet.setActive(true).setVisible(true);
-        this.physics.moveToObject(enemyBullet, target, 150); // Enemy bullets move towards player or clone
+        this.physics.moveToObject(enemyBullet, target, 150);
     }
 }
 
 function hitEnemy(bullet, enemy) {
     bullet.setActive(false).setVisible(false);
-    enemy.health -= playerDamage; // Use playerDamage
+    enemy.health -= playerDamage;
     if (enemy.health <= 0) {
         enemy.destroy();
         score += 100;
         scoreText.setText('Score: ' + score);
         enemiesKilledThisWave++;
-        killStreak++; // Increment kill streak
-        dropPowerUp(enemy.x, enemy.y); // Chance to drop power-up
-        dropCursedItem(enemy.x, enemy.y); // Chance to drop cursed item
-    } else {
-        // If enemy is hit but not destroyed, reset kill streak if player has taken damage recently
-        // For simplicity, kill streak only resets on player damage, not just any hit.
+        killStreak++;
+        dropPowerUp.call(this, enemy.x, enemy.y);
+        dropCursedItem.call(this, enemy.x, enemy.y);
     }
 }
 
 function hitPlayer(player, target) {
-    // If player has a shield, ignore damage
     if (player.immune) {
-        // Visual feedback for shield hit
         this.add.tween({
             targets: player,
             alpha: { from: 0.5, to: 0.8 },
@@ -415,21 +433,21 @@ function hitPlayer(player, target) {
             yoyo: true,
             repeat: 0
         });
-        target.destroy();
+        if (target.active) target.destroy(); // Ensure target is active before destroying
         return;
     }
 
     let damageTaken = 10;
-    if (player.damageMultiplier) { // Apply cursed item damage multiplier
+    if (player.damageMultiplier) {
         damageTaken *= player.damageMultiplier;
     }
 
-    target.destroy();
+    if (target.active) target.destroy();
     playerHealth -= damageTaken;
-    healthText.setText(`Health: ${Math.max(0, playerHealth)}/${playerMaxHealth}`); // Ensure health doesn't go below 0
-    killStreak = 0; // Reset kill streak on player hit
+    healthText.setText(`Health: ${Math.max(0, playerHealth)}/${playerMaxHealth}`);
+    killStreak = 0;
     if (frenzyActive) {
-        deactivateFrenzy(); // Deactivate frenzy on hit
+        deactivateFrenzy.call(this); // Ensure context is passed
     }
 
     if (playerHealth <= 0) {
@@ -438,45 +456,37 @@ function hitPlayer(player, target) {
 }
 
 function pickUpArma(player, arma) {
-    // Implement weapon pickup logic (not detailed in this request but good to keep)
     arma.destroy();
     // Update player weapon, change shooting behavior, etc.
 }
 
 function pickUpItem(player, item) {
-    // General item pickup logic (e.g., from enemies)
     item.destroy();
     // Apply item effects
 }
 
 // New Obstacle Collision Handlers
 function hitObstacle(projectile, obstacle) {
-    // For explosive drones, bullets detonate them
     if (obstacle.getData('type') === 'explosiveDrone') {
-        obstacle.health -= projectile.getData('damage') || 10; // Use bullet damage
+        obstacle.health -= projectile.getData('damage') || 10;
         if (obstacle.health <= 0) {
             obstacle.detonate();
         }
     }
-    projectile.setActive(false).setVisible(false); // Bullets are destroyed on contact with obstacles
-    // Add particle effect or sound for impact if desired
+    projectile.setActive(false).setVisible(false);
 }
 
 function playerHitObstacle(player, obstacle) {
-    // For static obstacles, just prevent movement or apply specific effects
     if (obstacle.getData('type') === 'explosiveDrone') {
-        obstacle.detonate(); // Custom method for explosive drone
+        obstacle.detonate();
     } else if (obstacle.getData('type') === 'electricCoil') {
-        applySlowEffect(player, 3); // Apply slow for 3 seconds
+        applySlowEffect.call(this, player, 3);
     }
-    // Prevent player from moving through solid obstacles by making them immovable
-    // and using Phaser's default collider behavior.
-    // No direct velocity change needed here if using collider.
+    // For static obstacles, default collider behavior handles collision.
 }
 
 // Obstacle Spawning
 function spawnObstacles(wave) {
-    // Clear existing obstacles before spawning new ones for the wave
     obstaclesGroup.clear(true, true);
 
     const obstacleTypes = [];
@@ -497,53 +507,48 @@ function spawnObstacles(wave) {
     }
 
     if (obstacleTypes.length === 0) {
-        return; // No obstacles for this wave
+        return;
     }
 
-    // Determine number of obstacles based on wave
-    const numObstacles = Math.min(Math.floor(wave / 2) + 1, 10 + Math.floor(wave / 5)); // Increase max obstacles gradually
+    const numObstacles = Math.min(Math.floor(wave / 2) + 1, 10 + Math.floor(wave / 5));
 
     for (let i = 0; i < numObstacles; i++) {
         const type = Phaser.Utils.Array.GetRandom(obstacleTypes);
         let obstacle;
 
-        // Random position, avoiding player spawn area and keeping within game bounds
-        // Also try to avoid placing directly on top of other obstacles (simple retry logic)
         let x, y;
         let attempts = 0;
-        const minDistance = 100; // Minimum distance between obstacles
+        const minDistance = 100;
         do {
-            x = Phaser.Math.Between(config.width * 0.4, config.width * 0.9); // Spawn mostly on the right side
+            x = Phaser.Math.Between(config.width * 0.4, config.width * 0.9);
             y = Phaser.Math.Between(config.height * 0.1, config.height * 0.9);
             let tooClose = false;
             obstaclesGroup.children.each(existingObstacle => {
-                if (Phaser.Math.Distance.Between(x, y, existingObstacle.x, existingObstacle.y) < minDistance) {
+                if (existingObstacle.active && Phaser.Math.Distance.Between(x, y, existingObstacle.x, existingObstacle.y) < minDistance) {
                     tooClose = true;
                 }
             });
             if (!tooClose) break;
             attempts++;
-        } while (attempts < 10); // Limit attempts to prevent infinite loop if space is too constrained
-
+        } while (attempts < 10);
 
         switch (type) {
             case 'scrapBlock':
                 obstacle = obstaclesGroup.create(x, y, 'scrapBlock');
                 obstacle.setImmovable(true);
-                obstacle.setDepth(2); // Below enemies, above background
+                obstacle.setDepth(2);
                 obstacle.setData('type', 'scrapBlock');
-                obstacle.body.setSize(obstacle.width * 0.8, obstacle.height * 0.8); // Adjust collider size
+                obstacle.body.setSize(obstacle.width * 0.8, obstacle.height * 0.8);
                 break;
             case 'electricCoil':
                 obstacle = obstaclesGroup.create(x, y, 'electricCoil');
                 obstacle.setImmovable(true);
                 obstacle.setDepth(2);
                 obstacle.setData('type', 'electricCoil');
-                obstacle.body.setSize(obstacle.width * 0.7, obstacle.height * 0.7); // Adjust collider size
-                // Add an update loop for electric coils to emit pulses
+                obstacle.body.setSize(obstacle.width * 0.7, obstacle.height * 0.7);
                 this.time.addEvent({
-                    delay: 3000, // Every 3 seconds
-                    callback: () => emitElectricPulse.call(this, obstacle), // Use call for context
+                    delay: 3000,
+                    callback: () => emitElectricPulse.call(this, obstacle),
                     loop: true,
                     callbackScope: this
                 });
@@ -553,10 +558,9 @@ function spawnObstacles(wave) {
                 obstacle.setImmovable(true);
                 obstacle.setDepth(2);
                 obstacle.setData('type', 'explosiveDrone');
-                obstacle.health = 50 + (wave * 5); // Drones get tougher
+                obstacle.health = 50 + (wave * 5);
                 obstacle.detonate = function() {
-                    // Visual/Audio feedback for explosion
-                    const explosion = this.scene.add.circle(this.x, this.y, 50, 0xFF0000, 0.5); // Red circle for explosion
+                    const explosion = this.scene.add.circle(this.x, this.y, 50, 0xFF0000, 0.5);
                     this.scene.tweens.add({
                         targets: explosion,
                         radius: 100,
@@ -566,12 +570,10 @@ function spawnObstacles(wave) {
                         onComplete: () => explosion.destroy()
                     });
 
-                    // Damage player if within radius
                     const distanceToPlayer = Phaser.Math.Distance.Between(player.x, player.y, this.x, this.y);
-                    if (distanceToPlayer < 150) { // Explosion radius
-                        let damage = 20 + (wave * 2); // Damage scales with wave
-                        if (player.immune) { // Check for shield
-                            // Shield absorbs damage, provide feedback
+                    if (distanceToPlayer < 150) {
+                        let damage = 20 + (wave * 2);
+                        if (player.immune) {
                             this.scene.add.tween({
                                 targets: player,
                                 alpha: { from: 0.5, to: 0.8 },
@@ -581,22 +583,23 @@ function spawnObstacles(wave) {
                                 repeat: 0
                             });
                         } else {
-                            if (player.damageMultiplier) damage *= player.damageMultiplier; // Apply cursed item damage multiplier
+                            if (player.damageMultiplier) damage *= player.damageMultiplier;
                             playerHealth -= damage;
                             healthText.setText(`Health: ${Math.max(0, playerHealth)}/${playerMaxHealth}`);
-                            killStreak = 0; // Reset combo on damage
-                            if (frenzyActive) deactivateFrenzy();
+                            killStreak = 0;
+                            if (frenzyActive) deactivateFrenzy.call(this.scene); // Pass scene context
                             if (playerHealth <= 0) endGame(this.scene);
                         }
                     }
-                    this.destroy(); // Remove drone after detonation
+                    this.destroy();
                 };
-                // Collision with bullets will also apply damage to it
                 this.physics.add.collider(bullets, obstacle, (bullet, drone) => {
-                    bullet.destroy();
-                    drone.health -= playerDamage; // Player damage applies to drone
-                    if (drone.health <= 0) {
-                        drone.detonate();
+                    if (bullet.active && drone.active) {
+                        bullet.destroy();
+                        drone.health -= playerDamage;
+                        if (drone.health <= 0) {
+                            drone.detonate();
+                        }
                     }
                 }, null, this);
                 break;
@@ -605,10 +608,9 @@ function spawnObstacles(wave) {
                 obstacle.setImmovable(true);
                 obstacle.setDepth(2);
                 obstacle.setData('type', 'turret');
-                obstacle.fireRate = Phaser.Math.Between(1500, 3000) - (wave * 50); // Turret fire rate
+                obstacle.fireRate = Phaser.Math.Between(1500, 3000) - (wave * 50);
                 if (obstacle.fireRate < 500) obstacle.fireRate = 500;
                 obstacle.lastShotTime = 0;
-                // Add a periodic event for turrets to shoot
                 this.time.addEvent({
                     delay: obstacle.fireRate,
                     callback: () => shootTurretBullet.call(this, obstacle),
@@ -621,20 +623,18 @@ function spawnObstacles(wave) {
                 obstacle.setImmovable(true);
                 obstacle.setDepth(2);
                 obstacle.setData('type', 'magneticDistortion');
-                obstacle.setCircle(50); // Set a circular body for magnetic effect
-                // Add an overlap for projectiles to be affected by distortion
+                obstacle.body.setCircle(50);
                 this.physics.add.overlap(bullets, obstacle, deflectProjectile, null, this);
-                this.physics.add.overlap(enemyBullets, obstacle, deflectProjectile, null, this); // Enemy bullets also affected
+                this.physics.add.overlap(enemyBullets, obstacle, deflectProjectile, null, this);
                 break;
         }
     }
 }
 
 function emitElectricPulse(coil) {
-    if (!coil.active) return; // Ensure coil is still active
+    if (!coil.active) return;
 
-    // Visual for pulse (e.g., expanding circle or glow)
-    const pulse = this.add.circle(coil.x, coil.y, 10, 0x00FFFF, 0.3); // Cyan pulse
+    const pulse = this.add.circle(coil.x, coil.y, 10, 0x00FFFF, 0.3);
     this.tweens.add({
         targets: pulse,
         radius: 150,
@@ -644,64 +644,56 @@ function emitElectricPulse(coil) {
         onComplete: () => pulse.destroy()
     });
 
-    // Check for player overlap with pulse area
     const distanceToPlayer = Phaser.Math.Distance.Between(player.x, player.y, coil.x, coil.y);
-    if (distanceToPlayer < 150) { // Radius of slow effect
-        applySlowEffect.call(this, player, 2); // Apply slow for 2 seconds
+    if (distanceToPlayer < 150) {
+        applySlowEffect.call(this, player, 2);
     }
 }
 
 function applySlowEffect(target, duration) {
-    if (playerIsSlowed) { // Prevent stacking slow effects
+    if (playerIsSlowed) {
         if (playerSpeedRestoreTimer) {
-            playerSpeedRestoreTimer.remove(false); // Reset timer
+            playerSpeedRestoreTimer.remove(false);
         }
     } else {
         playerIsSlowed = true;
-        const originalSpeed = playerSpeed; // Store original speed
-        playerSpeed *= 0.5; // Halve player speed
+        // originalPlayerSpeed is already stored globally
+        playerSpeed *= 0.5;
     }
 
-    inventoryUI.displayTemporaryEffect(".", duration); // Show effect text
+    inventoryUI.displayTemporaryEffect("Redução de Velocidade", duration); // More descriptive text
 
     playerSpeedRestoreTimer = this.time.delayedCall(duration * 1000, () => {
-        playerSpeed = originalPlayerSpeed; // Restore original speed
+        playerSpeed = originalPlayerSpeed;
         playerIsSlowed = false;
         playerSpeedRestoreTimer = null;
     }, [], this);
 }
 
 function shootTurretBullet(turret) {
-    if (!turret.active) return; // Don't shoot if turret is destroyed
+    if (!turret.active) return;
 
     const bullet = enemyBullets.get(turret.x, turret.y);
     if (bullet) {
         bullet.setActive(true).setVisible(true);
-        // Turrets shoot at the player's current position
-        this.physics.moveToObject(bullet, player, 200 + (wave * 5)); // Turret bullets get faster
-        bullet.setTint(0xFF8C00); // Orange tint for turret bullets
+        this.physics.moveToObject(bullet, player, 200 + (wave * 5));
+        bullet.setTint(0xFF8C00);
     }
 }
 
 function deflectProjectile(projectile, distortionZone) {
     if (!projectile.active) return;
 
-    // Calculate a new velocity to "deflect" the projectile
-    // Simple deflection: apply a force outwards from the center of the distortion zone
     const angleToDistortion = Phaser.Math.Angle.Between(distortionZone.x, distortionZone.y, projectile.x, projectile.y);
-    const deflectionForce = 150; // How strongly to deflect
+    const deflectionForce = 150;
 
-    // Calculate new velocity components
     const newVx = Math.cos(angleToDistortion) * deflectionForce;
     const newVy = Math.sin(angleToDistortion) * deflectionForce;
 
-    // Apply the deflection velocity while trying to retain some of the original speed
-    // This makes it less abrupt.
     const currentSpeed = Phaser.Math.Distance.Between(0, 0, projectile.body.velocity.x, projectile.body.velocity.y);
     const combinedVx = projectile.body.velocity.x * 0.5 + newVx * 0.5;
     const combinedVy = projectile.body.velocity.y * 0.5 + newVy * 0.5;
 
-    // Normalize and re-apply speed
     const combinedSpeed = Phaser.Math.Distance.Between(0, 0, combinedVx, combinedVy);
     if (combinedSpeed > 0) {
         projectile.setVelocity(
@@ -709,40 +701,38 @@ function deflectProjectile(projectile, distortionZone) {
             (combinedVy / combinedSpeed) * currentSpeed
         );
     } else {
-        // If combined speed is zero, just apply the deflection force
         projectile.setVelocity(newVx, newVy);
     }
 
-    projectile.setTint(0x00FF00); // Green tint for deflected bullets
+    projectile.setTint(0x00FF00);
 }
 
 // Frenzy Mode
 function activateFrenzy() {
-    if (frenzyActive) return; // Prevent multiple activations
+    if (frenzyActive) return;
 
     frenzyActive = true;
-    playerDamage *= 2; // Double player damage
-    player.setTint(0xFFD700); // Yellow tint for player
-    inventoryUI.displayTemporaryEffect("FRENESI ", 10); // Show effect text
+    playerDamage *= 2;
+    player.setTint(0xFFD700);
+    inventoryUI.displayTemporaryEffect("FRENESI ATIVO!", 10); // More descriptive text
 
-    frenzyTimer = this.time.delayedCall(10000, deactivateFrenzy, [], this); // 10 seconds duration
+    frenzyTimer = this.time.delayedCall(10000, deactivateFrenzy, [], this);
 }
 
 function deactivateFrenzy() {
     if (!frenzyActive) return;
 
     frenzyActive = false;
-    playerDamage = playerOriginalDamage; // Restore original damage
-    player.setTint(playerOriginalTint); // Restore original tint
+    playerDamage = playerOriginalDamage;
+    player.setTint(playerOriginalTint);
     if (frenzyTimer) {
-        frenzyTimer.remove(false); // Stop the timer if it's still running
+        frenzyTimer.remove(false);
         frenzyTimer = null;
     }
 }
 
 // Power-ups
 function dropPowerUp(x, y) {
-    // 20% chance to drop a power-up
     if (Math.random() < 0.2) {
         const powerUpTypes = ['speed', 'health', 'shield'];
         const type = Phaser.Utils.Array.GetRandom(powerUpTypes);
@@ -760,36 +750,36 @@ function dropPowerUp(x, y) {
                 break;
         }
         powerUp.setData('type', type);
-        powerUp.setDepth(6); // Above player
-        powerUp.setVelocityY(50); // Drop down slowly
+        powerUp.setDepth(6);
+        powerUp.setVelocityY(50);
         powerUp.setCollideWorldBounds(true);
-        powerUp.setBounceY(0.5); // Bounce slightly
+        powerUp.setBounceY(0.5);
     }
 }
 
 function pickUpPowerUp(player, powerUp) {
     powerUp.destroy();
     const type = powerUp.getData('type');
-    let effectDuration = 10; // Default duration
+    let effectDuration = 10;
 
     switch (type) {
         case 'speed':
-            const originalPlayerSpeed = playerSpeed;
-            playerSpeed *= 1.5; // 50% speed increase
-            inventoryUI.displayTemporaryEffect(".", effectDuration);
+            const originalSpeedBeforeBoost = playerSpeed; // Store this before applying boost
+            playerSpeed *= 1.5;
+            inventoryUI.displayTemporaryEffect("Aumento de Velocidade!", effectDuration);
             this.time.delayedCall(effectDuration * 1000, () => {
-                playerSpeed = originalPlayerSpeed;
+                playerSpeed = originalSpeedBeforeBoost; // Restore to speed before this boost
             }, [], this);
             break;
         case 'health':
-            playerHealth = Math.min(playerMaxHealth, playerHealth + 30); // Heal 30, up to max
+            playerHealth = Math.min(playerMaxHealth, playerHealth + 30);
             healthText.setText(`Health: ${playerHealth}/${playerMaxHealth}`);
-            inventoryUI.displayTemporaryEffect(".", 1); // Short display
+            inventoryUI.displayTemporaryEffect("Cura Recebida!", 1);
             break;
         case 'shield':
-            player.setAlpha(0.5); // Visual for shield
-            player.immune = true; // Make player immune to damage
-            inventoryUI.displayTemporaryEffect(".", effectDuration);
+            player.setAlpha(0.5);
+            player.immune = true;
+            inventoryUI.displayTemporaryEffect("Escudo Ativo!", effectDuration);
             this.time.delayedCall(effectDuration * 1000, () => {
                 player.setAlpha(1);
                 player.immune = false;
@@ -800,27 +790,26 @@ function pickUpPowerUp(player, powerUp) {
 
 // Cursed Items
 function dropCursedItem(x, y) {
-    // 5% chance to drop a cursed item
     if (Math.random() < 0.05) {
         const cursedItem = cursedItemGroup.create(x, y, 'cursedItem');
-        cursedItem.setData('type', 'random'); // Can be specific types if needed
+        cursedItem.setData('type', 'random');
         cursedItem.setDepth(6);
         cursedItem.setVelocityY(50);
-        cursedItem.setTint(0x8B0000); // Dark red tint
+        cursedItem.setTint(0x8B0000);
     }
 }
 
 function pickUpCursedItem(player, cursedItem) {
     cursedItem.destroy();
     const cursedEffects = [
-        { name: ".", effect: () => { playerMaxHealth = Math.max(50, playerMaxHealth - 20); playerHealth = Math.min(playerHealth, playerMaxHealth); healthText.setText(`Health: ${playerHealth}/${playerMaxHealth}`); } },
-        { name: ".", effect: () => { player.damageMultiplier = 1.5; }, revert: () => { player.damageMultiplier = 1; } }, // Player takes 50% more damage
-        { name: ".", effect: () => { playerSpeed *= 0.7; }, revert: () => { playerSpeed /= 0.7; } }
+        { name: "Vida Máxima Reduzida!", effect: () => { playerMaxHealth = Math.max(50, playerMaxHealth - 20); playerHealth = Math.min(playerHealth, playerMaxHealth); healthText.setText(`Health: ${playerHealth}/${playerMaxHealth}`); } },
+        { name: "Vulnerabilidade!", effect: () => { player.damageMultiplier = 1.5; }, revert: () => { player.damageMultiplier = 1; } },
+        { name: "Lentidão!", effect: () => { playerSpeed *= 0.7; }, revert: () => { playerSpeed /= 0.7; } }
     ];
 
     const chosenEffect = Phaser.Utils.Array.GetRandom(cursedEffects);
     chosenEffect.effect();
-    inventoryUI.displayTemporaryEffect(chosenEffect.name, 10); // Display for 10 seconds
+    inventoryUI.displayTemporaryEffect(chosenEffect.name, 10);
 
     if (chosenEffect.revert) {
         this.time.delayedCall(10000, chosenEffect.revert, [], this);
@@ -829,91 +818,78 @@ function pickUpCursedItem(player, cursedItem) {
 
 // Holographic Clone Item Usage
 function createHolographicClone() {
-    const clone = holographicClonesGroup.create(player.x - 50, player.y, 'holographicClone'); // Spawn slightly to the left
-    clone.setDepth(4); // Below player, above obstacles
-    clone.setAlpha(0.6); // Semi-transparent
-    clone.setImmovable(true); // Doesn't move with physics interactions
-    clone.health = 1000; // High health so it doesn't die instantly, but can be "destroyed" after duration
-    clone.isClone = true; // Custom property to identify it as a clone
-
-    // Clone behavior: briefly distract enemies by making them target the clone
-    enemies.children.each(enemy => {
-        if (enemy.active && enemy.body) {
-            enemy.targetOverride = clone; // Temporary target
-        }
-    });
+    const clone = holographicClonesGroup.create(player.x - 50, player.y, 'holographicClone');
+    clone.setDepth(4);
+    clone.setAlpha(0.6);
+    clone.setImmovable(true);
+    clone.health = 1000; // Not used for damage, but good for conceptual health
 
     // Remove clone after 5 seconds
     this.time.delayedCall(5000, () => {
-        clone.destroy();
-        // Revert enemy targets to player
-        enemies.children.each(enemy => {
-            if (enemy.active && enemy.body && enemy.targetOverride === clone) {
-                delete enemy.targetOverride; // Remove temporary target override
-            }
-        });
+        if (clone.active) clone.destroy();
     }, [], this);
 }
 
 
 function spawnEnemies() {
-    let enemyCount = Math.floor(wave * 1.5); // More enemies per wave
+    let enemyCount = Math.floor(wave * 1.5);
+    const enemySprites = ['enemy_robot', 'enemy_fast', 'enemy_tank']; // Use specific enemy sprites
+
     for (let i = 0; i < enemyCount; i++) {
         const x = Phaser.Math.Between(config.width * 0.7, config.width * 0.95);
         const y = Phaser.Math.Between(50, config.height - 50);
-        let enemy = enemies.create(x, y, 'enemy');
+        const randomEnemySprite = Phaser.Utils.Array.GetRandom(enemySprites); // Choose random enemy type
+        let enemy = enemies.create(x, y, randomEnemySprite); // Use random sprite
         enemy.setCollideWorldBounds(true);
         enemy.setBounce(1);
         enemy.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
-        enemy.health = 30 + (wave * 5); // Enemies get tougher
-        enemy.speed = 100 + (wave * 5); // Enemies get faster
-        enemy.fireRate = 2000 - (wave * 50); // Enemies shoot faster (min 500ms)
+        enemy.health = 30 + (wave * 5);
+        enemy.speed = 100 + (wave * 5);
+        enemy.fireRate = 2000 - (wave * 50);
         if (enemy.fireRate < 500) enemy.fireRate = 500;
         enemy.lastShotTime = 0;
-        enemy.setDepth(3); // Enemies above obstacles
+        enemy.setDepth(3);
     }
 }
 
 function startNextWave() {
     wave++;
     waveText.setText('Wave: ' + wave);
-    enemiesToSpawn = Math.floor(5 + (wave * 2.5)); // Increase enemies per wave more
+    enemiesToSpawn = Math.floor(5 + (wave * 2.5));
     enemiesKilledThisWave = 0;
-    enemySpawnDelay = Math.max(500, 1000 - (wave * 50)); // Decrease spawn delay
+    enemySpawnDelay = Math.max(500, 1000 - (wave * 50));
     lastEnemySpawnTime = this.time.now;
 
-    // Mini-Boss at every 3rd wave
     if (wave % 3 === 0) {
         spawnMiniBoss.call(this, wave);
     } else {
-        spawnEnemies(); // Spawn regular enemies if not a mini-boss wave
+        spawnEnemies.call(this);
     }
 
-    spawnObstacles.call(this, wave); // Spawn new obstacles for the new wave
+    spawnObstacles.call(this, wave);
 }
 
 function spawnMiniBoss(currentWave) {
     bossMode = true;
-    enemies.clear(true, true); // Clear existing regular enemies
+    enemies.clear(true, true);
 
-    const miniBoss = this.physics.add.sprite(config.width * 0.8, config.height / 2, 'enemy'); // Use enemy sprite for now
+    const miniBoss = this.physics.add.sprite(config.width * 0.8, config.height / 2, 'boss_robot'); // Use boss_robot sprite
     miniBoss.setCollideWorldBounds(true);
     miniBoss.setBounce(1);
-    miniBoss.setVelocity(-50, 0); // Slower movement
-    miniBoss.health = 200 + (currentWave * 20); // Much more health
+    miniBoss.setVelocity(-50, 0);
+    miniBoss.health = 200 + (currentWave * 20);
     miniBoss.maxHealth = miniBoss.health;
     miniBoss.speed = 80 + (currentWave * 5);
     miniBoss.fireRate = 1000 - (currentWave * 20);
     if (miniBoss.fireRate < 300) miniBoss.fireRate = 300;
     miniBoss.lastShotTime = 0;
-    miniBoss.setTint(0xFF0000); // Red tint for mini-boss
-    miniBoss.setScale(1.5); // Larger size
+    miniBoss.setTint(0xFF0000);
+    miniBoss.setScale(2); // Make boss even larger
     miniBoss.setDepth(3);
 
-    // Make the boss part of the enemies group for collision detection
     enemies.add(miniBoss);
 
-    boss = miniBoss; // Assign to global boss variable
+    boss = miniBoss;
 
     // Create Boss Health Bar
     bossHealthBarBackground = this.add.graphics();
@@ -937,19 +913,19 @@ function spawnMiniBoss(currentWave) {
 }
 
 function hitBoss(bullet, boss) {
-    bullet.setActive(false).setVisible(false);
-    boss.health -= playerDamage; // Use playerDamage
-    if (boss.health <= 0) {
-        boss.destroy();
-        score += 5000; // Big score for boss kill
-        scoreText.setText('Score: ' + score);
-        bossMode = false; // End boss mode
-        // Clean up boss health bar
-        if (bossHealthBar) bossHealthBar.destroy();
-        if (bossHealthBarBackground) bossHealthBarBackground.destroy();
-        if (bossNameText) bossNameText.destroy();
-        // Start next wave after boss
-        startNextWave.call(this);
+    if (bullet.active && boss.active) {
+        bullet.setActive(false).setVisible(false);
+        boss.health -= playerDamage;
+        if (boss.health <= 0) {
+            boss.destroy();
+            score += 5000;
+            scoreText.setText('Score: ' + score);
+            bossMode = false;
+            if (bossHealthBar) bossHealthBar.destroy();
+            if (bossHealthBarBackground) bossHealthBarBackground.destroy();
+            if (bossNameText) bossNameText.destroy();
+            startNextWave.call(this);
+        }
     }
 }
 
@@ -961,17 +937,15 @@ function useActivableItem(itemName, scene) {
       itemData.ready = false;
       itemData.lastUsed = time;
 
-      // Apply item effect
       switch (itemName) {
           case "Óculos de Visão Térmica":
-              inventoryUI.displayTemporaryEffect(".", 5);
+              inventoryUI.displayTemporaryEffect("Visão Térmica Ativada!", 5);
               // Implement visual effect for thermal vision (e.g., tinting screen, highlighting enemies)
-              // For simplicity, just display text
               break;
           case "Módulo de Escudo":
-              player.setAlpha(0.5); // Visual for shield
-              player.immune = true; // Make player immune to damage
-              inventoryUI.displayTemporaryEffect(".", 5);
+              player.setAlpha(0.5);
+              player.immune = true;
+              inventoryUI.displayTemporaryEffect("Escudo Ativo!", 5);
               scene.time.delayedCall(5000, () => {
                   player.setAlpha(1);
                   player.immune = false;
@@ -979,34 +953,32 @@ function useActivableItem(itemName, scene) {
               break;
           case "Circuito de Sobrecarga":
               const originalDamage = playerDamage;
-              playerDamage *= 2.5; // Huge damage boost
-              inventoryUI.displayTemporaryEffect(".", 3);
+              playerDamage *= 2.5;
+              inventoryUI.displayTemporaryEffect("Sobrecarga de Dano!", 3);
               scene.time.delayedCall(3000, () => {
                   playerDamage = originalDamage;
               }, [], scene);
               break;
           case "DPE (Dispositivo de Posicionamento Espacial)":
-              // Teleport player to a random safe spot
               const newX = Phaser.Math.Between(player.x - 100, player.x + 100);
               const newY = Phaser.Math.Between(player.y - 100, player.y + 100);
               player.setPosition(newX, newY);
-              inventoryUI.displayTemporaryEffect(".", 1);
+              inventoryUI.displayTemporaryEffect("Teleporte!", 1);
               break;
           case "Ampola de Cura":
-              playerHealth = Math.min(playerMaxHealth, playerHealth + 50); // Heal 50 health
+              playerHealth = Math.min(playerMaxHealth, playerHealth + 50);
               healthText.setText(`Health: ${playerHealth}/${playerMaxHealth}`);
-              inventoryUI.displayTemporaryEffect(".", 1);
+              inventoryUI.displayTemporaryEffect("Cura Rápida!", 1);
               break;
           case "Projetor Holográfico":
-                createHolographicClone.call(scene); // Call the new clone function
-                inventoryUI.displayTemporaryEffect(".", 5);
+                createHolographicClone.call(scene);
+                inventoryUI.displayTemporaryEffect("Clone Holográfico Implantado!", 5);
                 break;
       }
 
-      // Start cooldown timer
       scene.time.delayedCall(itemData.cooldown, () => {
           itemData.ready = true;
-          inventoryUI.updateInventoryDisplay(); // Update display once ready
+          inventoryUI.updateInventoryDisplay();
       }, [], scene);
   } else if (itemData && !itemData.ready) {
       const remainingTime = Math.ceil((itemData.cooldown - (time - itemData.lastUsed)) / 1000);
@@ -1016,7 +988,7 @@ function useActivableItem(itemName, scene) {
 
 function endGame(scene) {
     gameOver = true;
-    player.setTint(0xff0000); // Red tint for game over
+    player.setTint(0xff0000);
     scene.physics.pause();
 
     scene.add.text(config.width / 2, config.height / 2, 'GAME OVER', {
@@ -1030,10 +1002,9 @@ function endGame(scene) {
         fill: '#FFFFFF'
     }).setOrigin(0.5).setDepth(200);
 
-    // Optional: Restart game on click
     scene.input.once('pointerdown', () => {
-        scene.scene.restart();
         resetGameVariables();
+        scene.scene.restart();
     });
 }
 
@@ -1041,6 +1012,7 @@ function resetGameVariables() {
     playerHealth = 100;
     playerMaxHealth = 100;
     playerSpeed = 400;
+    originalPlayerSpeed = 400; // Reset this too
     playerDamage = 10;
     score = 0;
     wave = 1;
@@ -1059,15 +1031,14 @@ function resetGameVariables() {
         frenzyTimer.remove(false);
         frenzyTimer = null;
     }
-    playerOriginalDamage = 10; // Reset to initial
-    playerOriginalTint = 0xFFFFFF; // Reset to white (default)
+    playerOriginalDamage = 10;
+    playerOriginalTint = 0xFFFFFF;
     playerIsSlowed = false;
     if (playerSpeedRestoreTimer) {
         playerSpeedRestoreTimer.remove(false);
         playerSpeedRestoreTimer = null;
     }
 
-    // Reset activable item cooldowns
     for (const itemKey in playerInventory.activableItems) {
         playerInventory.activableItems[itemKey].ready = true;
         playerInventory.activableItems[itemKey].lastUsed = 0;
