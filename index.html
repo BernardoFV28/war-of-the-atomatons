@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V1.4 - A Cruzada da Rainha</title>
+  <title>War of the Automatons V1.3 - A Cruzada da Rainha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -48,7 +48,7 @@ let scoreText;
 let healthText;
 let playerHealth = 100;
 let playerMaxHealth = 100; // New: Max health variable
-let playerSpeed = 200; // New: Player speed variable
+let playerSpeed = 400; // New: Player speed variable
 let playerDamage = 10; // New: Player base damage
 let wave = 1;
 let enemiesToSpawn = 5;
@@ -185,8 +185,8 @@ function preload() {
     this.load.image('bullet', 'assets/bullet.png');
     this.load.image('enemy', 'assets/enemy.png');
     this.load.image('enemyBullet', 'assets/enemy_bullet.png');
-    this.load.image('pistol', 'assets/pistol.png');
-    this.load.image('shotgun', 'assets/shotgun.png');
+    this.load.image('pistol', 'assets/pistolinha.png');
+    this.load.image('shotgun', 'assets/lancarraio.png');
     this.load.image('rifle', 'assets/rifle.png');
     this.load.image('laserGun', 'assets/laser_gun.png');
     this.load.image('plasmaGun', 'assets/plasma_gun.png');
@@ -664,7 +664,7 @@ function applySlowEffect(target, duration) {
         playerSpeed *= 0.5; // Halve player speed
     }
 
-    inventoryUI.displayTemporaryEffect("DESACELERADO!", duration); // Show effect text
+    inventoryUI.displayTemporaryEffect(".", duration); // Show effect text
 
     playerSpeedRestoreTimer = this.time.delayedCall(duration * 1000, () => {
         playerSpeed = originalPlayerSpeed; // Restore original speed
@@ -725,7 +725,7 @@ function activateFrenzy() {
     frenzyActive = true;
     playerDamage *= 2; // Double player damage
     player.setTint(0xFFD700); // Yellow tint for player
-    inventoryUI.displayTemporaryEffect("FRENESI ATIVADO!", 10); // Show effect text
+    inventoryUI.displayTemporaryEffect("FRENESI ", 10); // Show effect text
 
     frenzyTimer = this.time.delayedCall(10000, deactivateFrenzy, [], this); // 10 seconds duration
 }
@@ -778,7 +778,7 @@ function pickUpPowerUp(player, powerUp) {
         case 'speed':
             const originalPlayerSpeed = playerSpeed;
             playerSpeed *= 1.5; // 50% speed increase
-            inventoryUI.displayTemporaryEffect("VELOCIDADE AUMENTADA!", effectDuration);
+            inventoryUI.displayTemporaryEffect(".", effectDuration);
             this.time.delayedCall(effectDuration * 1000, () => {
                 playerSpeed = originalPlayerSpeed;
             }, [], this);
@@ -786,12 +786,12 @@ function pickUpPowerUp(player, powerUp) {
         case 'health':
             playerHealth = Math.min(playerMaxHealth, playerHealth + 30); // Heal 30, up to max
             healthText.setText(`Health: ${playerHealth}/${playerMaxHealth}`);
-            inventoryUI.displayTemporaryEffect("VIDA RESTAURADA!", 1); // Short display
+            inventoryUI.displayTemporaryEffect(".", 1); // Short display
             break;
         case 'shield':
             player.setAlpha(0.5); // Visual for shield
             player.immune = true; // Make player immune to damage
-            inventoryUI.displayTemporaryEffect("ESCUDO ATIVADO!", effectDuration);
+            inventoryUI.displayTemporaryEffect(".", effectDuration);
             this.time.delayedCall(effectDuration * 1000, () => {
                 player.setAlpha(1);
                 player.immune = false;
@@ -815,9 +815,9 @@ function dropCursedItem(x, y) {
 function pickUpCursedItem(player, cursedItem) {
     cursedItem.destroy();
     const cursedEffects = [
-        { name: "MALDIÇÃO: VIDA REDUZIDA!", effect: () => { playerMaxHealth = Math.max(50, playerMaxHealth - 20); playerHealth = Math.min(playerHealth, playerMaxHealth); healthText.setText(`Health: ${playerHealth}/${playerMaxHealth}`); } },
-        { name: "MALDIÇÃO: DEFESA REDUZIDA!", effect: () => { player.damageMultiplier = 1.5; }, revert: () => { player.damageMultiplier = 1; } }, // Player takes 50% more damage
-        { name: "MALDIÇÃO: VELOCIDADE REDUZIDA!", effect: () => { playerSpeed *= 0.7; }, revert: () => { playerSpeed /= 0.7; } }
+        { name: ".", effect: () => { playerMaxHealth = Math.max(50, playerMaxHealth - 20); playerHealth = Math.min(playerHealth, playerMaxHealth); healthText.setText(`Health: ${playerHealth}/${playerMaxHealth}`); } },
+        { name: ".", effect: () => { player.damageMultiplier = 1.5; }, revert: () => { player.damageMultiplier = 1; } }, // Player takes 50% more damage
+        { name: ".", effect: () => { playerSpeed *= 0.7; }, revert: () => { playerSpeed /= 0.7; } }
     ];
 
     const chosenEffect = Phaser.Utils.Array.GetRandom(cursedEffects);
@@ -966,14 +966,14 @@ function useActivableItem(itemName, scene) {
       // Apply item effect
       switch (itemName) {
           case "Óculos de Visão Térmica":
-              inventoryUI.displayTemporaryEffect("VISÃO TÉRMICA ATIVADA!", 5);
+              inventoryUI.displayTemporaryEffect(".", 5);
               // Implement visual effect for thermal vision (e.g., tinting screen, highlighting enemies)
               // For simplicity, just display text
               break;
           case "Módulo de Escudo":
               player.setAlpha(0.5); // Visual for shield
               player.immune = true; // Make player immune to damage
-              inventoryUI.displayTemporaryEffect("ESCUDO ATIVADO!", 5);
+              inventoryUI.displayTemporaryEffect(".", 5);
               scene.time.delayedCall(5000, () => {
                   player.setAlpha(1);
                   player.immune = false;
@@ -982,7 +982,7 @@ function useActivableItem(itemName, scene) {
           case "Circuito de Sobrecarga":
               const originalDamage = playerDamage;
               playerDamage *= 2.5; // Huge damage boost
-              inventoryUI.displayTemporaryEffect("SOBRECARGA ATIVADA!", 3);
+              inventoryUI.displayTemporaryEffect(".", 3);
               scene.time.delayedCall(3000, () => {
                   playerDamage = originalDamage;
               }, [], scene);
@@ -992,16 +992,16 @@ function useActivableItem(itemName, scene) {
               const newX = Phaser.Math.Between(player.x - 100, player.x + 100);
               const newY = Phaser.Math.Between(player.y - 100, player.y + 100);
               player.setPosition(newX, newY);
-              inventoryUI.displayTemporaryEffect("DPE UTILIZADO!", 1);
+              inventoryUI.displayTemporaryEffect(".", 1);
               break;
           case "Ampola de Cura":
               playerHealth = Math.min(playerMaxHealth, playerHealth + 50); // Heal 50 health
               healthText.setText(`Health: ${playerHealth}/${playerMaxHealth}`);
-              inventoryUI.displayTemporaryEffect("CURADO!", 1);
+              inventoryUI.displayTemporaryEffect(".", 1);
               break;
           case "Projetor Holográfico":
                 createHolographicClone.call(scene); // Call the new clone function
-                inventoryUI.displayTemporaryEffect("CLONE HOLOGRÁFICO ATIVADO!", 5);
+                inventoryUI.displayTemporaryEffect(".", 5);
                 break;
       }
 
@@ -1042,7 +1042,7 @@ function endGame(scene) {
 function resetGameVariables() {
     playerHealth = 100;
     playerMaxHealth = 100;
-    playerSpeed = 200;
+    playerSpeed = 400;
     playerDamage = 10;
     score = 0;
     wave = 1;
