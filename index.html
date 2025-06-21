@@ -249,25 +249,7 @@ let inventoryUI;
 let preloadBar;
 let preloadBox;
 
-function preloadScene() {
-    // Preload Bar
-    preloadBox = this.add.graphics();
-    preloadBox.fillStyle(0x222222, 0.8);
-    preloadBox.fillRect(config.width / 2 - 160, config.height / 2 - 20, 320, 50);
-
-    preloadBar = this.add.graphics();
-
-    this.load.on('progress', (value) => {
-        preloadBar.clear();
-        preloadBar.fillStyle(0xffffff, 1);
-        preloadBar.fillRect(config.width / 2 - 150, config.height / 2 - 10, 300 * value, 30);
-    });
-
-    this.load.on('complete', () => {
-        preloadBox.destroy();
-        preloadBar.destroy();
-    });
-
+preload(
     // Background Image
     this.load.image('bg', 'assets/fundogame.png');
 
@@ -321,7 +303,7 @@ function preloadScene() {
     this.load.image('m', 'assets/m.png');
     this.load.image('o', 'assets/o.png');
     this.load.image('metralha', 'assets/metralha.png');
-}
+)
 
 function create() {
     // Background image
