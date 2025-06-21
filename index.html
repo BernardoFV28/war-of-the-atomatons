@@ -246,10 +246,8 @@ class InventoryUI {
 }
 
 let inventoryUI;
-let preloadBar;
-let preloadBox;
 
-preload(
+function preloadScene() {
     // Background Image
     this.load.image('bg', 'assets/fundogame.png');
 
@@ -303,7 +301,7 @@ preload(
     this.load.image('m', 'assets/m.png');
     this.load.image('o', 'assets/o.png');
     this.load.image('metralha', 'assets/metralha.png');
-)
+}
 
 function create() {
     // Background image
