@@ -134,8 +134,8 @@ const weapons = {
     'pistol': { damage: 10, fireRate: 200, bulletSpeed: 400, sprite: 'pistol' },
     'shotgun': { damage: 15, fireRate: 600, bulletSpeed: 300, sprite: 'shotgun', pellets: 3, spread: 0.2 },
     'rifle': { damage: 20, fireRate: 100, bulletSpeed: 600, sprite: 'rifle' },
-    'laserGun': { damage: 25, fireRate: 50, bulletSpeed: 800, sprite: 'laserGun' },
-    'plasmaGun': { damage: 30, fireRate: 400, bulletSpeed: 350, sprite: 'plasmaGun', areaDamage: true }
+    // 'laserGun': { damage: 25, fireRate: 50, bulletSpeed: 800, sprite: 'laserGun' }, // Removido
+    // 'plasmaGun': { damage: 30, fireRate: 400, bulletSpeed: 350, sprite: 'plasmaGun', areaDamage: true } // Removido
 };
 let currentWeapon = 'pistol'; // Default weapon
 
@@ -266,8 +266,8 @@ function preloadScene() {
     this.load.image('pistol', 'assets/pistolinha.png');
     this.load.image('shotgun', 'assets/lancarraio.png');
     this.load.image('rifle', 'assets/metralha.png');
-    this.load.image('laserGun', 'assets/laser_gun.png');
-    this.load.image('plasmaGun', 'assets/plasma_gun.png');
+    // this.load.image('laserGun', 'assets/laser_gun.png'); // Removido
+    // this.load.image('plasmaGun', 'assets/plasma_gun.png'); // Removido
 
     // Obstacle Assets
     this.load.image('scrapBlock', 'assets/scrap_block.png');
@@ -287,9 +287,9 @@ function preloadScene() {
     // Holographic Clone Asset
     this.load.image('holographicClone', 'assets/holographic_clone.png');
 
-    // Melhoria: Assets para Partículas
-    this.load.image('sparkle', 'assets/sparkle.png'); // Imagem para partículas de dano/explosão
-    this.load.image('powerup_sparkle', 'assets/powerup_sparkle.png'); // Imagem para partículas de power-up
+    // Melhoria: Assets para Partículas (Removido sparkle e powerup_sparkle)
+    // this.load.image('sparkle', 'assets/sparkle.png');
+    // this.load.image('powerup_sparkle', 'assets/powerup_sparkle.png');
 
     // Other potentially missing assets based on your list:
     this.load.image('ammo', 'assets/ammo.png');
@@ -300,6 +300,7 @@ function preloadScene() {
     this.load.image('granade', 'assets/granade.png');
     this.load.image('m', 'assets/m.png');
     this.load.image('o', 'assets/o.png');
+    // A metralha já está listada como rifle, mas foi mantida aqui por estar na lista original de "outros assets"
     this.load.image('metralha', 'assets/metralha.png');
 }
 
@@ -569,19 +570,17 @@ function hitEnemy(bullet, enemy) {
         enemiesKilledThisWave++;
         killStreak++;
 
-        // Melhoria: Partículas na destruição do inimigo
-        const emitter = this.add.particles(enemy.x, enemy.y, 'sparkle', {
-            speed: { min: -200, max: 200 },
-            angle: { min: 0, max: 360 },
-            scale: { start: 0.8, end: 0 },
-            blendMode: 'ADD',
-            lifespan: 600,
-            gravityY: 100
-        });
-        emitter.explode(15);
-        this.time.delayedCall(700, () => emitter.stop(), [], this); // Para o emitter após um tempo
-        // Nota: emitter.explode() geralmente lida com a autodestruição do emitter após todas as partículas serem geradas.
-        // Se você precisar reutilizar o emitter, ele deve ser criado fora da função e ter um .kill() ou .remove() apropriado.
+        // Melhoria: Partículas na destruição do inimigo (REMOVIDO)
+        // const emitter = this.add.particles(enemy.x, enemy.y, 'sparkle', {
+        //     speed: { min: -200, max: 200 },
+        //     angle: { min: 0, max: 360 },
+        //     scale: { start: 0.8, end: 0 },
+        //     blendMode: 'ADD',
+        //     lifespan: 600,
+        //     gravityY: 100
+        // });
+        // emitter.explode(15);
+        // this.time.delayedCall(700, () => emitter.stop(), [], this);
 
         dropPowerUp.call(this, enemy.x, enemy.y);
         dropCursedItem.call(this, enemy.x, enemy.y);
@@ -1056,16 +1055,16 @@ function pickUpPowerUp(player, powerUp) {
         duration: 300,
         ease: 'Cubic.easeIn',
         onComplete: () => {
-            // Melhoria: Partículas ao coletar power-up
-            const emitter = this.add.particles(powerUp.x, powerUp.y, 'powerup_sparkle', {
-                speed: { min: -100, max: 100 },
-                angle: { min: 0, max: 360 },
-                scale: { start: 0.5, end: 0 },
-                blendMode: 'ADD',
-                lifespan: 400
-            });
-            emitter.explode(10);
-            this.time.delayedCall(450, () => emitter.stop(), [], this); // Parar o emitter após um tempo
+            // Melhoria: Partículas ao coletar power-up (REMOVIDO)
+            // const emitter = this.add.particles(powerUp.x, powerUp.y, 'powerup_sparkle', {
+            //     speed: { min: -100, max: 100 },
+            //     angle: { min: 0, max: 360 },
+            //     scale: { start: 0.5, end: 0 },
+            //     blendMode: 'ADD',
+            //     lifespan: 400
+            // });
+            // emitter.explode(10);
+            // this.time.delayedCall(450, () => emitter.stop(), [], this);
 
             powerUp.destroy();
             switch (type) {
@@ -1320,17 +1319,17 @@ function hitBoss(bullet, boss) {
         if (bossHealthBarBackground) bossHealthBarBackground.destroy();
         if (bossNameText) bossNameText.destroy();
 
-        // Melhoria: Partículas na destruição do boss
-        const emitter = this.add.particles(boss.x, boss.y, 'sparkle', {
-            speed: { min: -300, max: 300 },
-            angle: { min: 0, max: 360 },
-            scale: { start: 1, end: 0 },
-            blendMode: 'ADD',
-            lifespan: 1000,
-            gravityY: 200
-        });
-        emitter.explode(50); // Muitas partículas para o boss
-        this.time.delayedCall(1200, () => emitter.stop(), [], this); // Para o emitter após um tempo
+        // Melhoria: Partículas na destruição do boss (REMOVIDO)
+        // const emitter = this.add.particles(boss.x, boss.y, 'sparkle', {
+        //     speed: { min: -300, max: 300 },
+        //     angle: { min: 0, max: 360 },
+        //     scale: { start: 1, end: 0 },
+        //     blendMode: 'ADD',
+        //     lifespan: 1000,
+        //     gravityY: 200
+        // });
+        // emitter.explode(50);
+        // this.time.delayedCall(1200, () => emitter.stop(), [], this);
 
         startNextWave.call(this);
     }
