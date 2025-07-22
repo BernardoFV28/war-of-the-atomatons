@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V1.5.1 - A Cruzada da Rainha</title>
+  <title>War of the Automatons V1.5.2 - A Cruzada da Rainha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -76,10 +76,10 @@ let waveConfig = [
 ];
 
 let enemyTypes = {
-    normal: { texture: 'enemy_robot.png', baseHealth: 20, speed: 100, scale: 0.06, xpReward: 5 },
-    fast: { texture: 'enemy_fast.png', baseHealth: 15, speed: 180, scale: 0.05, xpReward: 7 },
-    tank: { texture: 'enemy_tank.png', baseHealth: 80, speed: 80, scale: 0.08, xpReward: 15 },
-    boss: { texture: 'boss_robot.png', baseHealth: 300, speed: 70, scale: 0.09, xpReward: 50 }
+    normal: { texture: 'enemy_robot.png', baseHealth: 20, speed: 100, scale: 0.6, xpReward: 5 },
+    fast: { texture: 'enemy_fast.png', baseHealth: 15, speed: 180, scale: 0.5, xpReward: 7 },
+    tank: { texture: 'enemy_tank.png', baseHealth: 80, speed: 80, scale: 0.8, xpReward: 15 },
+    boss: { texture: 'boss_robot.png', baseHealth: 300, speed: 70, scale: 1.2, xpReward: 50 }
 };
 
 // --- NOVA CENA DA LOJA ---
@@ -203,15 +203,15 @@ class GameScene extends Phaser.Scene {
         this.load.image('pickup_coin', 'assets/pickup_coin.png');
         this.load.image('arma1', 'assets/arma1.png');
         this.load.image('arma2', 'assets/arma2.png');
-       
-         this.load.image('game_background', 'assets/fundogame.png');
+        // Se quiser um fundo para o jogo, carregue-o aqui:
+        // this.load.image('game_background', 'assets/seu_fundo_de_jogo.png');
     }
 
     create() {
         // Se quiser um fundo para o jogo, adicione-o aqui antes de outros elementos:
-         const gameBg = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'game_background');
-         gameBg.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
-         gameBg.setDepth(-1); // Para garantir que fique no fundo
+        // const gameBg = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'game_background');
+        // gameBg.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
+        // gameBg.setDepth(-1); // Para garantir que fique no fundo
 
         cursors = this.input.keyboard.createCursorKeys();
 
@@ -226,7 +226,7 @@ class GameScene extends Phaser.Scene {
         player.health = playerStats.health;
         player.maxHealth = playerStats.maxHealth;
         player.currentWeapon = 0;
-        player.setScale(0.02); // <-- CORREÇÃO: Reduz o tamanho do personagem
+        player.setScale(0.5); // Reduz o tamanho do personagem
 
         this.createHud();
 
@@ -287,7 +287,7 @@ class GameScene extends Phaser.Scene {
             fill: '#FF0',
             backgroundColor: '#6A0DAD',
             padding: { x: 15, y: 8 }
-        }).setOrigin(0.5).setInteractive();
+        }).setOrigin(0.5).setInteractive().setDepth(3); // <-- Correção: Adicionado setDepth(3)
 
         shopButton.on('pointerdown', () => {
             this.scene.pause('GameScene');
@@ -383,6 +383,7 @@ class GameScene extends Phaser.Scene {
 
             if (bullet) {
                 bullet.setActive(true).setVisible(true);
+                bullet.setScale(0.5); // Diminui o tamanho da bala
                 bullet.setRotation(angle);
                 this.physics.velocityFromRotation(angle, bulletSpeed, bullet.body.velocity);
                 bullet.damage = playerStats.bulletDamage;
