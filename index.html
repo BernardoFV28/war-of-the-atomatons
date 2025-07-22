@@ -63,23 +63,23 @@ let waveEnemiesRemaining = 0;
 let waveTimer;
 let waveInterval = 20000;
 let waveConfig = [
-    { type: 'normal', count: 5, health: 20, speed: 100, scale: 0.6, xp: 5 },
-    { type: 'normal', count: 8, health: 25, speed: 110, scale: 0.6, xp: 6 },
-    { type: 'fast', count: 3, health: 15, speed: 180, scale: 0.5, xp: 7 },
-    { type: 'normal', count: 10, health: 30, speed: 120, scale: 0.6, xp: 8 },
-    { type: 'fast', count: 5, health: 20, speed: 190, scale: 0.5, xp: 9 },
-    { type: 'tank', count: 2, health: 80, speed: 80, scale: 0.8, xp: 15 },
-    { type: 'normal', count: 12, health: 35, speed: 130, scale: 0.6, xp: 10 },
-    { type: 'fast', count: 7, health: 25, speed: 200, scale: 0.5, xp: 11 },
-    { type: 'tank', count: 3, health: 90, speed: 90, scale: 0.8, xp: 18 },
-    { type: 'boss', count: 1, health: 300, speed: 70, scale: 1.2, xp: 50 }
+    { type: 'normal', count: 5, health: 20, speed: 100, scale: 0.06, xp: 5 },
+    { type: 'normal', count: 8, health: 25, speed: 110, scale: 0.06, xp: 6 },
+    { type: 'fast', count: 3, health: 15, speed: 180, scale: 0.05, xp: 7 },
+    { type: 'normal', count: 10, health: 30, speed: 120, scale: 0.06, xp: 8 },
+    { type: 'fast', count: 5, health: 20, speed: 190, scale: 0.05, xp: 9 },
+    { type: 'tank', count: 2, health: 80, speed: 80, scale: 0.08, xp: 15 },
+    { type: 'normal', count: 12, health: 35, speed: 130, scale: 0.06, xp: 10 },
+    { type: 'fast', count: 7, health: 25, speed: 200, scale: 0.05, xp: 11 },
+    { type: 'tank', count: 3, health: 90, speed: 90, scale: 0.08, xp: 18 },
+    { type: 'boss', count: 1, health: 300, speed: 70, scale: 0.10, xp: 50 }
 ];
 
 let enemyTypes = {
-    normal: { texture: 'enemy_robot.png', baseHealth: 20, speed: 100, scale: 0.6, xpReward: 5 },
-    fast: { texture: 'enemy_fast.png', baseHealth: 15, speed: 180, scale: 0.5, xpReward: 7 },
-    tank: { texture: 'enemy_tank.png', baseHealth: 80, speed: 80, scale: 0.8, xpReward: 15 },
-    boss: { texture: 'boss_robot.png', baseHealth: 300, speed: 70, scale: 1.2, xpReward: 50 }
+    normal: { texture: 'enemy_robot.png', baseHealth: 20, speed: 100, scale: 0.06, xpReward: 5 },
+    fast: { texture: 'enemy_fast.png', baseHealth: 15, speed: 180, scale: 0.05, xpReward: 7 },
+    tank: { texture: 'enemy_tank.png', baseHealth: 80, speed: 80, scale: 0.08, xpReward: 15 },
+    boss: { texture: 'boss_robot.png', baseHealth: 300, speed: 70, scale: 0.10, xpReward: 50 }
 };
 
 // --- NOVA CENA DA LOJA ---
@@ -89,7 +89,7 @@ class ShopScene extends Phaser.Scene {
     }
 
     preload() {
-        this.load.image('shop_background', 'https://via.placeholder.com/1380x580/333333/FFFFFF?text=Fundo+da+Loja');
+        this.load.image('shop_background', 'assests/m.png');
     }
 
     create() {
