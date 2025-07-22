@@ -1,570 +1,708 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8" />
-    <title>War of the Automatons V1.3 - A Cruzada da Rainha</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: #0a0000ce;
-            font-family: 'Press Start 2P', cursive; /* Add a retro-gaming font */
-        }
-        canvas {
-            display: block;
-            margin: auto;
-        }
-        /* Import Google Font for a retro-gaming look */
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-    </style>
+  <meta charset="UTF-8" />
+  <title>War of the Automatons V1.4 - A Cruzada da Rainha</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #0a0000ce;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+    }
+  </style>
 </head>
 <body>
 <script>
-// Global game configuration
-const config = {
-    type: Phaser.AUTO,
-    width: 1380,
-    height: 580,
-    backgroundColor: '#000000',
-    physics: {
-        default: 'arcade',
-        arcade: { debug: false }
-    },
-    scene: [BootScene, GameScene, ShopScene] // Define scenes here
-};
-
-let game = new Phaser.Game(config);
-
-// --- Global Variables (Moved here for multi-scene access) ---
+// Variáveis Globais (movidas para escopo global para acesso entre cenas, se necessário)
 let player, cursors;
 let bullets, enemies, enemyBullets, armas, itemsGroup;
 let lastShoot = 0;
-let showingCards = false;
-let wave = 1;
-let cardsGroup; // Group for card selection after level up
-let spiritAlly = null;
-let playerCards = []; // Cards the player has collected
-let cardsHUDGroup; // Visual group for cards in HUD
-let playerOriginalTint; // To restore player tint after effects
-
-// Player currency
-let playerScrap = 0; // New currency for the shop
-
+let xp = 0;
+let level = 1;
+let score = 0;
+let playerHealthText;
+let playerXPText;
+let playerLevelText;
+let weaponNameText;
+let weaponImage;
+let playerStats = { // Aumentei a velocidade inicial
+    health: 100,
+    maxHealth: 100,
+    speed: 250, // Personagem mais rápido por padrão
+    bulletDamage: 10,
+    fireRate: 500, // Tempo entre tiros em ms
+    bulletSpeedBoost: 1,
+    bulletCountMultiplier: 1, // Quantas balas atira de uma vez
+    bulletPiercing: false, // Se as balas atravessam inimigos
+    healthRegen: 0,
+    lootMagnet: false,
+    critChance: 0,
+    critDamage: 1.5,
+    xpBonus: 0,
+    coins: 0 // Moedas para a loja
+};
+let weaponStats = {
+    nome: "Pistola Automática",
+    danoBase: 10,
+    cadenciaBase: 500
+};
+let killStreak = 0;
+let killStreakTimer;
 let temporaryEffectText = null;
 let temporaryEffectTimer = null;
+let currentWave = 0;
+let waveEnemiesRemaining = 0;
+let waveTimer;
+let waveInterval = 20000; // 20 segundos para cada onda
+let waveConfig = [
+    { type: 'normal', count: 5, health: 20, speed: 100, scale: 0.6, xp: 5 },
+    { type: 'normal', count: 8, health: 25, speed: 110, scale: 0.6, xp: 6 },
+    { type: 'fast', count: 3, health: 15, speed: 180, scale: 0.5, xp: 7 },
+    { type: 'normal', count: 10, health: 30, speed: 120, scale: 0.6, xp: 8 },
+    { type: 'fast', count: 5, health: 20, speed: 190, scale: 0.5, xp: 9 },
+    { type: 'tank', count: 2, health: 80, speed: 80, scale: 0.8, xp: 15 },
+    { type: 'normal', count: 12, health: 35, speed: 130, scale: 0.6, xp: 10 },
+    { type: 'fast', count: 7, health: 25, speed: 200, scale: 0.5, xp: 11 },
+    { type: 'tank', count: 3, health: 90, speed: 90, scale: 0.8, xp: 18 },
+    { type: 'boss', count: 1, health: 300, speed: 70, scale: 1.2, xp: 50 } // Exemplo de chefe
+];
 
-let playerInventory = {
-    passiveItems: [],
-    activableItems: {
-        "Óculos de Visão Térmica Obsoleta": { count: 0, ready: true, cooldown: 20000, lastUsed: 0 },
-        "Módulo de Salto Modificado": { count: 0, ready: true, cooldown: 10000, lastUsed: 0 },
-        "Circuito de Overclock Pessoal": { count: 0, ready: true, cooldown: 30000, lastUsed: 0 },
-        "Dispositivo de Pulso Eletromagnético (DPE)": { count: 0, ready: true, cooldown: 25000, lastUsed: 0 }
+let enemyTypes = {
+    normal: { texture: 'enemy_robot.png', baseHealth: 20, speed: 100, scale: 0.6, xpReward: 5 },
+    fast: { texture: 'enemy_fast.png', baseHealth: 15, speed: 180, scale: 0.5, xpReward: 7 },
+    tank: { texture: 'enemy_tank.png', baseHealth: 80, speed: 80, scale: 0.8, xpReward: 15 },
+    boss: { texture: 'boss_robot.png', baseHealth: 300, speed: 70, scale: 1.2, xpReward: 50 }
+};
+
+// --- NOVA CENA DA LOJA ---
+class ShopScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'ShopScene' });
     }
-};
 
-let playerStats = {
-    life: 3,
-    maxLife: 3,
-    bulletDamage: 1,
-    fireRate: 3000,
-    hasShield: false,
-    spiritAllyActive: false,
-    spreadUpgrade: false,
-    doubleBullets: false,
-    dashAvailable: false,
-    dashCooldown: false,
-    slowEnemies: false,
-    reviveOnce: false,
-    increasedDropRate: false,
-    tripleBullets: false,
-    playerSpeed: 400,
-    healOnKill: false,
-    damageAura: false,
-    speedBoost: false,
-    bulletPiercing: false,
-    thorns: false,
-    bulletSpeedBoost: false,
-    xp: 0,
-    level: 1,
-    xpToNextLevel: 100,
-    spikeAuraActive: false,
-    reflectDamage: 0,
-    lifestealOnKill: 0,
-    touchDamage: 0,
-    passiveRegenActive: false,
-    evasionChance: 0,
-    bulletRange: 1,
-    droneActive: false,
-    dashVulnerability: 0,
-    distortionFieldActive: false,
-    incomingDamageMultiplier: 1,
-    safeZoneActive: false,
-    bulletCountMultiplier: 1,
-    cloneActive: false,
-    scrap: 0 // Initialize scrap currency
-};
-
-const tiposDeArmas = {
-    arma1: { dano: 1, fireRate: 3000, nome: 'Pistolinha' },
-    arma2: { dano: 2, fireRate: 1000, nome: 'Fúria de Eryon' },
-    arma3: { dano: 3, fireRate: 2000, nome: 'Lança-Raio' }
-};
-
-const enemyTypes = {
-    normal: {
-        texture: 'enemy',
-        baseHealth: 4,
-        speed: 100,
-        scale: 0.06,
-        xpReward: 20,
-        scrapDropChance: 30, // 30% chance to drop scrap
-        scrapAmount: 5
-    },
-    fast: {
-        texture: 'enemy_fast',
-        baseHealth: 4,
-        speed: 180,
-        scale: 0.06,
-        xpReward: 25,
-        scrapDropChance: 40,
-        scrapAmount: 7
-    },
-    tank: {
-        texture: 'enemy_tank',
-        baseHealth: 9,
-        speed: 70,
-        scale: 0.08,
-        xpReward: 35,
-        scrapDropChance: 50,
-        scrapAmount: 10
-    },
-    boss: {
-        texture: 'boss_robot',
-        baseHealth: 200,
-        speed: 60,
-        scale: 0.2,
-        xpReward: 500,
-        scrapDropChance: 100, // Boss always drops scrap
-        scrapAmount: 100
+    preload() {
+        this.load.image('shop_background', 'https://via.placeholder.com/1380x580/333333/FFFFFF?text=Fundo+da+Loja'); // Imagem de fundo placeholder
+        // Você pode carregar ícones para seus upgrades aqui
     }
-};
 
-const itemOptions = [
-    {
-        nome: "Núcleo de Cristal Corrompido",
-        descricao: "Um fragmento de energia anômala que pulsa com poder bruto e perigoso. (+15% Dano, -1 Vida Máxima)",
-        tipo: "passivo",
-        textura: 'item_core',
-        preco: 50, // Price for buying
-        efeito: (scene) => {
-            playerStats.bulletDamage *= 1.15;
-            playerStats.maxLife = Math.max(1, playerStats.maxLife - 1);
-            playerStats.life = Math.min(playerStats.life, playerStats.maxLife);
-            scene.hud.updateHealthBar();
-            const vidaFantasmaCard = playerCards.find(c => c.nome === 'Vida Fantasma');
-            if (vidaFantasmaCard) {
-                playerStats.maxLife++;
-                playerStats.life = Math.min(playerStats.life, playerStats.maxLife);
-                scene.hud.displayTemporaryEffect("Sinergia: Núcleo + Vida Fantasma!", 2);
+    create() {
+        // Fundo Bonito
+        const bg = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'shop_background');
+        bg.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
+
+        // Título da Loja (Texto Centralizado)
+        this.add.text(this.cameras.main.width / 2, 50, 'Loja de Upgrades', {
+            fontSize: '48px',
+            fill: '#FFF',
+            align: 'center'
+        }).setOrigin(0.5);
+
+        // Exibir moedas atuais
+        this.coinText = this.add.text(this.cameras.main.width / 2, 100, `Moedas: ${playerStats.coins}`, {
+            fontSize: '32px',
+            fill: '#FFD700',
+            align: 'center'
+        }).setOrigin(0.5);
+
+        // Itens da Loja
+        // Exemplo: Upgrade de Velocidade
+        this.add.text(this.cameras.main.width / 2, 200, 'Velocidade Extra', {
+            fontSize: '30px',
+            fill: '#FFF'
+        }).setOrigin(0.5);
+        this.add.text(this.cameras.main.width / 2, 240, 'Custo: 100 Moedas', {
+            fontSize: '24px',
+            fill: '#FFD700'
+        }).setOrigin(0.5);
+
+        const buySpeedButton = this.add.text(this.cameras.main.width / 2, 280, 'Comprar', {
+            fontSize: '24px',
+            fill: '#FFF',
+            backgroundColor: '#007BFF',
+            padding: { x: 15, y: 8 }
+        }).setOrigin(0.5).setInteractive();
+
+        buySpeedButton.on('pointerdown', () => {
+            if (playerStats.coins >= 100) {
+                playerStats.coins -= 100;
+                playerStats.speed += 50; // Aumenta a velocidade
+                this.coinText.setText(`Moedas: ${playerStats.coins}`); // Atualiza o texto das moedas
+                createFloatingText(this, this.cameras.main.width / 2, 280, 'Comprado!', '#0F0');
+            } else {
+                createFloatingText(this, this.cameras.main.width / 2, 280, 'Moedas insuficientes!', '#F00');
             }
-        }
-    },
-    {
-        nome: "Óculos de Visão Térmica Obsoleta",
-        descricao: "Lentes rachadas que ainda revelam os pontos quentes dos inimigos, mesmo nas sombras mais densas. (Ativável: Mostra HP inimigo)",
-        tipo: "ativável",
-        textura: 'item_goggles',
-        preco: 75,
-        efeito: (scene) => {
-            enemies.getChildren().forEach(enemy => {
-                if (enemy.active) {
-                    const hpText = scene.add.text(enemy.x, enemy.y - 30, `${enemy.health.toFixed(1)}/${enemy.maxHealth}`, { fontSize: '10px', color: '#FF0000', backgroundColor: '#000000', fontFamily: 'Press Start 2P' }).setOrigin(0.5);
-                    scene.time.delayedCall(3000, () => hpText.destroy());
+        });
+
+        // Exemplo: Upgrade de Vida
+        this.add.text(this.cameras.main.width / 2, 350, 'Vida Máxima', {
+            fontSize: '30px',
+            fill: '#FFF'
+        }).setOrigin(0.5);
+        this.add.text(this.cameras.main.width / 2, 390, 'Custo: 150 Moedas', {
+            fontSize: '24px',
+            fill: '#FFD700'
+        }).setOrigin(0.5);
+
+        const buyHealthButton = this.add.text(this.cameras.main.width / 2, 430, 'Comprar', {
+            fontSize: '24px',
+            fill: '#FFF',
+            backgroundColor: '#007BFF',
+            padding: { x: 15, y: 8 }
+        }).setOrigin(0.5).setInteractive();
+
+        buyHealthButton.on('pointerdown', () => {
+            if (playerStats.coins >= 150) {
+                playerStats.coins -= 150;
+                playerStats.maxHealth += 25; // Aumenta a vida máxima
+                playerStats.health += 25; // Cura o jogador também
+                this.coinText.setText(`Moedas: ${playerStats.coins}`);
+                createFloatingText(this, this.cameras.main.width / 2, 430, 'Comprado!', '#0F0');
+            } else {
+                createFloatingText(this, this.cameras.main.width / 2, 430, 'Moedas insuficientes!', '#F00');
+            }
+        });
+
+
+        // Botão de Voltar para o Jogo (Centralizado)
+        const backButton = this.add.text(this.cameras.main.width / 2, this.cameras.main.height - 50, 'Voltar ao Jogo', {
+            fontSize: '36px',
+            fill: '#0F0',
+            backgroundColor: '#333',
+            padding: { x: 20, y: 10 }
+        }).setOrigin(0.5).setInteractive();
+
+        backButton.on('pointerdown', () => {
+            this.scene.stop('ShopScene');
+            this.scene.resume('GameScene'); // Retorna à cena do jogo
+            // Chamar updateHud() na GameScene para garantir que os stats sejam atualizados na HUD
+            this.scene.get('GameScene').updateHud();
+        });
+    }
+
+    update() {
+        // Nada específico para atualizar na loja por enquanto
+    }
+}
+
+// --- CLASSE DA CENA DO JOGO PRINCIPAL ---
+class GameScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'GameScene' });
+    }
+
+    preload() {
+        this.load.image('player', 'assets/player.png');
+        this.load.image('bullet', 'assets/bullet.png');
+        this.load.image('enemy_robot.png', 'assets/enemy_robot.png');
+        this.load.image('enemy_fast.png', 'assets/enemy_fast.png');
+        this.load.image('enemy_tank.png', 'assets/enemy_tank.png');
+        this.load.image('boss_robot.png', 'assets/boss_robot.png'); // Imagem do chefe
+        this.load.image('pickup_xp', 'assets/pickup_xp.png');
+        this.load.image('pickup_health', 'assets/pickup_health.png');
+        this.load.image('pickup_coin', 'assets/pickup_coin.png'); // Item de moeda
+        // Armas (apenas um exemplo, adicione mais se necessário)
+        this.load.image('arma1', 'assets/arma1.png');
+        this.load.image('arma2', 'assets/arma2.png');
+    }
+
+    create() {
+        // Cursors de entrada
+        cursors = this.input.keyboard.createCursorKeys();
+
+        // Grupos de colisões
+        bullets = this.physics.add.group();
+        enemies = this.physics.add.group();
+        enemyBullets = this.physics.add.group();
+        itemsGroup = this.physics.add.group(); // Grupo para itens coletáveis
+
+        // Cria o jogador
+        player = this.physics.add.sprite(this.physics.world.bounds.width / 2, this.physics.world.bounds.height / 2, 'player');
+        player.setCollideWorldBounds(true);
+        player.setDepth(1);
+        player.health = playerStats.health;
+        player.maxHealth = playerStats.maxHealth;
+        player.currentWeapon = 0; // Índice da arma atual
+
+        // HUD
+        this.createHud();
+
+        // Overlaps e Collisions
+        this.physics.add.overlap(bullets, enemies, this.hitEnemy, null, this);
+        this.physics.add.overlap(player, enemyBullets, this.takeDamage, null, this);
+        this.physics.add.overlap(player, itemsGroup, this.collectItem, null, this);
+        this.physics.add.overlap(player, enemies, this.playerHitByEnemy, null, this); // Dano de contato com inimigo
+
+        // Ouve a tecla ESPAÇO para reiniciar (se o jogo acabou)
+        this.input.keyboard.on('keydown-SPACE', () => {
+            if (!player.active) {
+                this.time.delayedCall(1000, () => {
+                    // Reinicia o jogo (resetando stats e a cena)
+                    xp = 0;
+                    level = 1;
+                    score = 0;
+                    currentWave = 0;
+                    playerStats = { // Resetar stats para o inicial ou carregado
+                        health: 100,
+                        maxHealth: 100,
+                        speed: 250, // Velocidade padrão
+                        bulletDamage: 10,
+                        fireRate: 500,
+                        bulletSpeedBoost: 1,
+                        bulletCountMultiplier: 1,
+                        bulletPiercing: false,
+                        healthRegen: 0,
+                        lootMagnet: false,
+                        critChance: 0,
+                        critDamage: 1.5,
+                        xpBonus: 0,
+                        coins: 0
+                    };
+                    weaponStats = {
+                        nome: "Pistola Automática",
+                        danoBase: 10,
+                        cadenciaBase: 500
+                    };
+                    killStreak = 0;
+                    this.scene.restart();
+                });
+            }
+        });
+
+        // Inicia as ondas de inimigos
+        this.startWave();
+
+        // Timer para regeneração de vida
+        this.time.addEvent({
+            delay: 1000, // A cada 1 segundo
+            callback: () => {
+                if (playerStats.healthRegen > 0 && player.health < player.maxHealth) {
+                    player.health = Math.min(player.health + playerStats.healthRegen, player.maxHealth);
+                    this.updateHud();
                 }
-            });
-            scene.hud.displayTemporaryEffect("Visão Térmica Ativada!", 2);
+            },
+            loop: true
+        });
+
+        // Botão para abrir a loja
+        const shopButton = this.add.text(this.game.config.width - 150, 50, 'Loja', {
+            fontSize: '28px',
+            fill: '#FF0',
+            backgroundColor: '#6A0DAD', // Cor roxa
+            padding: { x: 15, y: 8 }
+        }).setOrigin(0.5).setInteractive();
+
+        shopButton.on('pointerdown', () => {
+            this.scene.pause('GameScene'); // Pausa a cena do jogo
+            this.scene.start('ShopScene'); // Inicia a cena da loja
+        });
+    }
+
+    updateHud() {
+        playerHealthText.setText(`Vida: ${player.health}/${player.maxHealth}`);
+        playerXPText.setText(`XP: ${xp}/${level * 100}`);
+        playerLevelText.setText(`Nível: ${level}`);
+        // Atualiza a exibição de moedas na HUD
+        hudGroup.getByName('coinText').setText(`Moedas: ${playerStats.coins}`);
+    }
+
+    createHud() {
+        hudGroup = this.add.group();
+
+        playerHealthText = this.add.text(10, 10, `Vida: ${playerStats.health}/${playerStats.maxHealth}`, { fontSize: '24px', fill: '#FFF' });
+        playerXPText = this.add.text(10, 40, `XP: ${xp}/${level * 100}`, { fontSize: '24px', fill: '#FFF' });
+        playerLevelText = this.add.text(10, 70, `Nível: ${level}`, { fontSize: '24px', fill: '#FFF' });
+        weaponNameText = this.add.text(this.game.config.width - 250, 10, `Arma: ${weaponStats.nome}`, { fontSize: '24px', fill: '#FFF' }).setOrigin(1, 0);
+        // Exibição de moedas
+        const coinText = this.add.text(10, 100, `Moedas: ${playerStats.coins}`, { fontSize: '24px', fill: '#FFD700' }).setName('coinText');
+
+
+        // Adicione todos os elementos da HUD ao grupo
+        hudGroup.add(playerHealthText);
+        hudGroup.add(playerXPText);
+        hudGroup.add(playerLevelText);
+        hudGroup.add(weaponNameText);
+        hudGroup.add(coinText);
+
+        // Barra de XP (opcional, para visual)
+        let xpBarBackground = this.add.graphics();
+        xpBarBackground.fillStyle(0x555555, 1);
+        xpBarBackground.fillRect(10, 130, 200, 10);
+        this.xpBar = this.add.graphics();
+        this.xpBar.fillStyle(0x00FF00, 1);
+        this.xpBar.fillRect(10, 130, (xp / (level * 100)) * 200, 10);
+
+        hudGroup.add(xpBarBackground);
+        hudGroup.add(this.xpBar);
+    }
+
+    update(time, delta) {
+        if (!player.active) {
+            return;
         }
-    },
-    {
-        nome: "Módulo de Salto Modificado",
-        descricao: "Dispositivo improvisado que permite saltos dimensionais curtos, confundindo os sistemas de rastreamento inimigos. (Ativável: Teleporte aleatório)",
-        tipo: "ativável",
-        textura: 'item_jump_module',
-        preco: 60,
-        efeito: (scene) => {
-            const currentX = player.x;
-            const currentY = player.y;
-            const teleX = Phaser.Math.Between(100, config.width - 100);
-            const teleY = Phaser.Math.Between(100, config.height - 100);
-            player.setPosition(teleX, teleY);
-            scene.hud.displayTemporaryEffect("Teleporte!", 1);
-            const particles = scene.add.particles('bullet');
-            particles.createEmitter({
-                x: currentX, y: currentY,
-                lifespan: 500,
-                speed: { min: 100, max: 200 },
-                scale: { start: 0.1, end: 0 },
-                quantity: 10,
-                tint: 0x00FF00
-            });
-            particles.createEmitter({
-                x: teleX, y: teleY,
-                lifespan: 500,
-                speed: { min: 100, max: 200 },
-                scale: { start: 0.1, end: 0 },
-                quantity: 10,
-                tint: 0x00FF00
-            });
+
+        // Movimento do jogador
+        player.setVelocity(0);
+        if (cursors.left.isDown) {
+            player.setVelocityX(-playerStats.speed);
+        } else if (cursors.right.isDown) {
+            player.setVelocityX(playerStats.speed);
         }
-    },
-    {
-        nome: "Cadeia de Choque Reciclada",
-        descricao: "Fios desencapados e eletricidade estática que pulsam em seu rastro, eletrificando o ar. (+Dano por toque)",
-        tipo: "passivo",
-        textura: 'item_chain',
-        preco: 40,
-        efeito: (scene) => {
-            playerStats.touchDamage = (playerStats.touchDamage || 0) + 0.5;
-            scene.hud.displayTemporaryEffect("Cadeia de Choque Ativa!", 2);
+        if (cursors.up.isDown) {
+            player.setVelocityY(-playerStats.speed);
+        } else if (cursors.down.isDown) {
+            player.setVelocityY(playerStats.speed);
         }
-    },
-    {
-        nome: "Respirador de Ar Envenenado",
-        descricao: "Um filtro rudimentar que purifica o ar tóxico, transformando-o em um néctar revigorante. (Regeneração passiva de HP)",
-        tipo: "passivo",
-        textura: 'item_mask',
-        preco: 90,
-        efeito: (scene) => {
-            if (!playerStats.passiveRegenActive) {
-                playerStats.passiveRegenActive = true;
-                scene.time.addEvent({
-                    delay: 5000,
-                    loop: true,
-                    callback: () => {
-                        if (playerStats.life < playerStats.maxLife) {
-                            playerStats.life = Math.min(playerStats.life + 0.25, playerStats.maxLife);
-                            scene.hud.updateHealthBar();
-                        }
+
+        player.body.velocity.normalize().scale(playerStats.speed);
+
+        // Tiro do jogador
+        if (time > lastShoot + playerStats.fireRate) {
+            this.shootRadial();
+            lastShoot = time;
+        }
+
+        // Movimento dos inimigos
+        enemies.children.each(function(enemy) {
+            if (enemy.active) {
+                this.physics.moveToObject(enemy, player, enemy.speed);
+
+                // Inimigos atiram (exemplo: a cada 9 segundos)
+                if (enemy.lastShot === undefined) {
+                    enemy.lastShot = time;
+                }
+                if (time > enemy.lastShot + 9000) {
+                    this.enemyShoot(enemy);
+                    enemy.lastShot = time;
+                }
+            }
+        }, this);
+
+        // Atualizar barra de XP
+        this.xpBar.clear();
+        this.xpBar.fillStyle(0x00FF00, 1);
+        this.xpBar.fillRect(10, 130, (xp / (level * 100)) * 200, 10);
+    }
+
+    shootRadial() {
+        const bulletCount = playerStats.bulletCountMultiplier;
+        const angleStep = 360 / bulletCount; // Para bullets radiais
+        const startAngle = (bulletCount % 2 === 0) ? -angleStep / 2 : 0; // Ajuste para par/ímpar
+
+        for (let i = 0; i < bulletCount; i++) {
+            let angle = Phaser.Math.DegToRad(startAngle + i * angleStep);
+            let bullet = bullets.get(player.x, player.y, 'bullet');
+
+            if (bullet) {
+                bullet.setActive(true).setVisible(true);
+                bullet.setRotation(angle); // Rotaciona a bala na direção do tiro
+                this.physics.velocityFromRotation(angle, 500 * playerStats.bulletSpeedBoost, bullet.body.velocity);
+                bullet.damage = playerStats.bulletDamage * playerStats.bulletCountMultiplier; // Dano da bala
+                bullet.piercing = playerStats.bulletPiercing;
+                bullet.critChance = playerStats.critChance;
+                bullet.critDamage = playerStats.critDamage;
+
+                // Destrói a bala após um tempo ou fora dos limites
+                this.time.delayedCall(2000, () => { // Ajuste o tempo de vida da bala
+                    if (bullet.active) {
+                        bullet.destroy();
                     }
                 });
             }
-            scene.hud.displayTemporaryEffect("Regeneração Ativa!", 2);
-        }
-    },
-    {
-        nome: "Reforço de Blindagem de Sucata",
-        descricao: "Placas de metal e polímeros recolhidos das carcaças caídas, adicionando uma camada extra de proteção. (+2 Vida Máxima)",
-        tipo: "passivo",
-        textura: 'item_armor',
-        preco: 80,
-        efeito: (scene) => {
-            playerStats.maxLife += 2;
-            playerStats.life = Math.min(playerStats.life + 2, playerStats.maxLife);
-            scene.hud.updateHealthBar();
-            const armaduraReforcadaCard = playerCards.find(c => c.nome === 'Armadura Reforçada');
-            if (armaduraReforcadaCard) {
-                playerStats.maxLife += 2;
-                playerStats.life = Math.min(playerStats.life + 2, playerStats.maxLife);
-                scene.hud.displayTemporaryEffect("Sinergia: Blindagem + Armadura!", 2);
-            }
-        }
-    },
-    {
-        nome: "Circuito de Overclock Pessoal",
-        descricao: "Um chip pirata que força seus sistemas ao limite, mas a um custo. (Ativável: +Fire Rate, -Velocidade por tempo limitado)",
-        tipo: "ativável",
-        textura: 'item_overclock',
-        preco: 100,
-        efeito: (scene) => {
-            const originalFireRate = playerStats.fireRate;
-            const originalSpeed = playerStats.playerSpeed;
-
-            playerStats.fireRate = Math.max(50, playerStats.fireRate * 0.2);
-            playerStats.playerSpeed = 0;
-            scene.hud.displayTemporaryEffect("Overclock Ativado!", 2);
-            scene.time.delayedCall(3000, () => {
-                playerStats.fireRate = originalFireRate;
-                playerStats.playerSpeed = originalSpeed;
-                scene.hud.displayTemporaryEffect("Overclock Desativado.", 1);
-            });
-        }
-    },
-    {
-        nome: "Dispositivo de Pulso Eletromagnético (DPE)",
-        descricao: "Um aparelho improvisado capaz de liberar uma onda de energia que atordoa sistemas eletrônicos. (Ativável: Atordoa inimigos e destrói balas inimigas)",
-        tipo: "ativável",
-        textura: 'item_emp',
-        preco: 120,
-        efeito: (scene) => {
-            enemies.getChildren().forEach(enemy => {
-                if (enemy.active) {
-                    enemy.body.setVelocity(0,0);
-                    enemy.setTint(0x0000ff);
-                    scene.time.delayedCall(2000, () => enemy.clearTint());
-                }
-            });
-            enemyBullets.clear(true, true);
-            scene.hud.displayTemporaryEffect("DPE Ativado!", 2);
-        }
-    },
-    {
-        nome: "Armadura Camuflada Sintética",
-        descricao: "Tecidos reativos e circuitos furtivos que distorcem sua silhueta no espectro inimigo. (+10% Chance de Evasão)",
-        tipo: "passivo",
-        textura: 'item_camouflage',
-        preco: 70,
-        efeito: (scene) => {
-            playerStats.evasionChance = (playerStats.evasionChance || 0) + 0.10;
-            const sombraCard = playerCards.find(c => c.nome === 'Sombra do Andarilho Fantasma');
-            if (sombraCard) {
-                playerStats.evasionChance += 0.20;
-                scene.hud.displayTemporaryEffect("Sinergia: Camuflagem + Sombra!", 2);
-            }
-            scene.hud.displayTemporaryEffect("Camuflagem Ativa!", 2);
-        }
-    },
-    {
-        nome: "Bateria de Nêutrons Reciclada",
-        descricao: "Um acumulador de energia instável, mas poderoso, retirado de um protótipo obsoleto. (+Alcance e Velocidade de Bala)",
-        tipo: "passivo",
-        textura: 'item_battery',
-        preco: 65,
-        efeito: (scene) => {
-            playerStats.bulletSpeedBoost = true;
-            playerStats.bulletRange = (playerStats.bulletRange || 1) + 0.5;
-            scene.hud.displayTemporaryEffect("Balas Turbo!", 2);
-        }
-    },
-    {
-        nome: "Drone Sentinela 'Pivete'",
-        descricao: "Um pequeno autômato adaptado, programado para defender seu mestre com lealdade inabalável. (Drone auxiliar)",
-        tipo: "passivo",
-        textura: 'item_drone',
-        preco: 150,
-        efeito: (scene) => {
-            if (!playerStats.droneActive) {
-                playerStats.droneActive = true;
-                const drone = scene.physics.add.sprite(player.x + 30, player.y + 30, 'enemy').setScale(0.03).setTint(0x00FF00);
-                scene.time.addEvent({
-                    delay: 1000,
-                    loop: true,
-                    callback: () => {
-                        if (!playerStats.droneActive || !drone || !drone.active) return;
-                        const closestEnemy = enemies.getChildren().reduce((closest, enemy) => {
-                            if (!enemy.active) return closest;
-                            const dist = Phaser.Math.Distance.Between(drone.x, drone.y, enemy.x, enemy.y);
-                            if (dist < closest.distance) {
-                                return { enemy: enemy, distance: dist };
-                            }
-                            return closest;
-                        }, { enemy: null, distance: Infinity });
-
-                        if (closestEnemy.enemy) {
-                            const bullet = bullets.create(drone.x, drone.y, 'bullet').setScale(0.015).setTint(0x00FF00);
-                            const angle = Phaser.Math.Angle.Between(drone.x, drone.y, closestEnemy.enemy.x, closestEnemy.enemy.y);
-                            scene.physics.velocityFromRotation(angle, 400, bullet.body.velocity);
-                        }
-                    }
-                });
-            }
-            scene.hud.displayTemporaryEffect("Drone Ativo!", 2);
-        }
-    },
-    {
-        nome: "Capacitor de Feedback",
-        descricao: "Um componente que absorve e redireciona o dano, devolvendo-o ao remetente. (+Chance de refletir dano)",
-        tipo: "passivo",
-        textura: 'item_capacitor',
-        preco: 95,
-        efeito: (scene) => {
-            playerStats.reflectDamage = (playerStats.reflectDamage || 0) + 0.5;
-            scene.hud.displayTemporaryEffect("Capacitor Ativo!", 2);
-            const mirrorCard = playerCards.find(c => c.nome === 'Espelho de Plasma');
-            if (mirrorCard) {
-                playerStats.reflectDamage += 0.3;
-                scene.hud.displayTemporaryEffect("Sinergia: Capacitor + Espelho!", 2);
-            }
-        }
-    },
-    {
-        nome: "Módulos de Refrigeração Turbinados",
-        descricao: "Ventoinhas e dissipadores de calor de alta performance, permitindo que seus sistemas operem mais rápido. (+Velocidade de Ataque)",
-        tipo: "passivo",
-        textura: 'item_coolers',
-        preco: 70,
-        efeito: (scene) => {
-            playerStats.fireRate = Math.max(100, playerStats.fireRate * 0.95);
-            scene.hud.displayTemporaryEffect("Refrigeração Ativa!", 2);
-        }
-    },
-    {
-        nome: "Transdutor de Matéria Orgânica",
-        descricao: "Um dispositivo bizarro que converte a biomassa inimiga em recursos vitais. (+Lifesteal ao matar inimigos)",
-        tipo: "passivo",
-        textura: 'item_transducer',
-        preco: 110,
-        efeito: (scene) => {
-            playerStats.lifestealOnKill = (playerStats.lifestealOnKill || 0) + 0.1;
-            scene.hud.displayTemporaryEffect("Transdutor Ativo!", 2);
-            const vampiricCard = playerCards.find(c => c.nome === 'Toque Vampírico');
-            if (vampiricCard) {
-                playerStats.lifestealOnKill += 0.1;
-                scene.hud.displayTemporaryEffect("Sinergia: Transdutor + Vampírico!", 2);
-            }
-        }
-    },
-    {
-        nome: "Pino de Granada de Sucata",
-        descricao: "Um pino enferrujado de granada, que pode ser o que resta de um explosivo bem maior. (Ativável: Lança uma granada)",
-        tipo: "ativável",
-        textura: 'item_grenade_pin', // New texture needed
-        preco: 50,
-        efeito: (scene) => {
-            // Create a small explosion
-            const explosion = scene.add.circle(player.x, player.y, 10, 0xFF5733, 0.7);
-            scene.tweens.add({
-                targets: explosion,
-                radius: 150, // Max explosion radius
-                alpha: 0,
-                ease: 'Sine.easeOut',
-                duration: 300,
-                onComplete: () => {
-                    explosion.destroy();
-                }
-            });
-
-            enemies.getChildren().forEach(enemy => {
-                const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
-                if (dist < 150) { // Radius of explosion
-                    enemy.health -= 15; // Fixed damage
-                    if (enemy.health <= 0) {
-                        enemy.destroy();
-                        gainXp.call(scene, enemy.xpReward);
-                        dropItem.call(scene, enemy.x, enemy.y);
-                    }
-                }
-            });
-            scene.hud.displayTemporaryEffect("BOOM!", 2);
         }
     }
-];
 
-const cardOptions = [
-    // Existing cards (assuming they are defined elsewhere in the original code or will be defined for the shop)
-    // For now, I'll add a few examples. In a real game, this list would be extensive.
-    {
-        nome: "Blindagem Leve",
-        descricao: "Aumenta um pouco sua vida máxima.",
-        cor: 0x6a0dad, // Purple
-        efeito: (scene) => {
-            playerStats.maxLife += 1;
-            playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
-            scene.hud.updateHealthBar();
-        },
-        sellPrice: 10
-    },
-    {
-        nome: "Frenesi Cibernético",
-        descricao: "Aumenta drasticamente sua velocidade de tiro por um curto período.",
-        cor: 0xffa500, // Orange
-        efeito: (scene) => {
-            const originalFireRate = playerStats.fireRate;
-            playerStats.fireRate = Math.max(50, playerStats.fireRate * 0.5);
-            scene.time.delayedCall(3000, () => {
-                playerStats.fireRate = originalFireRate;
-            });
-        },
-        sellPrice: 15
-    },
-    {
-        nome: "Regeneração Rápida",
-        descricao: "Ganha um pouco de vida a cada inimigo derrotado.",
-        cor: 0x00ff00, // Green
-        efeito: (scene) => {
-            playerStats.healOnKill = true;
-        },
-        sellPrice: 20
-    },
-    {
-        nome: "Espinhos de Sucata",
-        descricao: "Inimigos próximos recebem dano ao acertar você.",
-        cor: 0x8b4513, // SaddleBrown
-        efeito: (scene) => {
-            playerStats.thorns = true;
-        },
-        sellPrice: 12
-    },
-    {
-        nome: "Vida Fantasma", // Example synergy card
-        descricao: "Seu corpo se adapta a perder vida, negando a penalidade de vida máxima de itens que a diminuem.",
-        cor: 0x00FFFF, // Cyan
-        efeito: (scene) => {
-            // The synergy effect is applied when "Núcleo de Cristal Corrompido" is picked up.
-            // This card itself doesn't have an immediate stat effect.
-        },
-        sellPrice: 25
-    },
-    {
-        nome: "Armadura Reforçada", // Example synergy card
-        descricao: "Aumenta ainda mais a eficácia da Blindagem de Sucata.",
-        cor: 0x9400D3, // DarkViolet
-        efeito: (scene) => {
-            // Synergy handled in Reforço de Blindagem de Sucata item.
-        },
-        sellPrice: 25
-    },
-    {
-        nome: "Sombra do Andarilho Fantasma", // Example synergy card
-        descricao: "Aumenta sua chance de evasão quando combinado com armaduras de camuflagem.",
-        cor: 0x4B0082, // Indigo
-        efeito: (scene) => {
-            // Synergy handled in Armadura Camuflada Sintética item.
-        },
-        sellPrice: 25
-    },
-    {
-        nome: "Espelho de Plasma", // Example synergy card
-        descricao: "Melhora a reflexão de dano do Capacitor de Feedback.",
-        cor: 0xFFD700, // Gold
-        efeito: (scene) => {
-            // Synergy handled in Capacitor de Feedback item.
-        },
-        sellPrice: 25
-    },
-    {
-        nome: "Toque Vampírico", // Example synergy card
-        descricao: "Aumenta a cura ao matar inimigos de Transdutor de Matéria Orgânica.",
-        cor: 0x8B0000, // DarkRed
-        efeito: (scene) => {
-            // Synergy handled in Transdutor de Matéria Orgânica item.
-        },
-        sellPrice: 25
+    hitEnemy(bullet, enemy) {
+        if (!enemy.active || !bullet.active) return; // Evita hits duplos ou em objetos inativos
+
+        let finalDamage = bullet.damage;
+        let isCrit = false;
+        if (Math.random() * 100 < bullet.critChance) {
+            finalDamage *= bullet.critDamage;
+            isCrit = true;
+        }
+
+        enemy.health -= finalDamage;
+        createFloatingText(this, enemy.x, enemy.y - 20, Math.round(finalDamage).toString(), isCrit ? '#FF0000' : '#FFFFFF');
+
+        if (!bullet.piercing) {
+            bullet.destroy(); // Destrói a bala se não for perfurante
+        }
+
+        if (enemy.health <= 0) {
+            this.killEnemy(enemy);
+        }
     }
-];
 
+    takeDamage(player, bullet) {
+        if (!player.active) return;
+        bullet.destroy(); // Destrói a bala inimiga ao atingir o jogador
+        player.health -= 10; // Dano fixo de bala inimiga
+        this.updateHud();
+        createFloatingText(this, player.x, player.y, '-10', '#FF0000');
 
-// --- UTILITY FUNCTIONS (Global access or passed as parameters) ---
+        if (player.health <= 0) {
+            this.gameOver();
+        }
+    }
 
-// Function to display temporary effects (e.g., "ITEM COLLECTED!")
+    playerHitByEnemy(player, enemy) {
+        if (!player.active || !enemy.active) return;
+        // Dano contínuo se o jogador estiver sobreposto ao inimigo
+        player.health -= 1; // Pequeno dano de contato
+        this.updateHud();
+        // Evite spam de texto flutuante para dano de contato, ou use um timer
+        // createFloatingText(this, player.x, player.y, '-1', '#FF0000');
+
+        if (player.health <= 0) {
+            this.gameOver();
+        }
+    }
+
+    killEnemy(enemy) {
+        createFloatingText(this, enemy.x, enemy.y, `+${enemy.xpReward} XP`, '#00FF00');
+        xp += enemy.xpReward + (enemy.xpReward * playerStats.xpBonus);
+        score += 10; // Adiciona pontos
+        enemy.destroy(); // Destroi o inimigo
+        waveEnemiesRemaining--;
+
+        // Chance de dropar item
+        this.dropItem(enemy.x, enemy.y);
+
+        if (xp >= level * 100) {
+            this.levelUp();
+        }
+
+        this.updateHud();
+        this.checkWaveCompletion();
+        this.increaseKillStreak();
+    }
+
+    enemyShoot(enemy) {
+        if (!player.active) return;
+        let enemyBullet = enemyBullets.get(enemy.x, enemy.y, 'bullet');
+        if (enemyBullet) {
+            enemyBullet.setActive(true).setVisible(true);
+            this.physics.moveToObject(enemyBullet, player, 200); // Velocidade da bala inimiga
+            this.time.delayedCall(3000, () => { // Destroi bala inimiga após 3 segundos
+                if (enemyBullet.active) {
+                    enemyBullet.destroy();
+                }
+            });
+        }
+    }
+
+    levelUp() {
+        level++;
+        xp = 0; // Reseta XP para o próximo nível
+        playerStats.maxHealth += 10; // Aumenta vida máxima no level up
+        player.health = playerStats.maxHealth; // Cura completamente
+        playerStats.bulletDamage += 2; // Aumenta dano
+        playerStats.fireRate = Math.max(100, playerStats.fireRate - 20); // Aumenta cadência, mínimo de 100ms
+        playerStats.speed += 5; // Pequeno aumento de velocidade no level up
+        playerStats.bulletSpeedBoost += 0.05;
+
+        displayTemporaryEffect(this, `Nível ${level}!`, '#00FFFF');
+        this.updateHud();
+    }
+
+    gameOver() {
+        player.setActive(false).setVisible(false);
+        this.physics.pause();
+        this.add.text(this.game.config.width / 2, this.game.config.height / 2, 'GAME OVER', {
+            fontSize: '64px',
+            fill: '#F00'
+        }).setOrigin(0.5);
+        this.add.text(this.game.config.width / 2, this.game.config.height / 2 + 60, 'Pressione ESPAÇO para reiniciar', {
+            fontSize: '24px',
+            fill: '#FFF'
+        }).setOrigin(0.5);
+    }
+
+    startWave() {
+        currentWave++;
+        if (currentWave > waveConfig.length) {
+            // Fim das ondas, talvez um chefe final ou reiniciar as ondas
+            displayTemporaryEffect(this, 'Todas as ondas completas!', '#FFD700');
+            this.physics.pause();
+            return;
+        }
+
+        let waveInfo = waveConfig[currentWave - 1];
+        waveEnemiesRemaining = waveInfo.count; // Define o número de inimigos para esta onda
+
+        displayTemporaryEffect(this, `Onda ${currentWave} - ${waveInfo.type.toUpperCase()}!`, '#00FF00');
+
+        for (let i = 0; i < waveInfo.count; i++) {
+            this.time.delayedCall(i * 500, () => { // Espaçamento entre os spawns
+                let x = Phaser.Math.Between(50, this.game.config.width - 50);
+                let y = Phaser.Math.Between(50, this.game.config.height - 50);
+
+                // Evita spawn em cima do jogador (melhorar lógica)
+                while (Phaser.Math.Distance.Between(x, y, player.x, player.y) < 200) {
+                    x = Phaser.Math.Between(50, this.game.config.width - 50);
+                    y = Phaser.Math.Between(50, this.game.config.height - 50);
+                }
+
+                this.spawnEnemy(x, y, waveInfo);
+            }, [], this);
+        }
+
+        // Timer para a próxima onda começar automaticamente
+        if (waveTimer) waveTimer.remove();
+        waveTimer = this.time.delayedCall(waveInterval, this.startWave, [], this);
+    }
+
+    spawnEnemy(x, y, waveInfo) {
+        let enemyTypeData = enemyTypes[waveInfo.type];
+        if (!enemyTypeData) {
+            console.warn(`Tipo de inimigo desconhecido: ${waveInfo.type}`);
+            return;
+        }
+
+        let enemy = enemies.get(x, y, enemyTypeData.texture);
+        if (enemy) {
+            enemy.setActive(true).setVisible(true);
+            enemy.setTint(0xff0000); // Inimigos vermelhos para destacar
+            enemy.setScale(enemyTypeData.scale);
+            enemy.health = waveInfo.health || enemyTypeData.baseHealth;
+            enemy.maxHealth = waveInfo.health || enemyTypeData.baseHealth; // Novo: maxHealth para inimigos
+            enemy.speed = waveInfo.speed || enemyTypeData.speed;
+            enemy.xpReward = waveInfo.xp || enemyTypeData.xpReward;
+            enemy.setCollideWorldBounds(true);
+        }
+    }
+
+    checkWaveCompletion() {
+        if (waveEnemiesRemaining <= 0) {
+            displayTemporaryEffect(this, `Onda ${currentWave} Concluída!`, '#00FF00');
+            if (waveTimer) waveTimer.remove(); // Para o timer da onda atual
+            this.time.delayedCall(5000, this.startWave, [], this); // Inicia a próxima onda após 5 segundos
+        }
+    }
+
+    dropItem(x, y) {
+        let rand = Math.random();
+        if (rand < 0.20) { // 20% de chance de dropar XP
+            let xpAmount = Math.floor(Phaser.Math.Between(5, 15) * (1 + level * 0.1));
+            this.spawnPickup(x, y, 'pickup_xp', 'xp', xpAmount);
+        } else if (rand < 0.30) { // 10% de chance de dropar vida
+            let healthAmount = Math.floor(Phaser.Math.Between(10, 20) * (1 + level * 0.05));
+            this.spawnPickup(x, y, 'pickup_health', 'health', healthAmount);
+        } else if (rand < 0.45) { // 15% de chance de dropar moeda
+            let coinAmount = Phaser.Math.Between(1, 5);
+            this.spawnPickup(x, y, 'pickup_coin', 'coin', coinAmount);
+        }
+    }
+
+    spawnPickup(x, y, texture, type, value) {
+        let item = itemsGroup.get(x, y, texture);
+        if (item) {
+            item.setActive(true).setVisible(true);
+            item.type = type;
+            item.value = value;
+            item.setCircle(item.width / 2); // Define um corpo de colisão circular
+
+            // Pequeno movimento inicial para espalhar os itens
+            this.physics.moveTo(item, player, 50); // Movimento em direção ao jogador se tiver imã de loot
+            this.time.delayedCall(200, () => {
+                if (item.active) {
+                    item.setVelocity(0); // Para o movimento após um curto período
+                }
+            });
+
+            this.time.delayedCall(10000, () => { // Itens desaparecem após 10 segundos
+                if (item.active) {
+                    item.destroy();
+                }
+            });
+        }
+    }
+
+    collectItem(player, item) {
+        if (!item.active) return;
+
+        switch (item.type) {
+            case 'xp':
+                xp += item.value + (item.value * playerStats.xpBonus);
+                createFloatingText(this, item.x, item.y, `+${item.value} XP`, '#00FFFF');
+                if (xp >= level * 100) {
+                    this.levelUp();
+                }
+                break;
+            case 'health':
+                player.health = Math.min(player.health + item.value, player.maxHealth);
+                createFloatingText(this, item.x, item.y, `+${item.value} Vida`, '#00FF00');
+                break;
+            case 'coin':
+                playerStats.coins += item.value;
+                createFloatingText(this, item.x, item.y, `+${item.value} Moedas`, '#FFD700');
+                break;
+        }
+        item.destroy(); // Destrói o item após coletar
+        this.updateHud();
+    }
+
+    increaseKillStreak() {
+        killStreak++;
+        if (killStreakTimer) {
+            killStreakTimer.remove(false); // Reseta o timer
+        }
+        killStreakTimer = this.time.delayedCall(5000, this.endKillStreak, [], this); // 5 segundos para manter o streak
+
+        if (killStreak % 5 === 0) { // A cada 5 kills
+            displayTemporaryEffect(this, `${killStreak} Kills!`, '#FF8C00'); // Laranja escuro
+
+            if (killStreak % 10 === 0) { // A cada 10 kills
+                // Ativa um efeito de frenesi
+                this.startFrenzy();
+            }
+        }
+    }
+
+    startFrenzy() {
+        displayTemporaryEffect(this, 'FRENESI ATIVADO!', '#FF00FF'); // Magenta
+        player.setTint(0xFF00FF); // Muda a cor do jogador para indicar frenesi
+        playerStats.fireRate /= 2; // Dobra a cadência de tiro
+        playerStats.bulletDamage *= 1.2; // Aumenta o dano
+        playerStats.speed *= 1.1; // Aumenta a velocidade
+        // Duração do frenesi
+        this.time.delayedCall(5000, this.endFrenzy, [], this);
+    }
+
+    endFrenzy() {
+        player.setTint(0xFFFFFF); // Volta à cor original
+        playerStats.fireRate *= 2; // Volta a cadência de tiro
+        playerStats.bulletDamage /= 1.2; // Volta o dano
+        playerStats.speed /= 1.1; // Volta a velocidade
+        displayTemporaryEffect(this, 'Frenesi Encerrado.', '#FFFFFF');
+    }
+
+    endKillStreak() {
+        killStreak = 0; // Reseta o kill streak
+    }
+}
+
+// Funções auxiliares (fora da classe GameScene para serem globais ou passadas)
 function displayTemporaryEffect(scene, text, color = '#FFFFFF') {
     if (temporaryEffectText) {
-        temporaryEffectText.destroy();
+        temporaryEffectText.destroy(); // Remove o texto anterior se ainda estiver ativo
     }
     if (temporaryEffectTimer) {
-        temporaryEffectTimer.remove(false);
+        temporaryEffectTimer.remove(false); // Remove o timer anterior
     }
 
-    temporaryEffectText = scene.add.text(config.width / 2, config.height / 2 - 50, text, {
+    temporaryEffectText = scene.add.text(scene.game.config.width / 2, scene.game.config.height / 2 - 50, text, {
         fontSize: '36px',
         fill: color,
-        align: 'center',
-        fontFamily: 'Press Start 2P',
-        stroke: '#000000',
-        strokeThickness: 6
-    }).setOrigin(0.5).setDepth(100); // Higher depth to be on top
+        align: 'center'
+    }).setOrigin(0.5);
+    temporaryEffectText.setDepth(2); // Acima de tudo
 
     temporaryEffectTimer = scene.time.delayedCall(2000, () => {
         if (temporaryEffectText) {
@@ -574,1233 +712,43 @@ function displayTemporaryEffect(scene, text, color = '#FFFFFF') {
     });
 }
 
-// Function to create floating text (e.g., XP gain)
-function createFloatingText(scene, x, y, text, color = '#FFFFFF', duration = 1000, offsetY = -50) {
+function createFloatingText(scene, x, y, text, color = '#FFFFFF') {
     const floatText = scene.add.text(x, y, text, {
         fontSize: '18px',
         fill: color,
-        align: 'center',
-        fontFamily: 'Press Start 2P',
-        stroke: '#000000',
-        strokeThickness: 4
-    }).setOrigin(0.5).setDepth(2);
+        align: 'center'
+    }).setOrigin(0.5);
+    floatText.setDepth(2);
 
     scene.tweens.add({
         targets: floatText,
-        y: floatText.y + offsetY,
+        y: y - 50,
         alpha: 0,
-        ease: 'Sine.easeOut',
-        duration: duration,
+        duration: 1000,
+        ease: 'Power1',
         onComplete: () => {
             floatText.destroy();
         }
     });
 }
 
-// Function to show level up cards
-function showLevelUpCards(scene) {
-    showingCards = true;
-    scene.physics.pause();
-    enemies.getChildren().forEach(enemy => enemy.body.setVelocity(0)); // Stop enemies
 
-    if (cardsGroup) {
-        cardsGroup.clear(true, true);
-    }
-    cardsGroup = scene.add.group();
+const config = {
+  type: Phaser.AUTO,
+  width: 1380,
+  height: 580,
+  backgroundColor: '#000000',
+  physics: {
+    default: 'arcade',
+    arcade: { debug: false }
+  },
+  // As cenas são definidas como classes
+  scene: [GameScene, ShopScene]
+};
+
+const game = new Phaser.Game(config);
 
-    const availableCards = cardOptions.filter(card => !playerCards.some(pc => pc.nome === card.nome));
-    if (availableCards.length === 0) {
-        displayTemporaryEffect(scene, "Sem novas cartas disponíveis!", '#FFD700');
-        scene.physics.resume();
-        showingCards = false;
-        return;
-    }
-
-    const cardsToShow = Phaser.Utils.Array.Shuffle(availableCards).slice(0, 3);
-    const cardSpacing = 250;
-    const startX = (config.width - (cardsToShow.length - 1) * cardSpacing) / 2;
-    const cardStartY = config.height / 2;
-
-    cardsToShow.forEach((cardData, index) => {
-        const cardX = startX + index * cardSpacing;
-        const cardContainer = scene.add.container(cardX, cardStartY).setDepth(10);
-        cardsGroup.add(cardContainer);
-
-        const cardBg = scene.add.image(0, 0, 'cardBg').setScale(0.3).setTint(cardData.cor || 0x6c757d).setAlpha(0.9);
-        cardBg.setInteractive();
-        cardContainer.add(cardBg);
-
-        const cardName = scene.add.text(0, -50, cardData.nome, {
-            fontSize: '20px',
-            fill: '#ffffff',
-            align: 'center',
-            wordWrap: { width: cardBg.displayWidth - 40 },
-            fontFamily: 'Press Start 2P'
-        }).setOrigin(0.5);
-        cardContainer.add(cardName);
-
-        const cardDesc = scene.add.text(0, 10, cardData.descricao, {
-            fontSize: '10px',
-            fill: '#e0e0e0',
-            align: 'center',
-            wordWrap: { width: cardBg.displayWidth - 40 },
-            fontFamily: 'Press Start 2P'
-        }).setOrigin(0.5, 0);
-        cardContainer.add(cardDesc);
-
-        cardBg.on('pointerover', () => {
-            cardBg.setTint(cardData.cor ? cardData.cor + 0x222222 : 0x888888);
-            scene.tweens.add({
-                targets: cardContainer,
-                scale: 1.05,
-                duration: 100,
-                ease: 'Sine.easeOut'
-            });
-        });
-
-        cardBg.on('pointerout', () => {
-            cardBg.setTint(cardData.cor || 0x6c757d);
-            scene.tweens.add({
-                targets: cardContainer,
-                scale: 1,
-                duration: 100,
-                ease: 'Sine.easeOut'
-            });
-        });
-
-        cardBg.on('pointerdown', () => {
-            applyCardEffect.call(scene, cardData);
-            cardsGroup.children.entries.forEach(child => {
-                child.disableInteractive();
-            });
-            scene.tweens.add({
-                targets: cardsGroup.children.entries,
-                alpha: 0,
-                y: cardStartY - 50,
-                duration: 300,
-                ease: 'Sine.easeIn',
-                onComplete: () => {
-                    cardsGroup.clear(true, true);
-                    scene.physics.resume();
-                    showingCards = false;
-                }
-            });
-        });
-    });
-}
-
-// Function to apply card effects
-function applyCardEffect(card) {
-    console.log(`Applying card effect: ${card.nome}`);
-    playerCards.push(card); // Add card to player's collected cards
-    card.efeito(this); // Apply the card's effect
-    this.hud.updateCardsHUD(); // Update the HUD to show the new card
-    displayTemporaryEffect(this, `${card.nome} Adicionada!`, '#FFD700');
-}
-
-// Function to update the weapon HUD
-function atualizarHUDarma(nomeArma, keyImagem) {
-    const gameScene = game.scene.getScene('GameScene'); // Get the GameScene instance
-    if (gameScene && gameScene.hud) {
-        gameScene.hud.armaNomeText.setText(nomeArma);
-        gameScene.hud.armaImagem.setTexture(keyImagem);
-    }
-}
-
-// Function to spawn weapons (now specific to GameScene)
-function spawnArmas() {
-    const tipos = Object.keys(tiposDeArmas);
-
-    let dropCount = 3;
-    if (playerStats.increasedDropRate && Phaser.Math.Between(0,100) < 50) {
-        dropCount++;
-    }
-
-    for (let i = 0; i < dropCount; i++) {
-        const tipo = Phaser.Utils.Array.GetRandom(tipos);
-        const x = Phaser.Math.Between(100, config.width - 100);
-        const y = Phaser.Math.Between(100, config.height - 100);
-        const arma = this.armas.create(x, y, tipo).setScale(0.02);
-        arma.tipo = tipo;
-    }
-}
-
-// Function to pick up weapon (now specific to GameScene)
-function pegarArma(arma) {
-    const props = tiposDeArmas[arma.tipo];
-
-    playerStats.bulletDamage = props.dano;
-    playerStats.fireRate = props.fireRate;
-
-    arma.destroy();
-
-    atualizarHUDarma(props.nome, arma.tipo);
-
-    createFloatingText(this, player.x, player.y - 30, `Pegou ${props.nome}!`, '#FFD700');
-}
-
-// Function to gain XP and level up
-function gainXp(amount) {
-    playerStats.xp += amount;
-    this.hud.updateXpBar(); // Update the XP bar in the HUD
-
-    if (playerStats.xp >= playerStats.xpToNextLevel) {
-        playerStats.level++;
-        playerStats.xp -= playerStats.xpToNextLevel; // Subtract XP for current level
-        playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5); // Increase XP needed for next level
-
-        createFloatingText(this, player.x, player.y - 80, `LEVEL UP!`, '#00FF00', 1500, -100);
-        displayTemporaryEffect(this, `Nível ${playerStats.level}! Escolha uma carta!`, '#00FFFF');
-        showLevelUpCards(this); // Show cards on level up
-    }
-}
-
-// Function to handle player dashing
-function dashPlayer() {
-    if (playerStats.dashAvailable && !playerStats.dashCooldown) {
-        const dashDistance = 200;
-        let dashX = 0;
-        let dashY = 0;
-
-        // Determine dash direction based on player's current movement or last input
-        if (cursors.left.isDown) dashX = -dashDistance;
-        else if (cursors.right.isDown) dashX = dashDistance;
-        if (cursors.up.isDown) dashY = -dashDistance;
-        else if (cursors.down.isDown) dashY = dashDistance;
-
-        if (dashX === 0 && dashY === 0) { // If no specific direction, dash forward (relative to last movement or facing)
-             // For simplicity, let's just dash towards a fixed direction if no keys are pressed
-             // In a real game, you might track player's last movement direction
-             dashX = dashDistance; // Example: dash right
-        }
-
-
-        // Disable player movement during dash
-        player.body.setVelocity(0, 0);
-
-        this.tweens.add({
-            targets: player,
-            x: player.x + dashX,
-            y: player.y + dashY,
-            duration: 150, // Short dash duration
-            ease: 'Linear',
-            onStart: () => {
-                playerStats.dashCooldown = true;
-                player.setTint(0x00FF00); // Tint player green during dash
-                // Add dash particles
-                this.add.particles('bullet').createEmitter({
-                    x: player.x,
-                    y: player.y,
-                    speed: { min: -100, max: 100 },
-                    scale: { start: 0.1, end: 0 },
-                    lifespan: 200,
-                    blendMode: 'ADD',
-                    quantity: 10,
-                    tint: 0x00FF00
-                });
-            },
-            onComplete: () => {
-                player.clearTint();
-                // Apply dash vulnerability if the card is active
-                if (playerStats.dashVulnerability > 0) {
-                    playerStats.life -= playerStats.dashVulnerability;
-                    this.hud.updateHealthBar();
-                    displayTemporaryEffect(this, `Dano de Dash!`, '#FF0000');
-                    if (playerStats.life <= 0) {
-                        // Handle game over logic
-                    }
-                }
-
-                // Cooldown for dash
-                this.time.delayedCall(1000, () => { // 1 second cooldown for now
-                    playerStats.dashCooldown = false;
-                    displayTemporaryEffect(this, 'Dash Pronto!', '#00FF00');
-                });
-            }
-        });
-    }
-}
-
-// New function to handle enemy spawning (specific to GameScene)
-function spawnEnemy(type, x, y) {
-    const enemyData = enemyTypes[type];
-    if (!enemyData) {
-        console.warn(`Enemy type ${type} not found!`);
-        return null;
-    }
-    const enemy = enemies.create(x, y, enemyData.texture).setScale(enemyData.scale);
-    enemy.setCollideWorldBounds(true);
-    enemy.health = enemyData.baseHealth;
-    enemy.maxHealth = enemyData.baseHealth;
-    enemy.speed = enemyData.speed;
-    enemy.xpReward = enemyData.xpReward;
-    enemy.scrapDropChance = enemyData.scrapDropChance;
-    enemy.scrapAmount = enemyData.scrapAmount;
-    enemy.type = type; // Store enemy type for reference
-    return enemy;
-}
-
-// New function for wave spawning
-function spawnWave() {
-    displayTemporaryEffect(this, `Onda ${wave}!`, '#FFFF00');
-    let totalEnemies = wave * 5; // More enemies per wave
-    let currentSpawned = 0;
-
-    const spawnDelay = 500; // Delay between spawning each enemy
-    const spawnTimer = this.time.addEvent({
-        delay: spawnDelay,
-        repeat: totalEnemies - 1,
-        callback: () => {
-            let enemyTypeToSpawn = 'normal';
-            if (wave % 5 === 0 && currentSpawned === Math.floor(totalEnemies / 2)) { // Spawn boss in the middle of every 5th wave
-                enemyTypeToSpawn = 'boss';
-            } else if (Phaser.Math.Between(0, 100) < (wave * 2)) { // Increased chance for fast/tank enemies
-                enemyTypeToSpawn = Phaser.Math.Between(0, 1) === 0 ? 'fast' : 'tank';
-            }
-
-            const x = Phaser.Math.Between(50, config.width - 50);
-            const y = Phaser.Math.Between(50, config.height - 50);
-            spawnEnemy.call(this, enemyTypeToSpawn, x, y);
-            currentSpawned++;
-
-            if (currentSpawned >= totalEnemies) {
-                spawnTimer.destroy(); // Stop spawning when all enemies for the wave are out
-            }
-        },
-        callbackScope: this
-    });
-
-    // Check for end of wave after all enemies are spawned and destroyed
-    this.time.addEvent({
-        delay: 1000, // Check every second
-        loop: true,
-        callback: () => {
-            if (!showingCards && enemies.countActive(true) === 0 && currentSpawned >= totalEnemies) {
-                wave++;
-                this.time.delayedCall(3000, () => { // Short delay before next wave
-                    spawnWave.call(this);
-                    spawnArmas.call(this);
-                });
-                // Open shop every 3 waves for now
-                if (wave % 3 === 0) {
-                    this.scene.pause('GameScene');
-                    this.scene.launch('ShopScene');
-                }
-            }
-        },
-        callbackScope: this
-    });
-}
-
-// New function to drop items
-function dropItem(x, y) {
-    if (Phaser.Math.Between(0, 100) < (20 + (playerStats.increasedDropRate ? 10 : 0))) {
-        const item = Phaser.Utils.Array.GetRandom(itemOptions);
-        if (item) {
-            const droppedItem = itemsGroup.create(x, y, item.textura || 'item_default').setScale(0.05);
-            droppedItem.itemName = item.nome;
-            droppedItem.itemType = item.tipo;
-            droppedItem.itemEffect = item.efeito;
-            droppedItem.itemDesc = item.descricao;
-
-            this.tweens.add({ // Add a subtle hover effect
-                targets: droppedItem,
-                y: droppedItem.y - 10,
-                duration: 800,
-                yoyo: true,
-                repeat: -1,
-                ease: 'Sine.easeInOut'
-            });
-
-            this.time.delayedCall(10000, () => {
-                if (droppedItem.active) droppedItem.destroy();
-            });
-        }
-    }
-}
-
-// New function to drop scrap
-function dropScrap(x, y, amount) {
-    if (amount > 0) {
-        const scrapCollectible = this.physics.add.sprite(x, y, 'scrap').setScale(0.03); // 'scrap' texture needed
-        scrapCollectible.value = amount;
-        this.physics.add.overlap(player, scrapCollectible, (player, scrap) => {
-            playerStats.scrap += scrap.value;
-            createFloatingText(this, scrap.x, scrap.y, `+${scrap.value} Scrap!`, '#FFFF00', 800, -20);
-            scrap.destroy();
-            this.hud.updateScrapDisplay();
-        });
-
-        // Add a slight upward float and fade effect
-        this.tweens.add({
-            targets: scrapCollectible,
-            y: scrapCollectible.y - 30,
-            alpha: 0.5,
-            duration: 2000,
-            ease: 'Sine.easeOut',
-            onComplete: () => {
-                if (scrapCollectible.active) scrapCollectible.destroy();
-            }
-        });
-    }
-}
-
-// New function to collect items
-function collectItem(item) {
-    displayTemporaryEffect(this, `Coletou: ${item.itemName}`, '#FFD700');
-    item.itemEffect(this);
-
-    if (item.itemType === "passivo") {
-        const existingItem = playerInventory.passiveItems.find(i => i.nome === item.itemName);
-        if (existingItem) {
-            existingItem.count++;
-        } else {
-            playerInventory.passiveItems.push({ nome: item.itemName, count: 1, desc: item.itemDesc, type: item.itemType });
-        }
-    } else if (item.itemType === "ativável") {
-        if (playerInventory.activableItems[item.itemName]) {
-            playerInventory.activableItems[item.itemName].count++;
-        }
-    }
-    this.hud.updateInventoryDisplay();
-    item.destroy();
-}
-
-// HUD Class (Remains mostly the same, but added scrap and inventory)
-class HUD extends Phaser.Scene {
-    constructor(scene, player) {
-        super({ key: 'HUD' });
-        this.gameScene = scene;
-        this.player = player;
-        this.healthHearts = [];
-        this.activeEffectsText = null;
-        this.inventoryDisplay = null; // For displaying items
-    }
-
-    create() {
-        // ... (Existing HUD creation logic) ...
-        this.scrapText = this.gameScene.add.text(config.width - 20, 50, `Scrap: ${playerStats.scrap}`, {
-            fontSize: '18px',
-            fill: '#ADD8E6', // Light blue for scrap
-            align: 'right',
-            fontFamily: 'Press Start 2P',
-            stroke: '#000000',
-            strokeThickness: 4
-        }).setOrigin(1, 0);
-
-        this.xpBarBackground = this.gameScene.add.graphics();
-        this.xpBarFill = this.gameScene.add.graphics();
-        this.updateXpBar();
-
-        this.inventoryTitle = this.gameScene.add.text(20, config.height - 180, 'Inventário:', {
-            fontSize: '16px',
-            fill: '#FFFFFF',
-            fontFamily: 'Press Start 2P',
-            stroke: '#000000',
-            strokeThickness: 3
-        }).setOrigin(0, 0);
-
-        this.inventoryDisplay = this.gameScene.add.text(20, config.height - 150, '', {
-            fontSize: '12px',
-            fill: '#ADD8E6',
-            fontFamily: 'Press Start 2P'
-        }).setOrigin(0, 0);
-
-        this.cardsHUDTitle = this.gameScene.add.text(20, config.height - 80, 'Cartas:', {
-            fontSize: '16px',
-            fill: '#FFFFFF',
-            fontFamily: 'Press Start 2P',
-            stroke: '#000000',
-            strokeThickness: 3
-        }).setOrigin(0, 0);
-
-        cardsHUDGroup = this.gameScene.add.group(); // Initialize cardsHUDGroup here
-        this.updateCardsHUD(); // Call once to initialize
-
-        this.updateHealthBar();
-        this.updateScrapDisplay();
-        this.updateInventoryDisplay();
-        this.updateActiveEffects();
-
-        // Weapon HUD elements (moved from GameScene create)
-        this.armaNomeText = this.gameScene.add.text(config.width / 2, 20, 'Pistolinha', {
-            fontFamily: 'Press Start 2P',
-            fontSize: '18px',
-            color: '#A62E2E',
-            stroke: '#000000',
-            strokeThickness: 4,
-            shadow: { offsetX: 2, offsetY: 2, color: '#000', blur: 4, stroke: true, fill: true }
-        }).setOrigin(0.5, 0);
-
-        const box = this.gameScene.add.rectangle(config.width / 2, 40, 300, 70, 0x111111, 0.3).setOrigin(0.5, 0);
-        box.setStrokeStyle(2, 0x00ffff, 0.1);
-
-        this.armaImagem = this.gameScene.add.image(config.width / 2, 70, 'arma1').setScale(0.1);
-
-        this.gameScene.hudGroup = this.gameScene.add.group([box, this.armaNomeText, this.armaImagem]); // Add to a group for management
-
-        this.waveText = this.gameScene.add.text(config.width - 20, 20, `Fase ${wave}`, {
-            fontFamily: 'Press Start 2P',
-            fontSize: '24px',
-            color: '#FFFFFF',
-            stroke: '#000000',
-            strokeThickness: 4
-        }).setOrigin(1, 0);
-    }
-
-    update() {
-        // Update wave text dynamically
-        this.waveText.setText(`Fase ${wave}`);
-        this.updateScrapDisplay();
-    }
-
-    updateHealthBar() {
-        // Clear existing hearts
-        this.healthHearts.forEach(heart => heart.destroy());
-        this.healthHearts = [];
-
-        const heartSpacing = 30;
-        const heartStartX = 20;
-        const heartY = 20;
-
-        for (let i = 0; i < playerStats.maxLife; i++) {
-            let heartTexture = 'cora_empty'; // Default to empty heart
-            if (i < Math.floor(playerStats.life)) {
-                heartTexture = 'cora'; // Full heart
-            } else if (i === Math.floor(playerStats.life) && playerStats.life % 1 !== 0) {
-                heartTexture = 'cora_half'; // Half heart
-            }
-            const heart = this.gameScene.add.image(heartStartX + i * heartSpacing, heartY, heartTexture).setScale(0.05).setOrigin(0, 0.5);
-            this.healthHearts.push(heart);
-        }
-    }
-
-    updateXpBar() {
-        this.xpBarBackground.clear();
-        this.xpBarFill.clear();
-
-        const barWidth = 200;
-        const barHeight = 15;
-        const barX = 20;
-        const barY = config.height - 30;
-
-        this.xpBarBackground.fillStyle(0x333333, 0.8);
-        this.xpBarBackground.fillRect(barX, barY, barWidth, barHeight);
-
-        const xpProgress = playerStats.xp / playerStats.xpToNextLevel;
-        this.xpBarFill.fillStyle(0x00FF00, 1);
-        this.xpBarFill.fillRect(barX, barY, barWidth * xpProgress, barHeight);
-
-        // Add level text
-        if (!this.levelText) {
-            this.levelText = this.gameScene.add.text(barX + barWidth + 10, barY, `Lvl: ${playerStats.level}`, {
-                fontSize: '12px',
-                fill: '#FFFFFF',
-                fontFamily: 'Press Start 2P',
-                stroke: '#000000',
-                strokeThickness: 2
-            }).setOrigin(0, 0);
-        } else {
-            this.levelText.setText(`Lvl: ${playerStats.level}`);
-        }
-    }
-
-    updateScrapDisplay() {
-        this.scrapText.setText(`Scrap: ${playerStats.scrap}`);
-    }
-
-    updateInventoryDisplay() {
-        let inventoryString = '';
-        if (playerInventory.passiveItems.length > 0) {
-            inventoryString += 'Passivos:\n';
-            playerInventory.passiveItems.forEach(item => {
-                inventoryString += ` - ${item.nome} (${item.count})\n`;
-            });
-        }
-
-        const activableItemsKeys = Object.keys(playerInventory.activableItems);
-        const ownedActivableItems = activableItemsKeys.filter(key => playerInventory.activableItems[key].count > 0);
-
-        if (ownedActivableItems.length > 0) {
-            inventoryString += '\nAtiváveis:\n';
-            ownedActivableItems.forEach(key => {
-                const itemData = playerInventory.activableItems[key];
-                const status = itemData.ready ? 'Pronto' : `Recarga: ${Math.ceil((itemData.cooldown - (this.gameScene.time.now - itemData.lastUsed)) / 1000)}s`;
-                inventoryString += ` - ${key} (${itemData.count}) [${status}]\n`;
-            });
-        }
-        this.inventoryDisplay.setText(inventoryString);
-    }
-
-    updateCardsHUD() {
-        cardsHUDGroup.clear(true, true);
-
-        const cardDisplayStartX = 20;
-        const cardDisplayStartY = config.height - 60;
-        const cardDisplayGap = 70;
-
-        playerCards.forEach((card, index) => {
-            const x = cardDisplayStartX + index * cardDisplayGap;
-            const y = cardDisplayStartY;
-
-            const bg = this.gameScene.add.rectangle(x, y, 60, 80, card.cor || 0x999999, 0.9)
-                .setStrokeStyle(2, 0xffffff, 1)
-                .setOrigin(0.5);
-
-            const title = this.gameScene.add.text(x, y - 20, card.nome[0], {
-                fontSize: '28px',
-                fill: '#ffffff',
-                align: 'center',
-                fontFamily: 'Press Start 2P'
-            }).setOrigin(0.5);
-
-            const icon = this.gameScene.add.image(x, y + 20, 'card_icon_placeholder').setScale(0.02); // Placeholder icon
-
-            cardsHUDGroup.add(bg);
-            cardsHUDGroup.add(title);
-            cardsHUDGroup.add(icon);
-        });
-    }
-
-    displayTemporaryEffect(text, durationScale = 1, color = '#FFFFFF') {
-        displayTemporaryEffect(this.gameScene, text, color);
-    }
-}
-
-// --- BOOT SCENE ---
-class BootScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'BootScene' });
-    }
-
-    preload() {
-        this.load.image('cardBg', 'assets/card.png');
-        this.load.image('player', 'assets/player.png');
-        this.load.image('bullet', 'assets/bullet.png');
-        this.load.image('arma1', 'assets/pistolinha.png');
-        this.load.image('arma2', 'assets/metralha.png');
-        this.load.image('arma3', 'assets/lancarrio.png');
-        this.load.image('fundogame', 'assets/fundogame.png');
-        this.load.image('cora', 'assets/cora.png');
-        this.load.image('cora_empty', 'assets/cora_empty.png'); // New heart texture
-        this.load.image('cora_half', 'assets/cora_half.png');   // New heart texture
-
-        this.load.image('enemy', 'assets/enemy_robot.png');
-        this.load.image('enemy_fast', 'assets/enemy_fast.png');
-        this.load.image('enemy_tank', 'assets/enemy_tank.png');
-        this.load.image('boss_robot', 'assets/boss_robot.png');
-
-        // Load new item textures (replace 'b' with actual asset paths)
-        this.load.image('item_core', 'assets/item_core.png');
-        this.load.image('item_goggles', 'assets/item_goggles.png');
-        this.load.image('item_jump_module', 'assets/item_jump_module.png');
-        this.load.image('item_chain', 'assets/item_chain.png');
-        this.load.image('item_mask', 'assets/item_mask.png');
-        this.load.image('item_armor', 'assets/item_armor.png');
-        this.load.image('item_overclock', 'assets/item_overclock.png');
-        this.load.image('item_emp', 'assets/item_emp.png');
-        this.load.image('item_camouflage', 'assets/item_camouflage.png');
-        this.load.image('item_battery', 'assets/item_battery.png');
-        this.load.image('item_drone', 'assets/item_drone.png');
-        this.load.image('item_capacitor', 'assets/item_capacitor.png');
-        this.load.image('item_coolers', 'assets/item_coolers.png');
-        this.load.image('item_transducer', 'assets/item_transducer.png');
-        this.load.image('item_grenade_pin', 'assets/item_grenade_pin.png'); // New item texture
-
-        // New textures for shop/UI
-        this.load.image('shop_background', 'assets/shop_background.png'); // Placeholder
-        this.load.image('button_long', 'assets/button_long.png'); // Generic button
-        this.load.image('button_square', 'assets/button_square.png'); // Generic square button
-        this.load.image('scrap', 'assets/scrap_icon.png'); // Scrap currency icon
-        this.load.image('card_icon_placeholder', 'assets/card_icon_placeholder.png'); // Small icon for card HUD
-
-        // Font (if not using Google Fonts)
-        // this.load.bitmapFont('pixelFont', 'assets/font/pixelFont.png', 'assets/font/pixelFont.xml');
-    }
-
-    create() {
-        this.scene.start('GameScene'); // Start the game scene after loading
-    }
-}
-
-// --- GAME SCENE ---
-class GameScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'GameScene' });
-    }
-
-    create() {
-        this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1);
-
-        player = this.physics.add.sprite(400, 300, 'player').setCollideWorldBounds(true).setScale(0.05);
-        player.health = playerStats.life;
-        player.maxHealth = playerStats.maxLife;
-        playerOriginalTint = player.tintTopLeft; // Store original tint
-
-        this.hud = new HUD(this, player);
-        this.hud.create(); // Create HUD elements
-
-        bullets = this.physics.add.group();
-        enemies = this.physics.add.group();
-        enemyBullets = this.physics.add.group();
-        armas = this.physics.add.group();
-        itemsGroup = this.physics.add.group();
-
-        cursors = this.input.keyboard.createCursorKeys();
-
-        this.input.keyboard.on('keydown-SHIFT', () => {
-            if (playerStats.dashAvailable && !playerStats.dashCooldown && player.active) {
-                dashPlayer.call(this);
-            }
-        });
-
-        this.input.keyboard.on('keydown-SPACE', () => {
-            if (!player.active) {
-                this.time.delayedCall(500, () => {
-                    this.scene.restart();
-                });
-            }
-        });
-
-        this.input.keyboard.on('keydown-Q', (event) => {
-            const itemKey = "Óculos de Visão Térmica Obsoleta";
-            this.useActivableItem(itemKey);
-        });
-        this.input.keyboard.on('keydown-E', (event) => {
-            const itemKey = "Módulo de Salto Modificado";
-            this.useActivableItem(itemKey);
-        });
-        this.input.keyboard.on('keydown-R', (event) => {
-            const itemKey = "Circuito de Overclock Pessoal";
-            this.useActivableItem(itemKey);
-        });
-        this.input.keyboard.on('keydown-F', (event) => {
-            const itemKey = "Dispositivo de Pulso Eletromagnético (DPE)";
-            this.useActivableItem(itemKey);
-        });
-        this.input.keyboard.on('keydown-G', (event) => { // New key for grenade
-            const itemKey = "Pino de Granada de Sucata";
-            this.useActivableItem(itemKey);
-        });
-
-        // Toggle shop for testing
-        this.input.keyboard.on('keydown-P', () => {
-            if (!showingCards && player.active) { // Prevent opening shop during card selection
-                this.scene.pause('GameScene');
-                this.scene.launch('ShopScene');
-            }
-        });
-
-
-        spawnArmas.call(this);
-        spawnWave.call(this);
-
-        this.physics.add.overlap(player, armas, (player, arma) => {
-            pegarArma.call(this, arma);
-        });
-
-        this.physics.add.overlap(player, itemsGroup, (player, item) => {
-            collectItem.call(this, item);
-        });
-
-        this.physics.add.overlap(bullets, enemies, (b, e) => {
-            if (b.active && e.active) {
-                e.health -= playerStats.bulletDamage * playerStats.bulletCountMultiplier;
-
-                // Hit particles
-                this.add.particles('bullet').createEmitter({
-                    x: b.x,
-                    y: b.y,
-                    speed: { min: -10, max: 10 },
-                    scale: { start: 0.05, end: 0 },
-                    lifespan: 100,
-                    blendMode: 'ADD',
-                    quantity: 3,
-                    tint: 0xFF0000 // Red for hit
-                });
-
-                if (!playerStats.bulletPiercing) {
-                    b.destroy();
-                }
-
-                if (e.health <= 0) {
-                    e.destroy();
-                    gainXp.call(this, e.xpReward);
-                    if (playerStats.healOnKill) {
-                        playerStats.life = Math.min(playerStats.life + 0.5, playerStats.maxLife);
-                        this.hud.updateHealthBar();
-                    }
-                    dropItem.call(this, e.x, e.y);
-                    // Chance to drop scrap
-                    if (Phaser.Math.Between(0, 100) < e.scrapDropChance) {
-                        dropScrap.call(this, e.x, e.y, e.scrapAmount);
-                    }
-                }
-            }
-        });
-
-        this.physics.add.overlap(enemyBullets, player, (b, p) => {
-            if (b.active && p.active) {
-                b.destroy();
-
-                if (playerStats.distortionFieldActive) {
-                    this.hud.displayTemporaryEffect("Distorção Ativa!", 1);
-                    return;
-                }
-
-                if (playerStats.evasionChance && Phaser.Math.Between(0, 100) < playerStats.evasionChance * 100) {
-                    this.hud.displayTemporaryEffect("Evasão!", 1);
-                    return;
-                }
-
-                if (!playerStats.hasShield) {
-                    playerStats.life -= (1 * playerStats.incomingDamageMultiplier);
-                    this.hud.updateHealthBar();
-                    p.setTint(0xff0000);
-                    this.time.delayedCall(100, () => p.clearTint());
-
-                    if (playerStats.thorns) {
-                        enemies.getChildren().forEach(enemy => {
-                            const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
-                            if (enemy.active && dist < 150) {
-                                enemy.health -= 1;
-                                createFloatingText(this, enemy.x, enemy.y - 20, `-1`, '#FF0000', 500, -10);
-                                if (enemy.health <= 0) {
-                                    enemy.destroy();
-                                    gainXp.call(this, enemy.xpReward);
-                                    if (Phaser.Math.Between(0, 100) < enemy.scrapDropChance) {
-                                        dropScrap.call(this, enemy.x, enemy.y, enemy.scrapAmount);
-                                    }
-                                }
-                            }
-                        });
-                    }
-                    if (playerStats.reflectDamage && Phaser.Math.Between(0, 100) < playerStats.reflectDamage * 100) {
-                        const enemyThatShot = enemies.getChildren().find(enemy => Phaser.Math.Distance.Between(enemy.x, enemy.y, b.x, b.y) < 100);
-                        if (enemyThatShot) {
-                            enemyThatShot.health -= playerStats.bulletDamage * 0.5;
-                            createFloatingText(this, enemyThatShot.x, enemyThatShot.y - 20, `-Reflected!`, '#00FFFF', 500, -10);
-                            this.hud.displayTemporaryEffect("Refletido!", 1);
-                            if (enemyThatShot.health <= 0) {
-                                enemyThatShot.destroy();
-                                gainXp.call(this, enemyThatShot.xpReward);
-                                if (Phaser.Math.Between(0, 100) < enemyThatShot.scrapDropChance) {
-                                    dropScrap.call(this, enemyThatShot.x, enemyThatShot.y, enemyThatShot.scrapAmount);
-                                }
-                            }
-                        }
-                    }
-
-                    if (playerStats.life <= 0) {
-                        if (playerStats.reviveOnce) {
-                            playerStats.life = 1;
-                            playerStats.reviveOnce = false;
-                            this.hud.updateHealthBar();
-                            p.clearTint();
-                            displayTemporaryEffect(this, 'REVIVED!', '#00FF00');
-                        } else {
-                            p.setActive(false).setVisible(false);
-                            const gameOverText = this.add.text(config.width / 2, config.height / 2, 'GAME OVER\nPress SPACE to Restart', {
-                                fontFamily: 'Press Start 2P',
-                                fontSize: '48px',
-                                color: '#FF0000',
-                                stroke: '#000000',
-                                strokeThickness: 6,
-                                align: 'center'
-                            }).setOrigin(0.5).setDepth(100);
-                        }
-                    }
-                } else {
-                    playerStats.hasShield = false;
-                    p.clearTint();
-                    this.hud.updateActiveEffects();
-                }
-            }
-        });
-
-        // Player-enemy collision for touch damage
-        this.physics.add.collider(player, enemies, (player, enemy) => {
-            if (playerStats.touchDamage > 0 && this.time.now > (player.lastTouchDamageTime || 0) + 500) { // Damage every 0.5 seconds
-                enemy.health -= playerStats.touchDamage;
-                createFloatingText(this, enemy.x, enemy.y - 20, `-${playerStats.touchDamage.toFixed(1)}`, '#FF0000', 500, -10);
-                player.lastTouchDamageTime = this.time.now;
-                if (enemy.health <= 0) {
-                    enemy.destroy();
-                    gainXp.call(this, enemy.xpReward);
-                    if (Phaser.Math.Between(0, 100) < enemy.scrapDropChance) {
-                        dropScrap.call(this, enemy.x, enemy.y, enemy.scrapAmount);
-                    }
-                }
-            }
-        });
-
-
-        this.time.addEvent({
-            delay: 9000,
-            loop: true,
-            callback: () => {
-                enemies.getChildren().forEach(enemy => {
-                    if (!enemy.active) return;
-                    const bullet = enemyBullets.create(enemy.x, enemy.y, 'bullet').setScale(0.03).setTint(0xFF8C00); // Orange enemy bullets
-                    const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
-                    this.physics.velocityFromRotation(angle, 150, bullet.body.velocity);
-                });
-            }
-        });
-
-        // Function to use activable items (moved here from create for context)
-        this.useActivableItem = (itemKey) => {
-            const itemData = itemOptions.find(item => item.nome === itemKey);
-            if (itemData && playerInventory.activableItems[itemKey].count > 0 && playerInventory.activableItems[itemKey].ready) {
-                itemData.efeito(this); // Pass the scene for the effect
-                playerInventory.activableItems[itemKey].ready = false;
-                playerInventory.activableItems[itemKey].lastUsed = this.time.now;
-
-                this.time.delayedCall(playerInventory.activableItems[itemKey].cooldown, () => {
-                    playerInventory.activableItems[itemKey].ready = true;
-                    this.hud.displayTemporaryEffect(`${itemKey} Pronto!`, 1, '#00FF00'); // Indicate item is ready
-                    this.hud.updateInventoryDisplay();
-                }, [], this);
-                this.hud.updateInventoryDisplay(); // Update to show item on cooldown
-            } else if (playerInventory.activableItems[itemKey].count > 0 && !playerInventory.activableItems[itemKey].ready) {
-                const remainingTime = Math.ceil((playerInventory.activableItems[itemKey].cooldown - (this.time.now - playerInventory.activableItems[itemKey].lastUsed)) / 1000);
-                this.hud.displayTemporaryEffect(`Recarga: ${itemKey} (${remainingTime}s)`, 1, '#FF4500'); // Orange-red for cooldown
-            } else {
-                this.hud.displayTemporaryEffect(`${itemKey} não possuído!`, 1, '#FF0000');
-            }
-        };
-    }
-
-    update(time, delta) {
-        if (!player.active || showingCards) {
-            return;
-        }
-
-        player.body.setVelocity(0);
-
-        let speed = playerStats.playerSpeed;
-        if (playerStats.speedBoost) {
-            speed *= 1.2;
-        }
-
-        if (cursors.left.isDown) {
-            player.body.setVelocityX(-speed);
-        } else if (cursors.right.isDown) {
-            player.body.setVelocityX(speed);
-        }
-
-        if (cursors.up.isDown) {
-            player.body.setVelocityY(-speed);
-        } else if (cursors.down.isDown) {
-            player.body.setVelocityY(speed);
-        }
-
-        if (player.body.velocity.x !== 0 || player.body.velocity.y !== 0) {
-            player.play('idle', true); // Assumes an idle animation
-        } else {
-            player.stop(); // Stop animation if not moving
-        }
-
-        // Shooting logic
-        if (time > lastShoot + playerStats.fireRate && !showingCards) {
-            let numBullets = 1;
-            if (playerStats.doubleBullets) numBullets = 2;
-            if (playerStats.tripleBullets) numBullets = 3;
-
-            for (let i = 0; i < numBullets; i++) {
-                const bullet = bullets.create(player.x, player.y, 'bullet').setScale(0.02);
-                const angle = Phaser.Math.Angle.Between(player.x, player.y, this.input.activePointer.x, this.input.activePointer.y);
-                this.physics.velocityFromRotation(angle, 600 * playerStats.bulletRange, bullet.body.velocity);
-
-                if (playerStats.bulletSpeedBoost) {
-                    bullet.body.velocity.normalize().scale(800 * playerStats.bulletRange);
-                }
-
-                if (playerStats.spreadUpgrade) {
-                    const spreadAngle = Phaser.Math.Between(-15, 15);
-                    this.physics.velocityFromRotation(angle + Phaser.Math.DegToRad(spreadAngle), 600 * playerStats.bulletRange, bullet.body.velocity);
-                }
-
-                // Bullet particles
-                this.add.particles('bullet').createEmitter({
-                    x: bullet.x,
-                    y: bullet.y,
-                    speed: { min: -10, max: 10 },
-                    scale: { start: 0.05, end: 0 },
-                    lifespan: 100,
-                    blendMode: 'ADD',
-                    quantity: 1,
-                    tint: 0xFFFFFF // White for bullet trail
-                });
-            }
-            lastShoot = time;
-        }
-
-        // Enemy movement
-        enemies.getChildren().forEach(enemy => {
-            if (enemy.active) {
-                if (player.active && !showingCards) {
-                    this.physics.moveToObject(enemy, player, enemy.speed * (playerStats.slowEnemies ? 0.7 : 1));
-                }
-            }
-        });
-
-        // Update HUD
-        this.hud.update();
-    }
-}
-
-// --- SHOP SCENE ---
-class ShopScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'ShopScene' });
-        this.shopItems = [];
-        this.shopCards = [];
-        this.currentView = 'buy_items'; // 'buy_items', 'sell_cards'
-    }
-
-    preload() {
-        // Shop-specific assets if any, though most are loaded in BootScene
-    }
-
-    create() {
-        // Background
-        this.add.image(config.width / 2, config.height / 2, 'shop_background').setDisplaySize(config.width, config.height).setDepth(-1);
-
-        // Title
-        this.shopTitle = this.add.text(config.width / 2, 50, 'Loja do Ferro-Velho', {
-            fontSize: '48px',
-            fill: '#FFD700', // Gold color
-            fontFamily: 'Press Start 2P',
-            stroke: '#000000',
-            strokeThickness: 8,
-            shadow: { offsetX: 4, offsetY: 4, color: '#8B0000', blur: 8, stroke: true, fill: true }
-        }).setOrigin(0.5).setDepth(1);
-
-        // Player Scrap Display
-        this.scrapDisplay = this.add.text(config.width - 50, 50, `Scrap: ${playerStats.scrap}`, {
-            fontSize: '24px',
-            fill: '#ADD8E6',
-            fontFamily: 'Press Start 2P',
-            stroke: '#000000',
-            strokeThickness: 5
-        }).setOrigin(1, 0.5).setDepth(1);
-
-
-        // Buttons for navigation
-        this.buyItemsButton = this.add.image(config.width / 2 - 150, 150, 'button_long').setScale(0.5).setInteractive();
-        this.buyItemsText = this.add.text(this.buyItemsButton.x, this.buyItemsButton.y, 'Comprar Itens', {
-            fontSize: '20px',
-            fill: '#FFFFFF',
-            fontFamily: 'Press Start 2P'
-        }).setOrigin(0.5);
-
-        this.sellCardsButton = this.add.image(config.width / 2 + 150, 150, 'button_long').setScale(0.5).setInteractive();
-        this.sellCardsText = this.add.text(this.sellCardsButton.x, this.sellCardsButton.y, 'Vender Cartas', {
-            fontSize: '20px',
-            fill: '#FFFFFF',
-            fontFamily: 'Press Start 2P'
-        }).setOrigin(0.5);
-
-        this.buyItemsButton.on('pointerdown', () => this.showBuyItems());
-        this.sellCardsButton.on('pointerdown', () => this.showSellCards());
-
-        // Exit button
-        this.exitButton = this.add.image(config.width / 2, config.height - 70, 'button_long').setScale(0.6).setInteractive();
-        this.exitText = this.add.text(this.exitButton.x, this.exitButton.y, 'Sair da Loja (P)', {
-            fontSize: '24px',
-            fill: '#FFFFFF',
-            fontFamily: 'Press Start 2P'
-        }).setOrigin(0.5);
-        this.exitButton.on('pointerdown', () => this.exitShop());
-
-        this.input.keyboard.on('keydown-P', () => {
-            this.exitShop();
-        });
-
-
-        // Shop content containers
-        this.itemsContainer = this.add.container(0, 0);
-        this.cardsContainer = this.add.container(0, 0);
-
-        this.showBuyItems(); // Start with the buy items view
-    }
-
-    update() {
-        this.scrapDisplay.setText(`Scrap: ${playerStats.scrap}`);
-    }
-
-    showBuyItems() {
-        this.currentView = 'buy_items';
-        this.itemsContainer.setVisible(true);
-        this.cardsContainer.setVisible(false);
-        this.buyItemsButton.setTint(0x888888);
-        this.sellCardsButton.setTint(0xFFFFFF);
-
-        this.itemsContainer.removeAll(true); // Clear previous items
-
-        const itemDisplayStartX = config.width / 2 - 400;
-        const itemDisplayStartY = 250;
-        const itemSpacingX = 200;
-        const itemSpacingY = 150;
-        const itemsPerRow = 4;
-
-        this.shopItems = Phaser.Utils.Array.Shuffle(itemOptions).slice(0, 8); // Show 8 random items
-
-        this.shopItems.forEach((item, index) => {
-            const row = Math.floor(index / itemsPerRow);
-            const col = index % itemsPerRow;
-            const x = itemDisplayStartX + col * itemSpacingX;
-            const y = itemDisplayStartY + row * itemSpacingY;
-
-            const itemBg = this.add.rectangle(x, y, 180, 120, 0x1a1a1a, 0.8).setStrokeStyle(2, 0x00ffff, 0.5).setInteractive();
-            const itemImage = this.add.image(x, y - 20, item.textura || 'item_default').setScale(0.08); // Adjust scale
-            const itemName = this.add.text(x, y + 20, item.nome, {
-                fontSize: '14px',
-                fill: '#FFFFFF',
-                align: 'center',
-                wordWrap: { width: 170 },
-                fontFamily: 'Press Start 2P'
-            }).setOrigin(0.5);
-            const itemPrice = this.add.text(x, y + 50, `Custo: ${item.preco} Scrap`, {
-                fontSize: '12px',
-                fill: '#FFD700',
-                align: 'center',
-                fontFamily: 'Press Start 2P'
-            }).setOrigin(0.5);
-
-            this.itemsContainer.add([itemBg, itemImage, itemName, itemPrice]);
-
-            itemBg.on('pointerover', () => {
-                itemBg.setTint(0x333333);
-                this.displayItemDescription(item.descricao);
-            });
-            itemBg.on('pointerout', () => {
-                itemBg.setTint(0x1a1a1a);
-                this.hideItemDescription();
-            });
-            itemBg.on('pointerdown', () => this.buyItem(item));
-        });
-
-        // Description box for items
-        this.descriptionBox = this.add.graphics().setDepth(2);
-        this.descriptionText = this.add.text(0, 0, '', {
-            fontSize: '16px',
-            fill: '#E0E0E0',
-            wordWrap: { width: 400 },
-            padding: { x: 10, y: 10 },
-            backgroundColor: '#000000',
-            fontFamily: 'Press Start 2P'
-        }).setOrigin(0.5).setDepth(2).setVisible(false);
-    }
-
-    displayItemDescription(description) {
-        this.descriptionText.setText(description).setVisible(true);
-        const textWidth = this.descriptionText.width;
-        const textHeight = this.descriptionText.height;
-        this.descriptionBox.clear();
-        this.descriptionBox.fillStyle(0x000000, 0.8);
-        this.descriptionBox.lineStyle(2, 0xFFD700, 1);
-        this.descriptionBox.fillRect(config.width / 2 - textWidth / 2 - 10, config.height - 200 - textHeight / 2 - 10, textWidth + 20, textHeight + 20);
-        this.descriptionBox.strokeRect(config.width / 2 - textWidth / 2 - 10, config.height - 200 - textHeight / 2 - 10, textWidth + 20, textHeight + 20);
-        this.descriptionText.setPosition(config.width / 2, config.height - 200);
-        this.descriptionBox.setVisible(true);
-    }
-
-    hideItemDescription() {
-        this.descriptionBox.setVisible(false);
-        this.descriptionText.setVisible(false);
-    }
-
-    buyItem(item) {
-        if (playerStats.scrap >= item.preco) {
-            playerStats.scrap -= item.preco;
-            collectItem.call(this.scene.get('GameScene'), item); // Call collectItem from GameScene context
-            this.scrapDisplay.setText(`Scrap: ${playerStats.scrap}`);
-            displayTemporaryEffect(this.scene.get('GameScene'), `Comprou: ${item.nome}!`, '#00FF00');
-            // Remove item from shop after purchase (optional, can be refreshed on next shop visit)
-            this.shopItems = this.shopItems.filter(i => i.nome !== item.nome);
-            this.showBuyItems(); // Refresh the shop display
-        } else {
-            displayTemporaryEffect(this.scene.get('GameScene'), 'Scrap Insuficiente!', '#FF0000');
-        }
-    }
-
-    showSellCards() {
-        this.currentView = 'sell_cards';
-        this.itemsContainer.setVisible(false);
-        this.cardsContainer.setVisible(true);
-        this.buyItemsButton.setTint(0xFFFFFF);
-        this.sellCardsButton.setTint(0x888888);
-
-        this.cardsContainer.removeAll(true); // Clear previous cards
-
-        if (playerCards.length === 0) {
-            this.cardsContainer.add(this.add.text(config.width / 2, config.height / 2, 'Você não possui cartas para vender.', {
-                fontSize: '24px',
-                fill: '#FFFFFF',
-                align: 'center',
-                fontFamily: 'Press Start 2P'
-            }).setOrigin(0.5));
-            return;
-        }
-
-        const cardDisplayStartX = config.width / 2 - (playerCards.length - 1) * 100 / 2; // Center the cards
-        const cardDisplayStartY = 250;
-        const cardSpacing = 200;
-
-        playerCards.forEach((card, index) => {
-            const x = cardDisplayStartX + index * cardSpacing;
-            const y = cardDisplayStartY;
-
-            const cardBg = this.add.rectangle(x, y, 180, 120, card.cor || 0x6c757d, 0.8).setStrokeStyle(2, 0xffffff, 0.5).setInteractive();
-            const cardName = this.add.text(x, y - 20, card.nome, {
-                fontSize: '16px',
-                fill: '#FFFFFF',
-                align: 'center',
-                wordWrap: { width: 170 },
-                fontFamily: 'Press Start 2P'
-            }).setOrigin(0.5);
-            const sellPrice = card.sellPrice || 10; // Default sell price
-            const cardSellPrice = this.add.text(x, y + 20, `Vender por: ${sellPrice} Scrap`, {
-                fontSize: '14px',
-                fill: '#00FF00', // Green for selling
-                align: 'center',
-                fontFamily: 'Press Start 2P'
-            }).setOrigin(0.5);
-
-            const sellButton = this.add.image(x, y + 50, 'button_square').setScale(0.3).setInteractive();
-            const sellButtonText = this.add.text(x, y + 50, 'Vender', {
-                fontSize: '12px',
-                fill: '#FFFFFF',
-                fontFamily: 'Press Start 2P'
-            }).setOrigin(0.5);
-
-            this.cardsContainer.add([cardBg, cardName, cardSellPrice, sellButton, sellButtonText]);
-
-            cardBg.on('pointerover', () => cardBg.setTint(card.cor ? card.cor + 0x222222 : 0x888888));
-            cardBg.on('pointerout', () => cardBg.setTint(card.cor || 0x6c757d));
-
-            sellButton.on('pointerdown', () => this.sellCard(card, sellPrice));
-        });
-    }
-
-    sellCard(card, price) {
-        playerStats.scrap += price;
-        playerCards = playerCards.filter(c => c !== card); // Remove the sold card
-        displayTemporaryEffect(this.scene.get('GameScene'), `Vendeu ${card.nome} por ${price} Scrap!`, '#00FF00');
-        this.scene.get('GameScene').hud.updateCardsHUD(); // Update the card HUD in GameScene
-        this.showSellCards(); // Refresh the sell cards view
-    }
-
-    exitShop() {
-        this.scene.stop('ShopScene');
-        this.scene.resume('GameScene');
-        this.scene.get('GameScene').physics.resume();
-        // Ensure any temporary shop effects are cleared
-        this.scene.get('GameScene').hud.displayTemporaryEffect('Bem-vindo de volta!', 1, '#FFFFFF');
-    }
-}
 </script>
+
 </body>
 </html>
