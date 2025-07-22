@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons - A cruzada da Rainha</title>
+  <title>War of the Automatons - A Cruzada da Rainha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -52,6 +52,9 @@ let killStreakTimer;
 let currentWeapon = 1; // 1: Pistolinha, 2: Metralha, 3: Lança-rio
 let weaponSwitchCooldown = false;
 let playerOriginalTint = 0xFFFFFF; // Store original player tint
+let armaImagem; // Needs to be global or passed around for updateWeaponDisplay
+let armaNomeText; // Needs to be global or passed around for updateWeaponDisplay
+
 
 // --- Player Stats & RPG Attributes ---
 let playerStats = {
@@ -143,31 +146,31 @@ const enemyTypes = {
 
 // --- Item Definitions (Card System) ---
 const itemOptions = [
-  { nome: "Núcleo de Energia (Passivo)", descricao: "Aumenta o dano da bala.", tipo: "passivo", textura: "item_core", efeito: (scene) => { playerStats.bulletDamage += 0.5; }, peso: 1 },
-  { nome: "Óculos de Precisão (Passivo)", descricao: "Aumenta a velocidade de ataque.", tipo: "passivo", textura: "item_goggles", efeito: (scene) => { playerStats.fireRate = Math.max(50, playerStats.fireRate * 0.9); }, peso: 1 }, // Faster fire rate
-  { nome: "Módulo de Salto (Ativável)", descricao: "Permite usar Dash.", tipo: "ativavel", textura: "item_jump_module", cooldown: 5000, efeito: (scene) => { playerStats.dashAvailable = true; }, peso: 1 }, // Dash is always available, maybe makes it free or reduces cooldown
-  { nome: "Corrente Eletrostática (Passivo)", descricao: "Bala perfurante.", tipo: "passivo", textura: "item_chain", efeito: (scene) => { playerStats.bulletPiercing = true; }, peso: 1 },
-  { nome: "Máscara de Gás (Passivo)", descricao: "Cria uma aura de dano ao redor do jogador.", tipo: "passivo", textura: "item_mask", efeito: (scene) => { playerStats.damageAura = true; }, peso: 1 },
-  { nome: "Armadura Reconstruída (Passivo)", descricao: "Reduz o dano recebido.", tipo: "passivo", textura: "item_armor", efeito: (scene) => { playerStats.incomingDamageMultiplier -= 0.1; playerStats.incomingDamageMultiplier = Math.max(0.5, playerStats.incomingDamageMultiplier); }, peso: 1 }, // Max 50% reduction
-  { nome: "Overclock (Ativável)", descricao: "Aumenta temporariamente a velocidade de movimento.", tipo: "ativavel", textura: "item_overclock", cooldown: 10000, efeito: (scene) => { playerStats.speedBoost = true; scene.time.delayedCall(3000, () => { playerStats.speedBoost = false; }); }, peso: 1 },
-  { nome: "DPE (Passivo)", descricao: "Atira duas balas por vez.", tipo: "passivo", textura: "item_dpe", efeito: (scene) => { playerStats.doubleBullets = true; }, peso: 1 },
-  { nome: "Armadura Camuflada (Passivo)", descricao: "Chance de desviar de ataques.", tipo: "passivo", textura: "item_camouflaged_armor", efeito: (scene) => { playerStats.evasionChance += 0.1; }, peso: 1 },
-  { nome: "Bateria de Nêutrons (Passivo)", descricao: "Vida máxima +1.", tipo: "passivo", textura: "item_neutron_battery", efeito: (scene) => { playerStats.maxLife += 1; playerStats.life = playerStats.maxLife; scene.hud.updateHealthBar(); }, peso: 1 },
-  { nome: "Mini Drone de Ataque (Passivo)", descricao: "Spawna um drone aliado.", tipo: "passivo", textura: "item_drone", efeito: (scene) => { playerStats.droneActive = true; }, peso: 1 },
-  { nome: "Capacitor de Pulso (Passivo)", descricao: "Aumenta o alcance das balas.", tipo: "passivo", textura: "item_capacitor", efeito: (scene) => { playerStats.bulletRange += 0.5; }, peso: 1 },
-  { nome: "Módulos de Resfriamento (Ativável)", descricao: "Reduz cooldowns de itens ativáveis.", tipo: "ativavel", textura: "item_cooling_modules", cooldown: 20000, efeito: (scene) => { /* Reduce all activable item cooldowns */ }, peso: 1 },
-  { nome: "Transdutor de Energia (Passivo)", descricao: "Recupera vida ao matar inimigos.", tipo: "passivo", textura: "item_transducer", efeito: (scene) => { playerStats.healOnKill = true; playerStats.lifestealOnKill = 0.5; }, peso: 1 },
-  { nome: "Campo de Distorção (Ativável)", descricao: "Cria zona segura por um tempo.", tipo: "ativavel", textura: "item_b", cooldown: 15000, efeito: (scene) => { playerStats.safeZoneActive = true; scene.time.delayedCall(5000, () => { playerStats.safeZoneActive = false; }); }, peso: 1 },
-  { nome: "Estabilizador de Matriz (Passivo)", descricao: "Atira 3 balas por vez.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.tripleBullets = true; }, peso: 1 },
-  { nome: "Regenerador Automático (Passivo)", descricao: "Regeneração passiva de vida.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.passiveRegenActive = true; }, peso: 1 },
-  { nome: "Arma Espinhenta (Passivo)", descricao: "Dano de espinhos ao ser atingido.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.thorns = true; playerStats.reflectDamage = 0.2; }, peso: 1 },
-  { nome: "Refletor de Dano (Ativável)", descricao: "Reflete dano por um tempo.", tipo: "ativavel", textura: "item_b", cooldown: 10000, efeito: (scene) => { playerStats.reflectDamage = 1; scene.time.delayedCall(3000, () => { playerStats.reflectDamage = 0; }); }, peso: 1 },
-  { nome: "Pele Metálica (Passivo)", descricao: "Dano ao toque (player).", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.touchDamage = 1; }, peso: 1 },
-  { nome: "Modulo de Carga Rápida (Passivo)", descricao: "Aumenta velocidade da bala.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.bulletSpeedBoost = true; playerStats.weaponBulletSpeed += 100; }, peso: 1 },
-  { nome: "Casulo de Segurança (Ativável)", descricao: "Recupera 1 de vida ao ser ativado.", tipo: "ativavel", textura: "item_b", cooldown: 15000, efeito: (scene) => { playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife); scene.hud.updateHealthBar(); }, peso: 1 },
-  { nome: "Camuflagem Óptica (Passivo)", descricao: "Chance de reviver uma vez.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.reviveOnce = true; }, peso: 1 },
-  { nome: "Magnetizador de Sucata (Passivo)", descricao: "Aumenta drop de sucata.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.increasedDropRate = true; }, peso: 1 },
-  { nome: "Criador de Clones (Ativável)", descricao: "Cria clone que atira.", tipo: "ativavel", textura: "item_b", cooldown: 20000, efeito: (scene) => { playerStats.cloneActive = true; scene.time.delayedCall(5000, () => { playerStats.cloneActive = false; }); }, peso: 1 }
+  { nome: "Núcleo de Energia (Passivo)", descricao: "Aumenta o dano da bala.", tipo: "passivo", textura: "item_core", efeito: (scene) => { playerStats.bulletDamage += 0.5; }, peso: 1, precoVenda: 20 },
+  { nome: "Óculos de Precisão (Passivo)", descricao: "Aumenta a velocidade de ataque.", tipo: "passivo", textura: "item_goggles", efeito: (scene) => { playerStats.fireRate = Math.max(50, playerStats.fireRate * 0.9); }, peso: 1, precoVenda: 20 }, // Faster fire rate
+  { nome: "Módulo de Salto (Ativável)", descricao: "Permite usar Dash.", tipo: "ativavel", textura: "item_jump_module", cooldown: 5000, efeito: (scene) => { playerStats.dashAvailable = true; }, peso: 1, precoVenda: 30 }, // Dash is always available, maybe makes it free or reduces cooldown
+  { nome: "Corrente Eletrostática (Passivo)", descricao: "Bala perfurante.", tipo: "passivo", textura: "item_chain", efeito: (scene) => { playerStats.bulletPiercing = true; }, peso: 1, precoVenda: 20 },
+  { nome: "Máscara de Gás (Passivo)", descricao: "Cria uma aura de dano ao redor do jogador.", tipo: "passivo", textura: "item_mask", efeito: (scene) => { playerStats.damageAura = true; }, peso: 1, precoVenda: 20 },
+  { nome: "Armadura Reconstruída (Passivo)", descricao: "Reduz o dano recebido.", tipo: "passivo", textura: "item_armor", efeito: (scene) => { playerStats.incomingDamageMultiplier -= 0.1; playerStats.incomingDamageMultiplier = Math.max(0.5, playerStats.incomingDamageMultiplier); }, peso: 1, precoVenda: 20 }, // Max 50% reduction
+  { nome: "Overclock (Ativável)", descricao: "Aumenta temporariamente a velocidade de movimento.", tipo: "ativavel", textura: "item_overclock", cooldown: 10000, efeito: (scene) => { playerStats.speedBoost = true; scene.time.delayedCall(3000, () => { playerStats.speedBoost = false; }); }, peso: 1, precoVenda: 30 },
+  { nome: "DPE (Passivo)", descricao: "Atira duas balas por vez.", tipo: "passivo", textura: "item_dpe", efeito: (scene) => { playerStats.doubleBullets = true; }, peso: 1, precoVenda: 20 },
+  { nome: "Armadura Camuflada (Passivo)", descricao: "Chance de desviar de ataques.", tipo: "passivo", textura: "item_camouflaged_armor", efeito: (scene) => { playerStats.evasionChance += 0.1; }, peso: 1, precoVenda: 20 },
+  { nome: "Bateria de Nêutrons (Passivo)", descricao: "Vida máxima +1.", tipo: "passivo", textura: "item_neutron_battery", efeito: (scene) => { playerStats.maxLife += 1; playerStats.life = playerStats.maxLife; scene.hud.updateHealthBar(); }, peso: 1, precoVenda: 20 },
+  { nome: "Mini Drone de Ataque (Passivo)", descricao: "Spawna um drone aliado.", tipo: "passivo", textura: "item_drone", efeito: (scene) => { playerStats.droneActive = true; }, peso: 1, precoVenda: 20 },
+  { nome: "Capacitor de Pulso (Passivo)", descricao: "Aumenta o alcance das balas.", tipo: "passivo", textura: "item_capacitor", efeito: (scene) => { playerStats.bulletRange += 0.5; }, peso: 1, precoVensa: 20 },
+  { nome: "Módulos de Resfriamento (Ativável)", descricao: "Reduz cooldowns de itens ativáveis.", tipo: "ativavel", textura: "item_cooling_modules", cooldown: 20000, efeito: (scene) => { /* Reduce all activable item cooldowns */ }, peso: 1, precoVenda: 30 },
+  { nome: "Transdutor de Energia (Passivo)", descricao: "Recupera vida ao matar inimigos.", tipo: "passivo", textura: "item_transducer", efeito: (scene) => { playerStats.healOnKill = true; playerStats.lifestealOnKill = 0.5; }, peso: 1, precoVenda: 20 },
+  { nome: "Campo de Distorção (Ativável)", descricao: "Cria zona segura por um tempo.", tipo: "ativavel", textura: "item_b", cooldown: 15000, efeito: (scene) => { playerStats.safeZoneActive = true; scene.time.delayedCall(5000, () => { playerStats.safeZoneActive = false; }); }, peso: 1, precoVenda: 30 },
+  { nome: "Estabilizador de Matriz (Passivo)", descricao: "Atira 3 balas por vez.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.tripleBullets = true; }, peso: 1, precoVenda: 20 },
+  { nome: "Regenerador Automático (Passivo)", descricao: "Regeneração passiva de vida.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.passiveRegenActive = true; }, peso: 1, precoVenda: 20 },
+  { nome: "Arma Espinhenta (Passivo)", descricao: "Dano de espinhos ao ser atingido.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.thorns = true; playerStats.reflectDamage = 0.2; }, peso: 1, precoVenda: 20 },
+  { nome: "Refletor de Dano (Ativável)", descricao: "Reflete dano por um tempo.", tipo: "ativavel", textura: "item_b", cooldown: 10000, efeito: (scene) => { playerStats.reflectDamage = 1; scene.time.delayedCall(3000, () => { playerStats.reflectDamage = 0; }); }, peso: 1, precoVenda: 30 },
+  { nome: "Pele Metálica (Passivo)", descricao: "Dano ao toque (player).", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.touchDamage = 1; }, peso: 1, precoVenda: 20 },
+  { nome: "Modulo de Carga Rápida (Passivo)", descricao: "Aumenta velocidade da bala.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.bulletSpeedBoost = true; playerStats.weaponBulletSpeed += 100; }, peso: 1, precoVenda: 20 },
+  { nome: "Casulo de Segurança (Ativável)", descricao: "Recupera 1 de vida ao ser ativado.", tipo: "ativavel", textura: "item_b", cooldown: 15000, efeito: (scene) => { playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife); scene.hud.updateHealthBar(); }, peso: 1, precoVenda: 30 },
+  { nome: "Camuflagem Óptica (Passivo)", descricao: "Chance de reviver uma vez.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.reviveOnce = true; }, peso: 1, precoVenda: 20 },
+  { nome: "Magnetizador de Sucata (Passivo)", descricao: "Aumenta drop de sucata.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.increasedDropRate = true; }, peso: 1, precoVenda: 20 },
+  { nome: "Criador de Clones (Ativável)", descricao: "Cria clone que atira.", tipo: "ativavel", textura: "item_b", cooldown: 20000, efeito: (scene) => { playerStats.cloneActive = true; scene.time.delayedCall(5000, () => { playerStats.cloneActive = false; }); }, peso: 1, precoVenda: 30 }
 ];
 
 
@@ -948,23 +951,35 @@ function applyStatBonus(statName) {
 // --- Shop System Functions (NEW) ---
 function showShopMenu() {
   this.scene.pause();
-  const shopBg = this.add.rectangle(config.width / 2, config.height / 2, 800, 500, 0x000000, 0.9).setDepth(100).setInteractive();
-  const shopTitle = this.add.text(config.width / 2, config.height / 2 - 200, 'Loja do Ferro-Velho', {
+  const shopElements = []; // Store all shop UI elements to destroy them later
+
+  const shopBg = this.add.rectangle(config.width / 2, config.height / 2, 1200, 550, 0x000000, 0.9).setDepth(100).setInteractive();
+  shopElements.push(shopBg);
+
+  const shopTitle = this.add.text(config.width / 2, 20, 'Loja do Ferro-Velho', {
     fontSize: '32px',
     fill: '#FFFFFF'
   }).setOrigin(0.5).setDepth(101);
+  shopElements.push(shopTitle);
 
-  const currencyText = this.add.text(config.width / 2, config.height / 2 - 160, `Sucata: ${playerStats.currency}`, {
+  const currencyText = this.add.text(config.width / 2, 60, `Sucata: ${playerStats.currency}`, {
     fontSize: '20px',
     fill: '#FFD700'
   }).setOrigin(0.5).setDepth(101);
+  shopElements.push(currencyText);
 
-  const itemStartX = config.width / 2 - 300;
-  const itemStartY = config.height / 2 - 100;
+  // --- Shop Buy Section ---
+  const buyTitle = this.add.text(config.width / 4, 100, 'Comprar Itens', {
+    fontSize: '24px',
+    fill: '#00FFFF'
+  }).setOrigin(0.5).setDepth(101);
+  shopElements.push(buyTitle);
+
+  const itemStartX = config.width / 2 - 550; // Adjusted for two columns
+  const itemStartY = 140;
   const itemXSpacing = 180;
   const itemYSpacing = 120;
 
-  // Function to create and manage a single shop item UI element
   const createShopItemUI = (item, index) => {
     const x = itemStartX + (index % 4) * itemXSpacing; // 4 items per row
     const y = itemStartY + Math.floor(index / 4) * itemYSpacing;
@@ -981,14 +996,12 @@ function showShopMenu() {
       padding: { x: 5, y: 2 }
     }).setOrigin(0.5).setDepth(102).setInteractive();
 
-    // Track purchased count for items with maxPurchases
     if (item.maxPurchases) {
         item.purchasedCount = item.purchasedCount || 0;
         if (item.purchasedCount >= item.maxPurchases) {
             buyButton.setText('ESGOTADO').setColor('#FF0000').disableInteractive();
             buyButton.setBackgroundColor('#550000');
         } else {
-            // Display remaining stock if applicable
             itemCost.setText(`Custo: ${item.custo} Sucata (${item.purchasedCount}/${item.maxPurchases})`);
         }
     }
@@ -1017,28 +1030,120 @@ function showShopMenu() {
         this.hud.displayTemporaryEffect('Sucata insuficiente!', '#FF0000', 1500);
       }
     });
-    return [itemPanel, itemName, itemCost, itemDesc, buyButton]; // Return all UI elements for destruction later
+    return [itemPanel, itemName, itemCost, itemDesc, buyButton];
   };
 
-  const shopUIElements = [];
   shopItems.forEach((item, index) => {
-      shopUIElements.push(...createShopItemUI(item, index));
+      shopElements.push(...createShopItemUI(item, index));
   });
 
+  // --- Sell Section ---
+  const sellTitle = this.add.text(config.width * 3 / 4, 100, 'Vender Itens', {
+    fontSize: '24px',
+    fill: '#FF6600'
+  }).setOrigin(0.5).setDepth(101);
+  shopElements.push(sellTitle);
 
-  const closeButton = this.add.text(config.width / 2, config.height / 2 + 220, 'Fechar Loja', {
+  const sellItemStartX = config.width / 2 + 100; // Right side
+  const sellItemStartY = 140;
+  let sellIndex = 0;
+
+  const updateSellableItemsDisplay = () => {
+    // Clear previous sellable item displays
+    shopElements.forEach(el => {
+        if (el && el._isSellItem) el.destroy(); // Mark sell items to easily destroy them
+    });
+    // Filter out destroyed elements from the array
+    shopElements.length = shopElements.filter(el => el.active).length;
+
+    sellIndex = 0;
+    // Passive Items
+    for (const key in playerInventory.passiveItems) {
+      if (playerInventory.passiveItems.hasOwnProperty(key)) {
+        const item = playerInventory.passiveItems[key];
+        const x = sellItemStartX + (sellIndex % 4) * itemXSpacing;
+        const y = sellItemStartY + Math.floor(sellIndex / 4) * itemYSpacing;
+        const sellPrice = item.precoVenda || 20; // Default sell price
+
+        const itemPanel = this.add.rectangle(x, y, 150, 100, 0x333333, 0.7).setStrokeStyle(1, 0xFFFFFF, 0.5).setDepth(101);
+        itemPanel._isSellItem = true; // Mark for easy removal
+        const itemName = this.add.text(x, y - 35, item.nome, { fontSize: '14px', fill: '#FFFFFF', wordWrap: { width: 140 } }).setOrigin(0.5).setDepth(102);
+        itemName._isSellItem = true;
+        const itemDesc = this.add.text(x, y + 5, item.descricao, { fontSize: '10px', fill: '#CCCCCC', wordWrap: { width: 140 } }).setOrigin(0.5).setDepth(102);
+        itemDesc._isSellItem = true;
+        const sellButton = this.add.text(x, y + 30, `Vender (${sellPrice} Sucata)`, {
+          fontSize: '12px',
+          fill: '#FFD700',
+          backgroundColor: '#884400',
+          padding: { x: 5, y: 2 }
+        }).setOrigin(0.5).setDepth(102).setInteractive();
+        sellButton._isSellItem = true;
+
+        sellButton.on('pointerdown', () => {
+          delete playerInventory.passiveItems[key]; // Remove item from inventory
+          playerStats.currency += sellPrice;
+          currencyText.setText(`Sucata: ${playerStats.currency}`);
+          this.hud.updateCurrencyDisplay();
+          this.hud.displayTemporaryEffect(`Vendeu: ${item.nome} (+${sellPrice} Sucata)`, '#FFD700', 1500);
+          updateSellableItemsDisplay(); // Refresh the sell section
+        });
+        shopElements.push(itemPanel, itemName, itemDesc, sellButton);
+        sellIndex++;
+      }
+    }
+
+    // Activable Items
+    for (const key in playerInventory.activableItems) {
+        if (playerInventory.activableItems.hasOwnProperty(key)) {
+            const item = playerInventory.activableItems[key];
+            const x = sellItemStartX + (sellIndex % 4) * itemXSpacing;
+            const y = sellItemStartY + Math.floor(sellIndex / 4) * itemYSpacing;
+            const sellPrice = item.precoVenda || 30; // Default sell price for activable
+
+            const itemPanel = this.add.rectangle(x, y, 150, 100, 0x333333, 0.7).setStrokeStyle(1, 0xFFFFFF, 0.5).setDepth(101);
+            itemPanel._isSellItem = true;
+            const itemName = this.add.text(x, y - 35, item.nome, { fontSize: '14px', fill: '#FFFFFF', wordWrap: { width: 140 } }).setOrigin(0.5).setDepth(102);
+            itemName._isSellItem = true;
+            const itemDesc = this.add.text(x, y + 5, item.descricao, { fontSize: '10px', fill: '#CCCCCC', wordWrap: { width: 140 } }).setOrigin(0.5).setDepth(102);
+            itemDesc._isSellItem = true;
+            const sellButton = this.add.text(x, y + 30, `Vender (${sellPrice} Sucata)`, {
+                fontSize: '12px',
+                fill: '#FFD700',
+                backgroundColor: '#884400',
+                padding: { x: 5, y: 2 }
+            }).setOrigin(0.5).setDepth(102).setInteractive();
+            sellButton._isSellItem = true;
+
+            sellButton.on('pointerdown', () => {
+                delete playerInventory.activableItems[key];
+                if (playerInventory.activeItem === key) { // If it was the active item, clear it
+                    playerInventory.activeItem = null;
+                }
+                playerStats.currency += sellPrice;
+                currencyText.setText(`Sucata: ${playerStats.currency}`);
+                this.hud.updateCurrencyDisplay();
+                this.hud.displayTemporaryEffect(`Vendeu: ${item.nome} (+${sellPrice} Sucata)`, '#FFD700', 1500);
+                updateSellableItemsDisplay();
+            });
+            shopElements.push(itemPanel, itemName, itemDesc, sellButton);
+            sellIndex++;
+        }
+    }
+  };
+
+  updateSellableItemsDisplay(); // Initial display of sellable items
+
+
+  const closeButton = this.add.text(config.width / 2, config.height - 40, 'Fechar Loja', {
     fontSize: '20px',
     fill: '#FFFFFF',
     backgroundColor: '#555555',
     padding: { x: 15, y: 8 }
   }).setOrigin(0.5).setDepth(101).setInteractive();
+  shopElements.push(closeButton);
 
   closeButton.on('pointerdown', () => {
-    shopBg.destroy();
-    shopTitle.destroy();
-    currencyText.destroy();
-    shopUIElements.forEach(element => element.destroy()); // Destroy all shop item UIs
-    closeButton.destroy();
+    shopElements.forEach(element => element.destroy()); // Destroy all shop UI elements
     this.scene.resume();
   });
 }
@@ -1202,6 +1307,7 @@ function startKillStreak() {
 }
 
 function endKillStreak() {
+  player.setTint(playerOriginalTint); // Revert to original color
   this.hud.displayTemporaryEffect('Frenesi Encerrado.', '#FFFFFF', 1000);
   killStreak = 0; // Resets the kill streak
 }
