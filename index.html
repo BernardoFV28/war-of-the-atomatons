@@ -203,15 +203,13 @@ class GameScene extends Phaser.Scene {
         this.load.image('pickup_coin', 'assets/pickup_coin.png');
         this.load.image('arma1', 'assets/arma1.png');
         this.load.image('arma2', 'assets/arma2.png');
-        // Se quiser um fundo para o jogo, carregue-o aqui:
-        // this.load.image('game_background', 'assets/seu_fundo_de_jogo.png');
+       this.load.image('game_background', 'assets/fundogame.png');
     }
 
     create() {
-        // Se quiser um fundo para o jogo, adicione-o aqui antes de outros elementos:
-        // const gameBg = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'game_background');
-        // gameBg.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
-        // gameBg.setDepth(-1); // Para garantir que fique no fundo
+        const gameBg = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'game_background');
+        gameBg.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
+        gameBg.setDepth(-1); // Para garantir que fique no fundo
 
         cursors = this.input.keyboard.createCursorKeys();
 
