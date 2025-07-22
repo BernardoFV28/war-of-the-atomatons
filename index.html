@@ -19,7 +19,7 @@
 </head>
 <body>
 <script>
-// Variáveis Globais (movidas para escopo global para acesso entre cenas, se necessário)
+// --- VARIÁVEIS GLOBAIS (MOVÍVEL PARA O TOPO) ---
 let player, cursors;
 let bullets, enemies, enemyBullets, armas, itemsGroup;
 let lastShoot = 0;
@@ -31,21 +31,23 @@ let playerXPText;
 let playerLevelText;
 let weaponNameText;
 let weaponImage;
-let playerStats = { // Aumentei a velocidade inicial
+let hudGroup; // <--- CORREÇÃO: Declarado aqui no topo!
+
+let playerStats = {
     health: 100,
     maxHealth: 100,
-    speed: 250, // Personagem mais rápido por padrão
+    speed: 250,
     bulletDamage: 10,
-    fireRate: 500, // Tempo entre tiros em ms
+    fireRate: 500,
     bulletSpeedBoost: 1,
-    bulletCountMultiplier: 1, // Quantas balas atira de uma vez
-    bulletPiercing: false, // Se as balas atravessam inimigos
+    bulletCountMultiplier: 1,
+    bulletPiercing: false,
     healthRegen: 0,
     lootMagnet: false,
     critChance: 0,
     critDamage: 1.5,
     xpBonus: 0,
-    coins: 0 // Moedas para a loja
+    coins: 0
 };
 let weaponStats = {
     nome: "Pistola Automática",
@@ -59,7 +61,7 @@ let temporaryEffectTimer = null;
 let currentWave = 0;
 let waveEnemiesRemaining = 0;
 let waveTimer;
-let waveInterval = 20000; // 20 segundos para cada onda
+let waveInterval = 20000;
 let waveConfig = [
     { type: 'normal', count: 5, health: 20, speed: 100, scale: 0.6, xp: 5 },
     { type: 'normal', count: 8, health: 25, speed: 110, scale: 0.6, xp: 6 },
@@ -70,7 +72,7 @@ let waveConfig = [
     { type: 'normal', count: 12, health: 35, speed: 130, scale: 0.6, xp: 10 },
     { type: 'fast', count: 7, health: 25, speed: 200, scale: 0.5, xp: 11 },
     { type: 'tank', count: 3, health: 90, speed: 90, scale: 0.8, xp: 18 },
-    { type: 'boss', count: 1, health: 300, speed: 70, scale: 1.2, xp: 50 } // Exemplo de chefe
+    { type: 'boss', count: 1, health: 300, speed: 70, scale: 1.2, xp: 50 }
 ];
 
 let enemyTypes = {
@@ -87,32 +89,25 @@ class ShopScene extends Phaser.Scene {
     }
 
     preload() {
-        // Você deve substituir esta URL pela sua própria imagem de fundo, por exemplo: 'assets/fundo_loja.png'
         this.load.image('shop_background', 'https://via.placeholder.com/1380x580/333333/FFFFFF?text=Fundo+da+Loja');
-        // Você pode carregar ícones para seus upgrades aqui
     }
 
     create() {
-        // Fundo Bonito
         const bg = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'shop_background');
         bg.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
-        // Título da Loja (Texto Centralizado)
         this.add.text(this.cameras.main.width / 2, 50, 'Loja de Upgrades', {
             fontSize: '48px',
             fill: '#FFF',
             align: 'center'
         }).setOrigin(0.5);
 
-        // Exibir moedas atuais
         this.coinText = this.add.text(this.cameras.main.width / 2, 100, `Moedas: ${playerStats.coins}`, {
             fontSize: '32px',
             fill: '#FFD700',
             align: 'center'
         }).setOrigin(0.5);
 
-        // Itens da Loja
-        // Exemplo: Upgrade de Velocidade
         this.add.text(this.cameras.main.width / 2, 200, 'Velocidade Extra', {
             fontSize: '30px',
             fill: '#FFF'
@@ -132,15 +127,14 @@ class ShopScene extends Phaser.Scene {
         buySpeedButton.on('pointerdown', () => {
             if (playerStats.coins >= 100) {
                 playerStats.coins -= 100;
-                playerStats.speed += 50; // Aumenta a velocidade
-                this.coinText.setText(`Moedas: ${playerStats.coins}`); // Atualiza o texto das moedas
+                playerStats.speed += 50;
+                this.coinText.setText(`Moedas: ${playerStats.coins}`);
                 createFloatingText(this, this.cameras.main.width / 2, 280, 'Comprado!', '#0F0');
             } else {
                 createFloatingText(this, this.cameras.main.width / 2, 280, 'Moedas insuficientes!', '#F00');
             }
         });
 
-        // Exemplo: Upgrade de Vida
         this.add.text(this.cameras.main.width / 2, 350, 'Vida Máxima', {
             fontSize: '30px',
             fill: '#FFF'
@@ -160,8 +154,8 @@ class ShopScene extends Phaser.Scene {
         buyHealthButton.on('pointerdown', () => {
             if (playerStats.coins >= 150) {
                 playerStats.coins -= 150;
-                playerStats.maxHealth += 25; // Aumenta a vida máxima
-                playerStats.health = Math.min(playerStats.health + 25, playerStats.maxHealth); // Cura o jogador sem exceder o maxHealth
+                playerStats.maxHealth += 25;
+                playerStats.health = Math.min(playerStats.health + 25, playerStats.maxHealth);
                 this.coinText.setText(`Moedas: ${playerStats.coins}`);
                 createFloatingText(this, this.cameras.main.width / 2, 430, 'Comprado!', '#0F0');
             } else {
@@ -170,7 +164,6 @@ class ShopScene extends Phaser.Scene {
         });
 
 
-        // Botão de Voltar para o Jogo (Centralizado)
         const backButton = this.add.text(this.cameras.main.width / 2, this.cameras.main.height - 50, 'Voltar ao Jogo', {
             fontSize: '36px',
             fill: '#0F0',
@@ -180,14 +173,12 @@ class ShopScene extends Phaser.Scene {
 
         backButton.on('pointerdown', () => {
             this.scene.stop('ShopScene');
-            this.scene.resume('GameScene'); // Retorna à cena do jogo
-            // Chamar updateHud() na GameScene para garantir que os stats sejam atualizados na HUD
+            this.scene.resume('GameScene');
             this.scene.get('GameScene').updateHud();
         });
     }
 
     update() {
-        // Nada específico para atualizar na loja por enquanto
     }
 }
 
@@ -203,55 +194,47 @@ class GameScene extends Phaser.Scene {
         this.load.image('enemy_robot.png', 'assets/enemy_robot.png');
         this.load.image('enemy_fast.png', 'assets/enemy_fast.png');
         this.load.image('enemy_tank.png', 'assets/enemy_tank.png');
-        this.load.image('boss_robot.png', 'assets/boss_robot.png'); // Imagem do chefe
+        this.load.image('boss_robot.png', 'assets/boss_robot.png');
         this.load.image('pickup_xp', 'assets/pickup_xp.png');
         this.load.image('pickup_health', 'assets/pickup_health.png');
-        this.load.image('pickup_coin', 'assets/pickup_coin.png'); // Item de moeda
-        // Armas (apenas um exemplo, adicione mais se necessário)
+        this.load.image('pickup_coin', 'assets/pickup_coin.png');
         this.load.image('arma1', 'assets/arma1.png');
         this.load.image('arma2', 'assets/arma2.png');
     }
 
     create() {
-        // Cursors de entrada
         cursors = this.input.keyboard.createCursorKeys();
 
-        // Grupos de colisões
         bullets = this.physics.add.group();
         enemies = this.physics.add.group();
         enemyBullets = this.physics.add.group();
-        itemsGroup = this.physics.add.group(); // Grupo para itens coletáveis
+        itemsGroup = this.physics.add.group();
 
-        // Cria o jogador
         player = this.physics.add.sprite(this.physics.world.bounds.width / 2, this.physics.world.bounds.height / 2, 'player');
         player.setCollideWorldBounds(true);
         player.setDepth(1);
         player.health = playerStats.health;
         player.maxHealth = playerStats.maxHealth;
-        player.currentWeapon = 0; // Índice da arma atual
+        player.currentWeapon = 0;
 
-        // HUD
         this.createHud();
 
-        // Overlaps e Collisions
         this.physics.add.overlap(bullets, enemies, this.hitEnemy, null, this);
         this.physics.add.overlap(player, enemyBullets, this.takeDamage, null, this);
         this.physics.add.overlap(player, itemsGroup, this.collectItem, null, this);
-        this.physics.add.overlap(player, enemies, this.playerHitByEnemy, null, this); // Dano de contato com inimigo
+        this.physics.add.overlap(player, enemies, this.playerHitByEnemy, null, this);
 
-        // Ouve a tecla ESPAÇO para reiniciar (se o jogo acabou)
         this.input.keyboard.on('keydown-SPACE', () => {
             if (!player.active) {
                 this.time.delayedCall(1000, () => {
-                    // Reinicia o jogo (resetando stats e a cena)
                     xp = 0;
                     level = 1;
                     score = 0;
                     currentWave = 0;
-                    playerStats = { // Resetar stats para o inicial ou carregado
+                    playerStats = {
                         health: 100,
                         maxHealth: 100,
-                        speed: 250, // Velocidade padrão
+                        speed: 250,
                         bulletDamage: 10,
                         fireRate: 500,
                         bulletSpeedBoost: 1,
@@ -275,12 +258,10 @@ class GameScene extends Phaser.Scene {
             }
         });
 
-        // Inicia as ondas de inimigos
         this.startWave();
 
-        // Timer para regeneração de vida
         this.time.addEvent({
-            delay: 1000, // A cada 1 segundo
+            delay: 1000,
             callback: () => {
                 if (playerStats.healthRegen > 0 && player.health < player.maxHealth) {
                     player.health = Math.min(player.health + playerStats.healthRegen, player.maxHealth);
@@ -290,17 +271,16 @@ class GameScene extends Phaser.Scene {
             loop: true
         });
 
-        // Botão para abrir a loja
         const shopButton = this.add.text(this.game.config.width - 150, 50, 'Loja', {
             fontSize: '28px',
             fill: '#FF0',
-            backgroundColor: '#6A0DAD', // Cor roxa
+            backgroundColor: '#6A0DAD',
             padding: { x: 15, y: 8 }
         }).setOrigin(0.5).setInteractive();
 
         shopButton.on('pointerdown', () => {
-            this.scene.pause('GameScene'); // Pausa a cena do jogo
-            this.scene.start('ShopScene'); // Inicia a cena da loja
+            this.scene.pause('GameScene');
+            this.scene.start('ShopScene');
         });
     }
 
@@ -308,29 +288,25 @@ class GameScene extends Phaser.Scene {
         playerHealthText.setText(`Vida: ${player.health}/${player.maxHealth}`);
         playerXPText.setText(`XP: ${xp}/${level * 100}`);
         playerLevelText.setText(`Nível: ${level}`);
-        // Atualiza a exibição de moedas na HUD
         hudGroup.getByName('coinText').setText(`Moedas: ${playerStats.coins}`);
     }
 
     createHud() {
-        hudGroup = this.add.group();
+        hudGroup = this.add.group(); // Inicialização de hudGroup
 
         playerHealthText = this.add.text(10, 10, `Vida: ${playerStats.health}/${playerStats.maxHealth}`, { fontSize: '24px', fill: '#FFF' });
         playerXPText = this.add.text(10, 40, `XP: ${xp}/${level * 100}`, { fontSize: '24px', fill: '#FFF' });
         playerLevelText = this.add.text(10, 70, `Nível: ${level}`, { fontSize: '24px', fill: '#FFF' });
         weaponNameText = this.add.text(this.game.config.width - 250, 10, `Arma: ${weaponStats.nome}`, { fontSize: '24px', fill: '#FFF' }).setOrigin(1, 0);
-        // Exibição de moedas
         const coinText = this.add.text(10, 100, `Moedas: ${playerStats.coins}`, { fontSize: '24px', fill: '#FFD700' }).setName('coinText');
 
 
-        // Adicione todos os elementos da HUD ao grupo
         hudGroup.add(playerHealthText);
         hudGroup.add(playerXPText);
         hudGroup.add(playerLevelText);
         hudGroup.add(weaponNameText);
         hudGroup.add(coinText);
 
-        // Barra de XP (opcional, para visual)
         let xpBarBackground = this.add.graphics();
         xpBarBackground.fillStyle(0x555555, 1);
         xpBarBackground.fillRect(10, 130, 200, 10);
@@ -347,7 +323,6 @@ class GameScene extends Phaser.Scene {
             return;
         }
 
-        // Movimento do jogador
         player.setVelocity(0);
         if (cursors.left.isDown) {
             player.setVelocityX(-playerStats.speed);
@@ -362,18 +337,15 @@ class GameScene extends Phaser.Scene {
 
         player.body.velocity.normalize().scale(playerStats.speed);
 
-        // Tiro do jogador
         if (time > lastShoot + playerStats.fireRate) {
             this.shootRadial();
             lastShoot = time;
         }
 
-        // Movimento dos inimigos
         enemies.children.each(function(enemy) {
             if (enemy.active) {
                 this.physics.moveToObject(enemy, player, enemy.speed);
 
-                // Inimigos atiram (exemplo: a cada 9 segundos)
                 if (enemy.lastShot === undefined) {
                     enemy.lastShot = time;
                 }
@@ -384,7 +356,6 @@ class GameScene extends Phaser.Scene {
             }
         }, this);
 
-        // Atualizar barra de XP
         this.xpBar.clear();
         this.xpBar.fillStyle(0x00FF00, 1);
         this.xpBar.fillRect(10, 130, (xp / (level * 100)) * 200, 10);
@@ -392,25 +363,23 @@ class GameScene extends Phaser.Scene {
 
     shootRadial() {
         const bulletCount = playerStats.bulletCountMultiplier;
-        // Ajustado para garantir que o ângulo inicial seja centralizado corretamente para qualquer número de balas
-        const angleOffset = (bulletCount > 1) ? -(bulletCount - 1) * 10 / 2 : 0; // 10 graus de espaçamento, ajuste total
+        const angleOffset = (bulletCount > 1) ? -(bulletCount - 1) * 10 / 2 : 0;
         const bulletSpeed = 500 * playerStats.bulletSpeedBoost;
 
         for (let i = 0; i < bulletCount; i++) {
-            let angle = Phaser.Math.DegToRad(Phaser.Math.RadToDeg(player.rotation) + angleOffset + (i * 10)); // Ajusta com base na rotação do player e offset
+            let angle = Phaser.Math.DegToRad(Phaser.Math.RadToDeg(player.rotation) + angleOffset + (i * 10));
             let bullet = bullets.get(player.x, player.y, 'bullet');
 
             if (bullet) {
                 bullet.setActive(true).setVisible(true);
-                bullet.setRotation(angle); // Rotaciona a bala na direção do tiro
+                bullet.setRotation(angle);
                 this.physics.velocityFromRotation(angle, bulletSpeed, bullet.body.velocity);
-                bullet.damage = playerStats.bulletDamage; // Dano da bala (multiplicador já está na stats)
+                bullet.damage = playerStats.bulletDamage;
                 bullet.piercing = playerStats.bulletPiercing;
                 bullet.critChance = playerStats.critChance;
                 bullet.critDamage = playerStats.critDamage;
 
-                // Destrói a bala após um tempo ou fora dos limites
-                this.time.delayedCall(2000, () => { // Ajuste o tempo de vida da bala
+                this.time.delayedCall(2000, () => {
                     if (bullet.active) {
                         bullet.destroy();
                     }
@@ -420,7 +389,7 @@ class GameScene extends Phaser.Scene {
     }
 
     hitEnemy(bullet, enemy) {
-        if (!enemy.active || !bullet.active) return; // Evita hits duplos ou em objetos inativos
+        if (!enemy.active || !bullet.active) return;
 
         let finalDamage = bullet.damage;
         let isCrit = false;
@@ -433,7 +402,7 @@ class GameScene extends Phaser.Scene {
         createFloatingText(this, enemy.x, enemy.y - 20, Math.round(finalDamage).toString(), isCrit ? '#FF0000' : '#FFFFFF');
 
         if (!bullet.piercing) {
-            bullet.destroy(); // Destrói a bala se não for perfurante
+            bullet.destroy();
         }
 
         if (enemy.health <= 0) {
@@ -443,8 +412,8 @@ class GameScene extends Phaser.Scene {
 
     takeDamage(player, bullet) {
         if (!player.active) return;
-        bullet.destroy(); // Destrói a bala inimiga ao atingir o jogador
-        player.health -= 10; // Dano fixo de bala inimiga
+        bullet.destroy();
+        player.health -= 10;
         this.updateHud();
         createFloatingText(this, player.x, player.y, '-10', '#FF0000');
 
@@ -455,11 +424,8 @@ class GameScene extends Phaser.Scene {
 
     playerHitByEnemy(player, enemy) {
         if (!player.active || !enemy.active) return;
-        // Dano contínuo se o jogador estiver sobreposto ao inimigo
-        player.health -= 1; // Pequeno dano de contato
+        player.health -= 1;
         this.updateHud();
-        // Evite spam de texto flutuante para dano de contato, ou use um timer
-        // createFloatingText(this, player.x, player.y, '-1', '#FF0000');
 
         if (player.health <= 0) {
             this.gameOver();
@@ -469,11 +435,10 @@ class GameScene extends Phaser.Scene {
     killEnemy(enemy) {
         createFloatingText(this, enemy.x, enemy.y, `+${enemy.xpReward} XP`, '#00FF00');
         xp += enemy.xpReward + (enemy.xpReward * playerStats.xpBonus);
-        score += 10; // Adiciona pontos
-        enemy.destroy(); // Destroi o inimigo
+        score += 10;
+        enemy.destroy();
         waveEnemiesRemaining--;
 
-        // Chance de dropar item
         this.dropItem(enemy.x, enemy.y);
 
         if (xp >= level * 100) {
@@ -490,8 +455,8 @@ class GameScene extends Phaser.Scene {
         let enemyBullet = enemyBullets.get(enemy.x, enemy.y, 'bullet');
         if (enemyBullet) {
             enemyBullet.setActive(true).setVisible(true);
-            this.physics.moveToObject(enemyBullet, player, 200); // Velocidade da bala inimiga
-            this.time.delayedCall(3000, () => { // Destroi bala inimiga após 3 segundos
+            this.physics.moveToObject(enemyBullet, player, 200);
+            this.time.delayedCall(3000, () => {
                 if (enemyBullet.active) {
                     enemyBullet.destroy();
                 }
@@ -501,12 +466,12 @@ class GameScene extends Phaser.Scene {
 
     levelUp() {
         level++;
-        xp = 0; // Reseta XP para o próximo nível
-        playerStats.maxHealth += 10; // Aumenta vida máxima no level up
-        player.health = playerStats.maxHealth; // Cura completamente
-        playerStats.bulletDamage += 2; // Aumenta dano
-        playerStats.fireRate = Math.max(100, playerStats.fireRate - 20); // Aumenta cadência, mínimo de 100ms
-        playerStats.speed += 5; // Pequeno aumento de velocidade no level up
+        xp = 0;
+        playerStats.maxHealth += 10;
+        player.health = playerStats.maxHealth;
+        playerStats.bulletDamage += 2;
+        playerStats.fireRate = Math.max(100, playerStats.fireRate - 20);
+        playerStats.speed += 5;
         playerStats.bulletSpeedBoost += 0.05;
 
         displayTemporaryEffect(this, `Nível ${level}!`, '#00FFFF');
@@ -529,25 +494,21 @@ class GameScene extends Phaser.Scene {
     startWave() {
         currentWave++;
         if (currentWave > waveConfig.length) {
-            // Fim das ondas, talvez um chefe final ou reiniciar as ondas
             displayTemporaryEffect(this, 'Todas as ondas completas!', '#FFD700');
             this.physics.pause();
             return;
         }
 
         let waveInfo = waveConfig[currentWave - 1];
-        waveEnemiesRemaining = waveInfo.count; // Define o número de inimigos para esta onda
+        waveEnemiesRemaining = waveInfo.count;
 
         displayTemporaryEffect(this, `Onda ${currentWave} - ${waveInfo.type.toUpperCase()}!`, '#00FF00');
 
         for (let i = 0; i < waveInfo.count; i++) {
-            this.time.delayedCall(i * 500, () => { // Espaçamento entre os spawns
+            this.time.delayedCall(i * 500, () => {
                 let x = Phaser.Math.Between(50, this.game.config.width - 50);
                 let y = Phaser.Math.Between(50, this.game.config.height - 50);
 
-                // Evita spawn em cima do jogador (melhorar lógica)
-                // Pequena melhoria na condição de loop para evitar loop infinito em casos extremos,
-                // mas ainda um risco em mapas muito pequenos.
                 let attempts = 0;
                 while (Phaser.Math.Distance.Between(x, y, player.x, player.y) < 200 && attempts < 10) {
                     x = Phaser.Math.Between(50, this.game.config.width - 50);
@@ -559,7 +520,6 @@ class GameScene extends Phaser.Scene {
             }, [], this);
         }
 
-        // Timer para a próxima onda começar automaticamente
         if (waveTimer) waveTimer.remove();
         waveTimer = this.time.delayedCall(waveInterval, this.startWave, [], this);
     }
@@ -574,10 +534,10 @@ class GameScene extends Phaser.Scene {
         let enemy = enemies.get(x, y, enemyTypeData.texture);
         if (enemy) {
             enemy.setActive(true).setVisible(true);
-            enemy.setTint(0xff0000); // Inimigos vermelhos para destacar
+            enemy.setTint(0xff0000);
             enemy.setScale(enemyTypeData.scale);
             enemy.health = waveInfo.health || enemyTypeData.baseHealth;
-            enemy.maxHealth = waveInfo.health || enemyTypeData.baseHealth; // Novo: maxHealth para inimigos
+            enemy.maxHealth = waveInfo.health || enemyTypeData.baseHealth;
             enemy.speed = waveInfo.speed || enemyTypeData.speed;
             enemy.xpReward = waveInfo.xp || enemyTypeData.xpReward;
             enemy.setCollideWorldBounds(true);
@@ -587,20 +547,20 @@ class GameScene extends Phaser.Scene {
     checkWaveCompletion() {
         if (waveEnemiesRemaining <= 0) {
             displayTemporaryEffect(this, `Onda ${currentWave} Concluída!`, '#00FF00');
-            if (waveTimer) waveTimer.remove(); // Para o timer da onda atual
-            this.time.delayedCall(5000, this.startWave, [], this); // Inicia a próxima onda após 5 segundos
+            if (waveTimer) waveTimer.remove();
+            this.time.delayedCall(5000, this.startWave, [], this);
         }
     }
 
     dropItem(x, y) {
         let rand = Math.random();
-        if (rand < 0.20) { // 20% de chance de dropar XP
+        if (rand < 0.20) {
             let xpAmount = Math.floor(Phaser.Math.Between(5, 15) * (1 + level * 0.1));
             this.spawnPickup(x, y, 'pickup_xp', 'xp', xpAmount);
-        } else if (rand < 0.30) { // 10% de chance de dropar vida
+        } else if (rand < 0.30) {
             let healthAmount = Math.floor(Phaser.Math.Between(10, 20) * (1 + level * 0.05));
             this.spawnPickup(x, y, 'pickup_health', 'health', healthAmount);
-        } else if (rand < 0.45) { // 15% de chance de dropar moeda
+        } else if (rand < 0.45) {
             let coinAmount = Phaser.Math.Between(1, 5);
             this.spawnPickup(x, y, 'pickup_coin', 'coin', coinAmount);
         }
@@ -612,17 +572,16 @@ class GameScene extends Phaser.Scene {
             item.setActive(true).setVisible(true);
             item.type = type;
             item.value = value;
-            item.setCircle(item.width / 2); // Define um corpo de colisão circular
+            item.setCircle(item.width / 2);
 
-            // Pequeno movimento inicial para espalhar os itens
-            this.physics.moveTo(item, player, 50); // Movimento em direção ao jogador se tiver imã de loot
+            this.physics.moveTo(item, player, 50);
             this.time.delayedCall(200, () => {
                 if (item.active) {
-                    item.setVelocity(0); // Para o movimento após um curto período
+                    item.setVelocity(0);
                 }
             });
 
-            this.time.delayedCall(10000, () => { // Itens desaparecem após 10 segundos
+            this.time.delayedCall(10000, () => {
                 if (item.active) {
                     item.destroy();
                 }
@@ -650,67 +609,63 @@ class GameScene extends Phaser.Scene {
                 createFloatingText(this, item.x, item.y, `+${item.value} Moedas`, '#FFD700');
                 break;
         }
-        item.destroy(); // Destrói o item após coletar
+        item.destroy();
         this.updateHud();
     }
 
     increaseKillStreak() {
         killStreak++;
         if (killStreakTimer) {
-            killStreakTimer.remove(false); // Reseta o timer
+            killStreakTimer.remove(false);
         }
-        killStreakTimer = this.time.delayedCall(5000, this.endKillStreak, [], this); // 5 segundos para manter o streak
+        killStreakTimer = this.time.delayedCall(5000, this.endKillStreak, [], this);
 
-        if (killStreak % 5 === 0) { // A cada 5 kills
-            displayTemporaryEffect(this, `${killStreak} Kills!`, '#FF8C00'); // Laranja escuro
+        if (killStreak % 5 === 0) {
+            displayTemporaryEffect(this, `${killStreak} Kills!`, '#FF8C00');
 
-            if (killStreak % 10 === 0) { // A cada 10 kills
-                // Ativa um efeito de frenesi
+            if (killStreak % 10 === 0) {
                 this.startFrenzy();
             }
         }
     }
 
     startFrenzy() {
-        displayTemporaryEffect(this, 'FRENESI ATIVADO!', '#FF00FF'); // Magenta
-        player.setTint(0xFF00FF); // Muda a cor do jogador para indicar frenesi
-        playerStats.fireRate /= 2; // Dobra a cadência de tiro
-        playerStats.bulletDamage *= 1.2; // Aumenta o dano
-        playerStats.speed *= 1.1; // Aumenta a velocidade
-        // Duração do frenesi
+        displayTemporaryEffect(this, 'FRENESI ATIVADO!', '#FF00FF');
+        player.setTint(0xFF00FF);
+        playerStats.fireRate /= 2;
+        playerStats.bulletDamage *= 1.2;
+        playerStats.speed *= 1.1;
         this.time.delayedCall(5000, this.endFrenzy, [], this);
     }
 
     endFrenzy() {
-        // CORRIGIDO: playerOriginalTint não estava definida. Usando 0xFFFFFF (branco) como padrão.
-        player.setTint(0xFFFFFF); // Volta à cor original (branca)
-        playerStats.fireRate *= 2; // Volta a cadência de tiro
-        playerStats.bulletDamage /= 1.2; // Volta o dano
-        playerStats.speed /= 1.1; // Volta a velocidade
+        player.setTint(0xFFFFFF); // Volta à cor original (branco)
+        playerStats.fireRate *= 2;
+        playerStats.bulletDamage /= 1.2;
+        playerStats.speed /= 1.1;
         displayTemporaryEffect(this, 'Frenesi Encerrado.', '#FFFFFF');
     }
 
     endKillStreak() {
-        killStreak = 0; // Reseta o kill streak
+        killStreak = 0;
     }
 }
 
 // Funções auxiliares (fora da classe GameScene para serem globais ou passadas)
 function displayTemporaryEffect(scene, text, color = '#FFFFFF') {
     if (temporaryEffectText) {
-        temporaryEffectText.destroy(); // Remove o texto anterior se ainda estiver ativo
+        temporaryEffectText.destroy();
     }
     if (temporaryEffectTimer) {
-        temporaryEffectTimer.remove(false); // Remove o timer anterior
+        temporaryEffectTimer.remove(false);
     }
 
-    // Usando as dimensões da câmera da cena para posicionamento, mais robusto.
     temporaryEffectText = scene.add.text(scene.cameras.main.width / 2, scene.cameras.main.height / 2 - 50, text, {
         fontSize: '36px',
         fill: color,
         align: 'center'
     }).setOrigin(0.5);
-    temporaryEffectText.setDepth(2); // Acima de tudo
+    temporaryEffectText.setDepth(2);
 
     temporaryEffectTimer = scene.time.delayedCall(2000, () => {
         if (temporaryEffectText) {
@@ -750,7 +705,6 @@ const config = {
     default: 'arcade',
     arcade: { debug: false }
   },
-  // As cenas são definidas como classes
   scene: [GameScene, ShopScene]
 };
 
