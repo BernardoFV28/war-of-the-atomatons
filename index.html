@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V1.4 - A Cruzada da Rainha</title>
+  <title>War of the Automatons V1.3 - A Cruzada da Rainha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -87,7 +87,8 @@ class ShopScene extends Phaser.Scene {
     }
 
     preload() {
-        this.load.image('shop_background', 'https://via.placeholder.com/1380x580/333333/FFFFFF?text=Fundo+da+Loja'); // Imagem de fundo placeholder
+        // Você deve substituir esta URL pela sua própria imagem de fundo, por exemplo: 'assets/fundo_loja.png'
+        this.load.image('shop_background', 'https://via.placeholder.com/1380x580/333333/FFFFFF?text=Fundo+da+Loja');
         // Você pode carregar ícones para seus upgrades aqui
     }
 
@@ -160,7 +161,7 @@ class ShopScene extends Phaser.Scene {
             if (playerStats.coins >= 150) {
                 playerStats.coins -= 150;
                 playerStats.maxHealth += 25; // Aumenta a vida máxima
-                playerStats.health += 25; // Cura o jogador também
+                playerStats.health = Math.min(playerStats.health + 25, playerStats.maxHealth); // Cura o jogador sem exceder o maxHealth
                 this.coinText.setText(`Moedas: ${playerStats.coins}`);
                 createFloatingText(this, this.cameras.main.width / 2, 430, 'Comprado!', '#0F0');
             } else {
@@ -391,18 +392,19 @@ class GameScene extends Phaser.Scene {
 
     shootRadial() {
         const bulletCount = playerStats.bulletCountMultiplier;
-        const angleStep = 360 / bulletCount; // Para bullets radiais
-        const startAngle = (bulletCount % 2 === 0) ? -angleStep / 2 : 0; // Ajuste para par/ímpar
+        // Ajustado para garantir que o ângulo inicial seja centralizado corretamente para qualquer número de balas
+        const angleOffset = (bulletCount > 1) ? -(bulletCount - 1) * 10 / 2 : 0; // 10 graus de espaçamento, ajuste total
+        const bulletSpeed = 500 * playerStats.bulletSpeedBoost;
 
         for (let i = 0; i < bulletCount; i++) {
-            let angle = Phaser.Math.DegToRad(startAngle + i * angleStep);
+            let angle = Phaser.Math.DegToRad(Phaser.Math.RadToDeg(player.rotation) + angleOffset + (i * 10)); // Ajusta com base na rotação do player e offset
             let bullet = bullets.get(player.x, player.y, 'bullet');
 
             if (bullet) {
                 bullet.setActive(true).setVisible(true);
                 bullet.setRotation(angle); // Rotaciona a bala na direção do tiro
-                this.physics.velocityFromRotation(angle, 500 * playerStats.bulletSpeedBoost, bullet.body.velocity);
-                bullet.damage = playerStats.bulletDamage * playerStats.bulletCountMultiplier; // Dano da bala
+                this.physics.velocityFromRotation(angle, bulletSpeed, bullet.body.velocity);
+                bullet.damage = playerStats.bulletDamage; // Dano da bala (multiplicador já está na stats)
                 bullet.piercing = playerStats.bulletPiercing;
                 bullet.critChance = playerStats.critChance;
                 bullet.critDamage = playerStats.critDamage;
@@ -544,9 +546,13 @@ class GameScene extends Phaser.Scene {
                 let y = Phaser.Math.Between(50, this.game.config.height - 50);
 
                 // Evita spawn em cima do jogador (melhorar lógica)
-                while (Phaser.Math.Distance.Between(x, y, player.x, player.y) < 200) {
+                // Pequena melhoria na condição de loop para evitar loop infinito em casos extremos,
+                // mas ainda um risco em mapas muito pequenos.
+                let attempts = 0;
+                while (Phaser.Math.Distance.Between(x, y, player.x, player.y) < 200 && attempts < 10) {
                     x = Phaser.Math.Between(50, this.game.config.width - 50);
                     y = Phaser.Math.Between(50, this.game.config.height - 50);
+                    attempts++;
                 }
 
                 this.spawnEnemy(x, y, waveInfo);
@@ -676,7 +682,8 @@ class GameScene extends Phaser.Scene {
     }
 
     endFrenzy() {
-        player.setTint(0xFFFFFF); // Volta à cor original
+        // CORRIGIDO: playerOriginalTint não estava definida. Usando 0xFFFFFF (branco) como padrão.
+        player.setTint(0xFFFFFF); // Volta à cor original (branca)
         playerStats.fireRate *= 2; // Volta a cadência de tiro
         playerStats.bulletDamage /= 1.2; // Volta o dano
         playerStats.speed /= 1.1; // Volta a velocidade
@@ -697,7 +704,8 @@ function displayTemporaryEffect(scene, text, color = '#FFFFFF') {
         temporaryEffectTimer.remove(false); // Remove o timer anterior
     }
 
-    temporaryEffectText = scene.add.text(scene.game.config.width / 2, scene.game.config.height / 2 - 50, text, {
+    // Usando as dimensões da câmera da cena para posicionamento, mais robusto.
+    temporaryEffectText = scene.add.text(scene.cameras.main.width / 2, scene.cameras.main.height / 2 - 50, text, {
         fontSize: '36px',
         fill: color,
         align: 'center'
