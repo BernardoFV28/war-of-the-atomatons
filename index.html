@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V1.5.2 - A Cruzada da Rainha</title>
+  <title>War of the Automatons V1.3 - A Cruzada da Rainha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -63,23 +63,23 @@ let waveEnemiesRemaining = 0;
 let waveTimer;
 let waveInterval = 20000;
 let waveConfig = [
-    { type: 'normal', count: 5, health: 20, speed: 100, scale: 0.6, xp: 5 },
-    { type: 'normal', count: 8, health: 25, speed: 110, scale: 0.6, xp: 6 },
-    { type: 'fast', count: 3, health: 15, speed: 180, scale: 0.5, xp: 7 },
-    { type: 'normal', count: 10, health: 30, speed: 120, scale: 0.6, xp: 8 },
-    { type: 'fast', count: 5, health: 20, speed: 190, scale: 0.5, xp: 9 },
-    { type: 'tank', count: 2, health: 80, speed: 80, scale: 0.8, xp: 15 },
-    { type: 'normal', count: 12, health: 35, speed: 130, scale: 0.6, xp: 10 },
-    { type: 'fast', count: 7, health: 25, speed: 200, scale: 0.5, xp: 11 },
-    { type: 'tank', count: 3, health: 90, speed: 90, scale: 0.8, xp: 18 },
-    { type: 'boss', count: 1, health: 300, speed: 70, scale: 1.2, xp: 50 }
+    { type: 'normal', count: 5, health: 20, speed: 100, scale: 0.6, xp: 5 }, // Escala será substituída pelo enemyTypes
+    { type: 'normal', count: 8, health: 25, speed: 110, scale: 0.6, xp: 6 }, // Escala será substituída pelo enemyTypes
+    { type: 'fast', count: 3, health: 15, speed: 180, scale: 0.5, xp: 7 },   // Escala será substituída pelo enemyTypes
+    { type: 'normal', count: 10, health: 30, speed: 120, scale: 0.6, xp: 8 },// Escala será substituída pelo enemyTypes
+    { type: 'fast', count: 5, health: 20, speed: 190, scale: 0.5, xp: 9 },   // Escala será substituída pelo enemyTypes
+    { type: 'tank', count: 2, health: 80, speed: 80, scale: 0.8, xp: 15 },   // Escala será substituída pelo enemyTypes
+    { type: 'normal', count: 12, health: 35, speed: 130, scale: 0.6, xp: 10 },// Escala será substituída pelo enemyTypes
+    { type: 'fast', count: 7, health: 25, speed: 200, scale: 0.5, xp: 11 },   // Escala será substituída pelo enemyTypes
+    { type: 'tank', count: 3, health: 90, speed: 90, scale: 0.8, xp: 18 },   // Escala será substituída pelo enemyTypes
+    { type: 'boss', count: 1, health: 300, speed: 70, scale: 1.2, xp: 50 }    // Escala será substituída pelo enemyTypes
 ];
 
 let enemyTypes = {
-    normal: { texture: 'enemy_robot.png', baseHealth: 20, speed: 100, scale: 0.6, xpReward: 5 },
-    fast: { texture: 'enemy_fast.png', baseHealth: 15, speed: 180, scale: 0.5, xpReward: 7 },
-    tank: { texture: 'enemy_tank.png', baseHealth: 80, speed: 80, scale: 0.8, xpReward: 15 },
-    boss: { texture: 'boss_robot.png', baseHealth: 300, speed: 70, scale: 1.2, xpReward: 50 }
+    normal: { texture: 'enemy_robot.png', baseHealth: 20, speed: 100, scale: 0.08, xpReward: 5 }, // Alterado para 0.08
+    fast: { texture: 'enemy_fast.png', baseHealth: 15, speed: 180, scale: 0.08, xpReward: 7 },     // Alterado para 0.08
+    tank: { texture: 'enemy_tank.png', baseHealth: 80, speed: 80, scale: 0.08, xpReward: 15 },     // Alterado para 0.08
+    boss: { texture: 'boss_robot.png', baseHealth: 300, speed: 70, scale: 0.08, xpReward: 50 }      // Alterado para 0.08
 };
 
 // --- NOVA CENA DA LOJA ---
@@ -226,7 +226,7 @@ class GameScene extends Phaser.Scene {
         player.health = playerStats.health;
         player.maxHealth = playerStats.maxHealth;
         player.currentWeapon = 0;
-        player.setScale(0.5); // Reduz o tamanho do personagem
+        player.setScale(0.08); // <-- Alterado para 0.08
 
         this.createHud();
 
@@ -287,7 +287,7 @@ class GameScene extends Phaser.Scene {
             fill: '#FF0',
             backgroundColor: '#6A0DAD',
             padding: { x: 15, y: 8 }
-        }).setOrigin(0.5).setInteractive().setDepth(3); // <-- Correção: Adicionado setDepth(3)
+        }).setOrigin(0.5).setInteractive().setDepth(3);
 
         shopButton.on('pointerdown', () => {
             this.scene.pause('GameScene');
@@ -547,7 +547,7 @@ class GameScene extends Phaser.Scene {
         if (enemy) {
             enemy.setActive(true).setVisible(true);
             enemy.setTint(0xff0000);
-            enemy.setScale(enemyTypeData.scale);
+            enemy.setScale(enemyTypeData.scale); // Agora usa a escala de 0.08 do enemyTypes
             enemy.health = waveInfo.health || enemyTypeData.baseHealth;
             enemy.maxHealth = waveInfo.health || enemyTypeData.baseHealth;
             enemy.speed = waveInfo.speed || enemyTypeData.speed;
