@@ -259,6 +259,19 @@ class HUD {
     this.currencyText = scene.add.text(10, 70, 'Sucata: ' + playerStats.currency, { fontSize: '20px', fill: '#FFD700' });
     this.waveText = scene.add.text(config.width / 2, 10, 'Onda: ' + waveNumber, { fontSize: '24px', fill: '#FFFFFF' }).setOrigin(0.5);
 
+    // NEW: Shop Button
+    this.shopButton = scene.add.text(config.width - 100, 10, 'LOJA', {
+        fontSize: '24px',
+        fill: '#00FF00',
+        backgroundColor: '#333333',
+        padding: { x: 10, y: 5 }
+    }).setOrigin(0.5, 0).setDepth(1).setInteractive();
+
+    this.shopButton.on('pointerover', () => { this.shopButton.setBackgroundColor('#00AA00'); });
+    this.shopButton.on('pointerout', () => { this.shopButton.setBackgroundColor('#333333'); });
+    this.shopButton.on('pointerdown', () => { showShopMenu.call(this.scene); }); // Call showShopMenu from the scene context
+
+
     // Initial updates
     this.updateHealthBar();
     this.updateXpBar();
@@ -449,7 +462,7 @@ function create() {
     delay: 1000,
     callback: () => {
       if (playerStats.passiveRegenActive && playerStats.life < playerStats.maxLife) {
-        playerStats.life = Math.min(playerStats.life + 0.1, playerStats.maxLife); // Small regen
+        playerStats.life = Math.min(playerStats.life + 0.1, playerStats.maxLife); // Small continuous regen
         this.hud.updateHealthBar();
       }
     },
@@ -464,27 +477,36 @@ function create() {
 }
 
 function update(time, delta) {
-  player.body.setVelocity(0);
-
-  // Player Movement (WASD or Arrows)
+  // Corrected Movement Logic
   let playerMoveSpeed = playerStats.playerSpeed;
   if (playerStats.speedBoost) {
     playerMoveSpeed *= 1.5; // Apply speed boost from Overclock
   }
 
+  let velocityX = 0;
+  let velocityY = 0;
+
   if (this.keyA.isDown || cursors.left.isDown) {
-    player.body.setVelocityX(-playerMoveSpeed);
+    velocityX = -playerMoveSpeed;
   } else if (this.keyD.isDown || cursors.right.isDown) {
-    player.body.setVelocityX(playerMoveSpeed);
+    velocityX = playerMoveSpeed;
   }
 
   if (this.keyW.isDown || cursors.up.isDown) {
-    player.body.setVelocityY(-playerMoveSpeed);
+    velocityY = -playerMoveSpeed;
   } else if (this.keyS.isDown || cursors.down.isDown) {
-    player.body.setVelocityY(playerMoveSpeed);
+    velocityY = playerMoveSpeed;
   }
 
-  player.body.velocity.normalize().scale(playerMoveSpeed); // Normalize diagonal movement
+  // Normalize diagonal movement to maintain consistent speed
+  if (velocityX !== 0 && velocityY !== 0) {
+    const diagSpeed = playerMoveSpeed / Math.SQRT2; // Speed for diagonal movement
+    velocityX = (velocityX > 0 ? diagSpeed : -diagSpeed);
+    velocityY = (velocityY > 0 ? diagSpeed : -diagSpeed);
+  }
+
+  player.body.setVelocity(velocityX, velocityY); // Apply calculated velocity
+
 
   // Player Dash (Spacebar)
   if (Phaser.Input.Keyboard.JustDown(this.keySpace) && playerStats.dashAvailable && !playerStats.dashCooldown) {
@@ -498,21 +520,32 @@ function update(time, delta) {
     let dashX = 0;
     let dashY = 0;
 
-    if (this.keyA.isDown || cursors.left.isDown) dashX = -dashVelocity;
-    else if (this.keyD.isDown || cursors.right.isDown) dashX = dashVelocity;
+    // Use current movement direction for dash
+    if (cursors.left.isDown || this.keyA.isDown) dashX = -dashVelocity;
+    else if (cursors.right.isDown || this.keyD.isDown) dashX = dashVelocity;
 
-    if (this.keyW.isDown || cursors.up.isDown) dashY = -dashVelocity;
-    else if (this.keyS.isDown || cursors.down.isDown) dashY = dashVelocity;
+    if (cursors.up.isDown || this.keyW.isDown) dashY = -dashVelocity;
+    else if (cursors.down.isDown || this.keyS.isDown) dashY = dashVelocity;
 
     if (dashX === 0 && dashY === 0) { // If no directional input, dash in current facing direction or default
+        // For simplicity, dash forward (up) if no direction keys are held
+        // In a top-down game, "forward" might be relative to player's last movement or just Up.
         dashY = -dashVelocity; // Default dash up if no direction
+    }
+
+    // Normalize dash vector if diagonal
+    if (dashX !== 0 && dashY !== 0) {
+        const diagDashSpeed = dashVelocity / Math.SQRT2;
+        dashX = (dashX > 0 ? diagDashSpeed : -diagDashSpeed);
+        dashY = (dashY > 0 ? diagDashSpeed : -diagDashSpeed);
     }
 
     player.body.setVelocity(dashX, dashY);
     player.setTint(0x00FF00); // Green tint during dash
 
     this.time.delayedCall(dashDuration, () => {
-      player.body.setVelocity(0);
+      // After dash duration, stop movement
+      player.body.setVelocity(0); // Stop player after dash
       player.setTint(playerOriginalTint); // Revert tint
 
       this.time.delayedCall(3000, () => { // Dash cooldown
