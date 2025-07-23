@@ -22,8 +22,8 @@
 // --- Configuration ---
 const config = {
   type: Phaser.AUTO,
-  width: 1380,
-  height: 580,
+  width: 1920, // Aumentado para uma largura maior
+  height: 1080, // Aumentado para uma altura maior
   backgroundColor: '#000000',
   physics: {
     default: 'arcade',
@@ -492,7 +492,8 @@ function preload() {
 }
 
 function create() {
-  this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1).setScale(1.2);
+  // Ajuste a escala da imagem de fundo para cobrir o novo tamanho do mapa
+  this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1).setScale(Math.max(config.width / this.textures.get('fundogame').width, config.height / this.textures.get('fundogame').height));
 
   player = this.physics.add.sprite(config.width / 2, config.height / 2, 'player').setScale(PLAYER_INITIAL_SCALE);
   player.setCollideWorldBounds(true);
@@ -1200,6 +1201,7 @@ function showShopMenu() {
 function spawnEnemy() {
   if (enemiesSpawnedThisWave < enemiesInWave) {
     let x, y;
+    // Ajustado para que os inimigos apareçam fora dos limites do novo mapa
     if (Math.random() < 0.5) { // Spawn from top/bottom
       x = Phaser.Math.Between(50, config.width - 50);
       y = (Math.random() < 0.5) ? -50 : config.height + 50;
