@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons V1.3 - A Cruzada da Rainha</title>
+  <title>War of the Automatons - A Cruzada da Rainha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -19,670 +19,1310 @@
 </head>
 <body>
 <script>
-// --- VARIÁVEIS GLOBAIS (MOVÍVEL PARA O TOPO) ---
+// --- Configuration ---
+const config = {
+  type: Phaser.AUTO,
+  width: 1380,
+  height: 580,
+  backgroundColor: '#000000',
+  physics: {
+    default: 'arcade',
+    arcade: { debug: false }
+  },
+  scene: {
+    preload,
+    create,
+    update
+  }
+};
+
+// --- Global Variables (Game Objects & State) ---
 let player, cursors;
 let bullets, enemies, enemyBullets, armas, itemsGroup;
 let lastShoot = 0;
-let xp = 0;
-let level = 1;
-let score = 0;
-let playerHealthText;
-let playerXPText;
-let playerLevelText;
-let weaponNameText;
-let weaponImage;
-let hudGroup;
-
-let playerStats = {
-    health: 100,
-    maxHealth: 100,
-    speed: 250,
-    bulletDamage: 10,
-    fireRate: 500,
-    bulletSpeedBoost: 1,
-    bulletCountMultiplier: 1,
-    bulletPiercing: false,
-    healthRegen: 0,
-    lootMagnet: false,
-    critChance: 0,
-    critDamage: 1.5,
-    xpBonus: 0,
-    coins: 0
-};
-let weaponStats = {
-    nome: "Pistola Automática",
-    danoBase: 10,
-    cadenciaBase: 500
-};
-let killStreak = 0;
-let killStreakTimer;
+let lastEnemySpawn = 0;
+let waveNumber = 1;
+let enemiesInWave = 5;
+let enemiesSpawnedThisWave = 0;
+let enemySpawnRate = 2000;
 let temporaryEffectText = null;
 let temporaryEffectTimer = null;
-let currentWave = 0;
-let waveEnemiesRemaining = 0;
-let waveTimer;
-let waveInterval = 20000;
-let waveConfig = [
-    { type: 'normal', count: 5, health: 20, speed: 100, scale: 0.6, xp: 5 }, // Escala será substituída pelo enemyTypes
-    { type: 'normal', count: 8, health: 25, speed: 110, scale: 0.6, xp: 6 }, // Escala será substituída pelo enemyTypes
-    { type: 'fast', count: 3, health: 15, speed: 180, scale: 0.5, xp: 7 },   // Escala será substituída pelo enemyTypes
-    { type: 'normal', count: 10, health: 30, speed: 120, scale: 0.6, xp: 8 },// Escala será substituída pelo enemyTypes
-    { type: 'fast', count: 5, health: 20, speed: 190, scale: 0.5, xp: 9 },   // Escala será substituída pelo enemyTypes
-    { type: 'tank', count: 2, health: 80, speed: 80, scale: 0.8, xp: 15 },   // Escala será substituída pelo enemyTypes
-    { type: 'normal', count: 12, health: 35, speed: 130, scale: 0.6, xp: 10 },// Escala será substituída pelo enemyTypes
-    { type: 'fast', count: 7, health: 25, speed: 200, scale: 0.5, xp: 11 },   // Escala será substituída pelo enemyTypes
-    { type: 'tank', count: 3, health: 90, speed: 90, scale: 0.8, xp: 18 },   // Escala será substituída pelo enemyTypes
-    { type: 'boss', count: 1, health: 300, speed: 70, scale: 1.2, xp: 50 }    // Escala será substituída pelo enemyTypes
-];
+let killStreak = 0;
+let killStreakTimer;
+let currentWeapon = 1; // 1: Pistolinha, 2: Metralha, 3: Lança-rio
+let weaponSwitchCooldown = false;
+let playerOriginalTint = 0xFFFFFF; // Store original player tint
 
-let enemyTypes = {
-    normal: { texture: 'enemy_robot.png', baseHealth: 20, speed: 100, scale: 0.08, xpReward: 5 }, // Alterado para 0.08
-    fast: { texture: 'enemy_fast.png', baseHealth: 15, speed: 180, scale: 0.08, xpReward: 7 },     // Alterado para 0.08
-    tank: { texture: 'enemy_tank.png', baseHealth: 80, speed: 80, scale: 0.08, xpReward: 15 },     // Alterado para 0.08
-    boss: { texture: 'boss_robot.png', baseHealth: 300, speed: 70, scale: 0.08, xpReward: 50 }      // Alterado para 0.08
+// --- Player Stats & RPG Attributes ---
+let playerStats = {
+  life: 3,
+  maxLife: 3,
+  bulletDamage: 1,
+  fireRate: 3000, // Cooldown in ms, lower is faster
+  playerSpeed: 400,
+  xp: 0,
+  level: 1,
+  xpToNextLevel: 100,
+  skillPoints: 0, // NEW: Points gained on level up for RPG stats
+  currency: 0,    // NEW: Currency for shop
+  // Core RPG Attributes
+  strength: 1,    // Affects bulletDamage, possibly touchDamage
+  agility: 1,     // Affects fireRate, playerSpeed, evasionChance
+  constitution: 1,// Affects maxLife, passiveRegen
+  intelligence: 1,// Affects cooldowns, possibly unique abilities
+
+  // Existing Item/Effect Flags
+  hasShield: false,
+  spiritAllyActive: false,
+  spreadUpgrade: false,
+  doubleBullets: false,
+  dashAvailable: true, // Renamed to dashAvailable for clarity
+  dashCooldown: false,
+  slowEnemies: false,
+  reviveOnce: false,
+  increasedDropRate: false,
+  tripleBullets: false,
+  healOnKill: false,
+  damageAura: false,
+  speedBoost: false,
+  bulletPiercing: false,
+  thorns: false,
+  bulletSpeedBoost: false,
+  spikeAuraActive: false,
+  reflectDamage: 0,
+  lifestealOnKill: 0,
+  touchDamage: 0,
+  passiveRegenActive: false,
+  evasionChance: 0,
+  bulletRange: 1,
+  droneActive: false,
+  dashVulnerability: 0,
+  distortionFieldActive: false,
+  incomingDamageMultiplier: 1, // To reduce damage taken (e.g., from armor)
+  safeZoneActive: false,
+  bulletCountMultiplier: 1,
+  cloneActive: false,
+  weaponBulletSpeed: 500, // Base bullet speed
+  poisonTrail: false, // NEW: For Coração Fraturado de Basilisco
+  lumirenTeleport: false, // NEW: For Fragmento de Lumiren
+  igniunExplosion: false, // NEW: For Sopro de Igniun
 };
 
-// --- NOVA CENA DA LOJA ---
-class ShopScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'ShopScene' });
-    }
+// --- Enemy Definitions ---
+const enemyTypes = {
+  normal: {
+    texture: 'enemy',
+    baseHealth: 4,
+    speed: 100,
+    scale: 0.06,
+    xpReward: 20,
+    currencyReward: 5 // NEW
+  },
+  fast: {
+    texture: 'enemy_fast',
+    baseHealth: 4,
+    speed: 180,
+    scale: 0.06,
+    xpReward: 25,
+    currencyReward: 7 // NEW
+  },
+  tank: {
+    texture: 'enemy_tank',
+    baseHealth: 9,
+    speed: 70,
+    scale: 0.08,
+    xpReward: 35,
+    currencyReward: 10 // NEW
+  },
+  boss: { // NEW BOSS TYPE
+    texture: 'boss_robot',
+    baseHealth: 200, // Boss health
+    speed: 60,
+    scale: 0.2, // Larger scale for boss
+    xpReward: 500,
+    currencyReward: 50 // NEW
+  }
+};
 
-    preload() {
-        // ATENÇÃO: Esta é uma imagem de placeholder.
-        // Substitua 'https://via.placeholder.com/1380x580/333333/FFFFFF?text=Fundo+da+Loja'
-        // pela URL da sua própria imagem de fundo para a loja.
-        this.load.image('shop_background', 'https://via.placeholder.com/1380x580/333333/FFFFFF?text=Fundo+da+Loja');
-    }
+// --- Item Definitions (Card System) ---
+const itemOptions = [
+  { nome: "Núcleo de Energia (Passivo)", descricao: "Aumenta o dano da bala.", tipo: "passivo", textura: "item_core", efeito: (scene) => { playerStats.bulletDamage += 0.5; }, peso: 1 },
+  { nome: "Óculos de Precisão (Passivo)", descricao: "Aumenta a velocidade de ataque.", tipo: "passivo", textura: "item_goggles", efeito: (scene) => { playerStats.fireRate = Math.max(50, playerStats.fireRate * 0.9); }, peso: 1 }, // Faster fire rate
+  { nome: "Módulo de Salto (Ativável)", descricao: "Permite usar Dash.", tipo: "ativavel", textura: "item_jump_module", cooldown: 5000, efeito: (scene) => { playerStats.dashAvailable = true; }, peso: 1 }, // Dash is always available, maybe makes it free or reduces cooldown
+  { nome: "Corrente Eletrostática (Passivo)", descricao: "Bala perfurante.", tipo: "passivo", textura: "item_chain", efeito: (scene) => { playerStats.bulletPiercing = true; }, peso: 1 },
+  { nome: "Máscara de Gás (Passivo)", descricao: "Cria uma aura de dano ao redor do jogador.", tipo: "passivo", textura: "item_mask", efeito: (scene) => { playerStats.damageAura = true; }, peso: 1 },
+  { nome: "Armadura Reconstruída (Passivo)", descricao: "Reduz o dano recebido.", tipo: "passivo", textura: "item_armor", efeito: (scene) => { playerStats.incomingDamageMultiplier -= 0.1; playerStats.incomingDamageMultiplier = Math.max(0.5, playerStats.incomingDamageMultiplier); }, peso: 1 }, // Max 50% reduction
+  { nome: "Overclock (Ativável)", descricao: "Aumenta temporariamente a velocidade de movimento.", tipo: "ativavel", textura: "item_overclock", cooldown: 10000, efeito: (scene) => { playerStats.speedBoost = true; scene.time.delayedCall(3000, () => { playerStats.speedBoost = false; }); }, peso: 1 },
+  { nome: "DPE (Passivo)", descricao: "Atira duas balas por vez.", tipo: "passivo", textura: "item_dpe", efeito: (scene) => { playerStats.doubleBullets = true; }, peso: 1 },
+  { nome: "Armadura Camuflada (Passivo)", descricao: "Chance de desviar de ataques.", tipo: "passivo", textura: "item_camouflaged_armor", efeito: (scene) => { playerStats.evasionChance += 0.1; }, peso: 1 },
+  { nome: "Bateria de Nêutrons (Passivo)", descricao: "Vida máxima +1.", tipo: "passivo", textura: "item_neutron_battery", efeito: (scene) => { playerStats.maxLife += 1; playerStats.life = playerStats.maxLife; scene.hud.updateHealthBar(); }, peso: 1 },
+  { nome: "Mini Drone de Ataque (Passivo)", descricao: "Spawna um drone aliado.", tipo: "passivo", textura: "item_drone", efeito: (scene) => { playerStats.droneActive = true; }, peso: 1 },
+  { nome: "Capacitor de Pulso (Passivo)", descricao: "Aumenta o alcance das balas.", tipo: "passivo", textura: "item_capacitor", efeito: (scene) => { playerStats.bulletRange += 0.5; }, peso: 1 },
+  { nome: "Módulos de Resfriamento (Ativável)", descricao: "Reduz cooldowns de itens ativáveis.", tipo: "ativavel", textura: "item_cooling_modules", cooldown: 20000, efeito: (scene) => { /* Reduce all activable item cooldowns */ }, peso: 1 },
+  { nome: "Transdutor de Energia (Passivo)", descricao: "Recupera vida ao matar inimigos.", tipo: "passivo", textura: "item_transducer", efeito: (scene) => { playerStats.healOnKill = true; playerStats.lifestealOnKill = 0.5; }, peso: 1 },
+  { nome: "Campo de Distorção (Ativável)", descricao: "Cria zona segura por um tempo.", tipo: "ativavel", textura: "item_b", cooldown: 15000, efeito: (scene) => { playerStats.safeZoneActive = true; scene.time.delayedCall(5000, () => { playerStats.safeZoneActive = false; }); }, peso: 1 },
+  { nome: "Estabilizador de Matriz (Passivo)", descricao: "Atira 3 balas por vez.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.tripleBullets = true; }, peso: 1 },
+  { nome: "Regenerador Automático (Passivo)", descricao: "Regeneração passiva de vida.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.passiveRegenActive = true; }, peso: 1 },
+  { nome: "Arma Espinhenta (Passivo)", descricao: "Dano de espinhos ao ser atingido.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.thorns = true; playerStats.reflectDamage = 0.2; }, peso: 1 },
+  { nome: "Refletor de Dano (Ativável)", descricao: "Reflete dano por um tempo.", tipo: "ativavel", textura: "item_b", cooldown: 10000, efeito: (scene) => { playerStats.reflectDamage = 1; scene.time.delayedCall(3000, () => { playerStats.reflectDamage = 0; }); }, peso: 1 },
+  { nome: "Pele Metálica (Passivo)", descricao: "Dano ao toque (player).", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.touchDamage = 1; }, peso: 1 },
+  { nome: "Modulo de Carga Rápida (Passivo)", descricao: "Aumenta velocidade da bala.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.bulletSpeedBoost = true; playerStats.weaponBulletSpeed += 100; }, peso: 1 },
+  { nome: "Casulo de Segurança (Ativável)", descricao: "Recupera 1 de vida ao ser ativado.", tipo: "ativavel", textura: "item_b", cooldown: 15000, efeito: (scene) => { playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife); scene.hud.updateHealthBar(); }, peso: 1 },
+  { nome: "Camuflagem Óptica (Passivo)", descricao: "Chance de reviver uma vez.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.reviveOnce = true; }, peso: 1 },
+  { nome: "Magnetizador de Sucata (Passivo)", descricao: "Aumenta drop de sucata.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.increasedDropRate = true; }, peso: 1 },
+  { nome: "Criador de Clones (Ativável)", descricao: "Cria clone que atira.", tipo: "ativavel", textura: "item_b", cooldown: 20000, efeito: (scene) => { playerStats.cloneActive = true; scene.time.delayedCall(5000, () => { playerStats.cloneActive = false; }); }, peso: 1 },
 
-    create() {
-        const bg = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'shop_background');
-        bg.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
-
-        this.add.text(this.cameras.main.width / 2, 50, 'Loja de Upgrades', {
-            fontSize: '48px',
-            fill: '#FFF',
-            align: 'center'
-        }).setOrigin(0.5);
-
-        this.coinText = this.add.text(this.cameras.main.width / 2, 100, `Moedas: ${playerStats.coins}`, {
-            fontSize: '32px',
-            fill: '#FFD700',
-            align: 'center'
-        }).setOrigin(0.5);
-
-        this.add.text(this.cameras.main.width / 2, 200, 'Velocidade Extra', {
-            fontSize: '30px',
-            fill: '#FFF'
-        }).setOrigin(0.5);
-        this.add.text(this.cameras.main.width / 2, 240, 'Custo: 100 Moedas', {
-            fontSize: '24px',
-            fill: '#FFD700'
-        }).setOrigin(0.5);
-
-        const buySpeedButton = this.add.text(this.cameras.main.width / 2, 280, 'Comprar', {
-            fontSize: '24px',
-            fill: '#FFF',
-            backgroundColor: '#007BFF',
-            padding: { x: 15, y: 8 }
-        }).setOrigin(0.5).setInteractive();
-
-        buySpeedButton.on('pointerdown', () => {
-            if (playerStats.coins >= 100) {
-                playerStats.coins -= 100;
-                playerStats.speed += 50;
-                this.coinText.setText(`Moedas: ${playerStats.coins}`);
-                createFloatingText(this, this.cameras.main.width / 2, 280, 'Comprado!', '#0F0');
-            } else {
-                createFloatingText(this, this.cameras.main.width / 2, 280, 'Moedas insuficientes!', '#F00');
-            }
-        });
-
-        this.add.text(this.cameras.main.width / 2, 350, 'Vida Máxima', {
-            fontSize: '30px',
-            fill: '#FFF'
-        }).setOrigin(0.5);
-        this.add.text(this.cameras.main.width / 2, 390, 'Custo: 150 Moedas', {
-            fontSize: '24px',
-            fill: '#FFD700'
-        }).setOrigin(0.5);
-
-        const buyHealthButton = this.add.text(this.cameras.main.width / 2, 430, 'Comprar', {
-            fontSize: '24px',
-            fill: '#FFF',
-            backgroundColor: '#007BFF',
-            padding: { x: 15, y: 8 }
-        }).setOrigin(0.5).setInteractive();
-
-        buyHealthButton.on('pointerdown', () => {
-            if (playerStats.coins >= 150) {
-                playerStats.coins -= 150;
-                playerStats.maxHealth += 25;
-                playerStats.health = Math.min(playerStats.health + 25, playerStats.maxHealth);
-                this.coinText.setText(`Moedas: ${playerStats.coins}`);
-                createFloatingText(this, this.cameras.main.width / 2, 430, 'Comprado!', '#0F0');
-            } else {
-                createFloatingText(this, this.cameras.main.width / 2, 430, 'Moedas insuficientes!', '#F00');
-            }
-        });
-
-
-        const backButton = this.add.text(this.cameras.main.width / 2, this.cameras.main.height - 50, 'Voltar ao Jogo', {
-            fontSize: '36px',
-            fill: '#0F0',
-            backgroundColor: '#333',
-            padding: { x: 20, y: 10 }
-        }).setOrigin(0.5).setInteractive();
-
-        backButton.on('pointerdown', () => {
-            this.scene.stop('ShopScene');
-            this.scene.resume('GameScene');
-            this.scene.get('GameScene').updateHud();
-        });
-    }
-
-    update() {
-    }
-}
-
-// --- CLASSE DA CENA DO JOGO PRINCIPAL ---
-class GameScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'GameScene' });
-    }
-
-    preload() {
-        this.load.image('player', 'assets/player.png');
-        this.load.image('bullet', 'assets/bullet.png');
-        this.load.image('enemy_robot.png', 'assets/enemy_robot.png');
-        this.load.image('enemy_fast.png', 'assets/enemy_fast.png');
-        this.load.image('enemy_tank.png', 'assets/enemy_tank.png');
-        this.load.image('boss_robot.png', 'assets/boss_robot.png');
-        this.load.image('pickup_xp', 'assets/pickup_xp.png');
-        this.load.image('pickup_health', 'assets/pickup_health.png');
-        this.load.image('pickup_coin', 'assets/pickup_coin.png');
-        this.load.image('arma1', 'assets/arma1.png');
-        this.load.image('arma2', 'assets/arma2.png');
-       this.load.image('game_background', 'assets/fundogame.png');
-    }
-
-    create() {
-        const gameBg = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'game_background');
-        gameBg.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
-        gameBg.setDepth(-1); // Para garantir que fique no fundo
-
-        cursors = this.input.keyboard.createCursorKeys();
-
-        bullets = this.physics.add.group();
-        enemies = this.physics.add.group();
-        enemyBullets = this.physics.add.group();
-        itemsGroup = this.physics.add.group();
-
-        player = this.physics.add.sprite(this.physics.world.bounds.width / 2, this.physics.world.bounds.height / 2, 'player');
-        player.setCollideWorldBounds(true);
-        player.setDepth(1);
-        player.health = playerStats.health;
-        player.maxHealth = playerStats.maxHealth;
-        player.currentWeapon = 0;
-        player.setScale(0.08); // <-- Alterado para 0.08
-
-        this.createHud();
-
-        this.physics.add.overlap(bullets, enemies, this.hitEnemy, null, this);
-        this.physics.add.overlap(player, enemyBullets, this.takeDamage, null, this);
-        this.physics.add.overlap(player, itemsGroup, this.collectItem, null, this);
-        this.physics.add.overlap(player, enemies, this.playerHitByEnemy, null, this);
-
-        this.input.keyboard.on('keydown-SPACE', () => {
-            if (!player.active) {
-                this.time.delayedCall(1000, () => {
-                    xp = 0;
-                    level = 1;
-                    score = 0;
-                    currentWave = 0;
-                    playerStats = {
-                        health: 100,
-                        maxHealth: 100,
-                        speed: 250,
-                        bulletDamage: 10,
-                        fireRate: 500,
-                        bulletSpeedBoost: 1,
-                        bulletCountMultiplier: 1,
-                        bulletPiercing: false,
-                        healthRegen: 0,
-                        lootMagnet: false,
-                        critChance: 0,
-                        critDamage: 1.5,
-                        xpBonus: 0,
-                        coins: 0
-                    };
-                    weaponStats = {
-                        nome: "Pistola Automática",
-                        danoBase: 10,
-                        cadenciaBase: 500
-                    };
-                    killStreak = 0;
-                    this.scene.restart();
-                });
-            }
-        });
-
-        this.startWave();
-
-        this.time.addEvent({
-            delay: 1000,
-            callback: () => {
-                if (playerStats.healthRegen > 0 && player.health < player.maxHealth) {
-                    player.health = Math.min(player.health + playerStats.healthRegen, player.maxHealth);
-                    this.updateHud();
-                }
-            },
-            loop: true
-        });
-
-        const shopButton = this.add.text(this.game.config.width - 150, 50, 'Loja', {
-            fontSize: '28px',
-            fill: '#FF0',
-            backgroundColor: '#6A0DAD',
-            padding: { x: 15, y: 8 }
-        }).setOrigin(0.5).setInteractive().setDepth(3);
-
-        shopButton.on('pointerdown', () => {
-            this.scene.pause('GameScene');
-            this.scene.start('ShopScene');
-        });
-    }
-
-    updateHud() {
-        playerHealthText.setText(`Vida: ${player.health}/${player.maxHealth}`);
-        playerXPText.setText(`XP: ${xp}/${level * 100}`);
-        playerLevelText.setText(`Nível: ${level}`);
-        hudGroup.getByName('coinText').setText(`Moedas: ${playerStats.coins}`);
-    }
-
-    createHud() {
-        hudGroup = this.add.group();
-
-        playerHealthText = this.add.text(10, 10, `Vida: ${playerStats.health}/${playerStats.maxHealth}`, { fontSize: '24px', fill: '#FFF' });
-        playerXPText = this.add.text(10, 40, `XP: ${xp}/${level * 100}`, { fontSize: '24px', fill: '#FFF' });
-        playerLevelText = this.add.text(10, 70, `Nível: ${level}`, { fontSize: '24px', fill: '#FFF' });
-        weaponNameText = this.add.text(this.game.config.width - 250, 10, `Arma: ${weaponStats.nome}`, { fontSize: '24px', fill: '#FFF' }).setOrigin(1, 0);
-        const coinText = this.add.text(10, 100, `Moedas: ${playerStats.coins}`, { fontSize: '24px', fill: '#FFD700' }).setName('coinText');
-
-
-        hudGroup.add(playerHealthText);
-        hudGroup.add(playerXPText);
-        hudGroup.add(playerLevelText);
-        hudGroup.add(weaponNameText);
-        hudGroup.add(coinText);
-
-        let xpBarBackground = this.add.graphics();
-        xpBarBackground.fillStyle(0x555555, 1);
-        xpBarBackground.fillRect(10, 130, 200, 10);
-        this.xpBar = this.add.graphics();
-        this.xpBar.fillStyle(0x00FF00, 1);
-        this.xpBar.fillRect(10, 130, (xp / (level * 100)) * 200, 10);
-
-        hudGroup.add(xpBarBackground);
-        hudGroup.add(this.xpBar);
-    }
-
-    update(time, delta) {
-        if (!player.active) {
-            return;
+  // --- NEW CARDS ---
+  {
+    nome: "Coração Fraturado de Basilisco",
+    descricao: "+5% dano, -2 vida máxima, tiros deixam veneno.",
+    tipo: "passivo",
+    textura: "item_basilisk_heart",
+    efeito: (scene) => {
+      playerStats.bulletDamage *= 1.05;
+      playerStats.maxLife -= 2;
+      playerStats.life = Math.min(playerStats.life, playerStats.maxLife);
+      scene.hud.updateHealthBar();
+      playerStats.poisonTrail = true; // Flag para ativar veneno
+    },
+    peso: 1
+  },
+  {
+    nome: "Raiz Sem Alma",
+    descricao: "Dash infinito por 10s, perde -1 vida máxima.",
+    tipo: "ativavel",
+    textura: "item_rootless",
+    cooldown: 30000,
+    efeito: (scene) => {
+      playerStats.dashAvailable = true;
+      const originalDashCooldown = playerStats.dashCooldown;
+      playerStats.dashCooldown = false;
+      scene.time.delayedCall(10000, () => {
+        playerStats.dashCooldown = originalDashCooldown;
+        playerStats.maxLife -= 1;
+        playerStats.life = Math.min(playerStats.life, playerStats.maxLife);
+        scene.hud.updateHealthBar();
+      });
+    },
+    peso: 1
+  },
+  {
+    nome: "Eco de Metalion",
+    descricao: "Cooldowns -20%, usar item perde 5% velocidade até fim da wave.",
+    tipo: "passivo",
+    textura: "item_metalion_echo",
+    efeito: (scene) => {
+      for (const key in playerInventory.activableItems) {
+        if (playerInventory.activableItems.hasOwnProperty(key)) {
+            playerInventory.activableItems[key].cooldown *= 0.8;
         }
+      }
+      // Hook para reduzir velocidade ao usar item - This is tricky to implement directly like this.
+      // A better way is to add a flag and modify playerSpeed based on that flag.
+      playerStats.metalionEchoActive = true; // New flag for this item
+    },
+    peso: 1
+  },
+  {
+    nome: "Fragmento de Lumiren",
+    descricao: "Atirar teleporta 50px p/ trás, cada tp consome 1 vida.",
+    tipo: "passivo",
+    textura: "item_lumiren_fragment",
+    efeito: (scene) => {
+      playerStats.lumirenTeleport = true; // Flag para efeito no shootBullet
+    },
+    peso: 1
+  },
+  {
+    nome: "Sopro de Igniun",
+    descricao: "Com <10% vida, explode em fogo mas morre depois de 5s.",
+    tipo: "passivo",
+    textura: "item_igniun_breath",
+    efeito: (scene) => {
+      playerStats.igniunExplosion = true;
+    },
+    peso: 1
+  },
+];
 
-        player.setVelocity(0);
-        if (cursors.left.isDown) {
-            player.setVelocityX(-playerStats.speed);
-        } else if (cursors.right.isDown) {
-            player.setVelocityX(playerStats.speed);
-        }
-        if (cursors.up.isDown) {
-            player.setVelocityY(-playerStats.speed);
-        } else if (cursors.down.isDown) {
-            player.setVelocityY(playerStats.speed);
-        }
 
-        player.body.velocity.normalize().scale(playerStats.speed);
-
-        if (time > lastShoot + playerStats.fireRate) {
-            this.shootRadial();
-            lastShoot = time;
-        }
-
-        enemies.children.each(function(enemy) {
-            if (enemy.active) {
-                this.physics.moveToObject(enemy, player, enemy.speed);
-
-                if (enemy.lastShot === undefined) {
-                    enemy.lastShot = time;
-                }
-                if (time > enemy.lastShot + 9000) {
-                    this.enemyShoot(enemy);
-                    enemy.lastShot = time;
-                }
-            }
-        }, this);
-
-        this.xpBar.clear();
-        this.xpBar.fillStyle(0x00FF00, 1);
-        this.xpBar.fillRect(10, 130, (xp / (level * 100)) * 200, 10);
+// --- Shop Items Definitions (NEW) ---
+const shopItems = [
+  {
+    nome: "Kit de Reparos Emergencial",
+    descricao: "Restaura uma porção de vida.",
+    tipo: "consumable",
+    custo: 25,
+    efeito: (scene) => {
+      playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife);
+      scene.hud.updateHealthBar();
     }
-
-    shootRadial() {
-        const bulletCount = playerStats.bulletCountMultiplier;
-        const angleOffset = (bulletCount > 1) ? -(bulletCount - 1) * 10 / 2 : 0;
-        const bulletSpeed = 500 * playerStats.bulletSpeedBoost;
-
-        for (let i = 0; i < bulletCount; i++) {
-            let angle = Phaser.Math.DegToRad(Phaser.Math.RadToDeg(player.rotation) + angleOffset + (i * 10));
-            let bullet = bullets.get(player.x, player.y, 'bullet');
-
-            if (bullet) {
-                bullet.setActive(true).setVisible(true);
-                bullet.setScale(0.5); // Diminui o tamanho da bala
-                bullet.setRotation(angle);
-                this.physics.velocityFromRotation(angle, bulletSpeed, bullet.body.velocity);
-                bullet.damage = playerStats.bulletDamage;
-                bullet.piercing = playerStats.bulletPiercing;
-                bullet.critChance = playerStats.critChance;
-                bullet.critDamage = playerStats.critDamage;
-
-                this.time.delayedCall(2000, () => {
-                    if (bullet.active) {
-                        bullet.destroy();
-                    }
-                });
-            }
+  },
+  {
+    nome: "Módulo de Calibração de Armas",
+    descricao: "Aumenta permanentemente o dano de suas balas.",
+    tipo: "upgrade",
+    custo: 50,
+    efeito: (scene) => {
+      playerStats.bulletDamage += 0.5;
+    },
+    maxPurchases: 5 // Example: limit how many times this can be bought
+  },
+  {
+    nome: "Placa de Titânio Extra",
+    descricao: "Aumenta sua vida máxima.",
+    tipo: "upgrade",
+    custo: 75,
+    efeito: (scene) => {
+      playerStats.maxLife += 1;
+      playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife); // Heal to new max
+      scene.hud.updateHealthBar();
+    },
+    maxPurchases: 3
+  },
+  {
+    nome: "Recarga Rápida de Habilidade",
+    descricao: "Reduz o cooldown de todos os itens ativáveis em 10%.",
+    tipo: "upgrade",
+    custo: 100,
+    efeito: (scene) => {
+      for (const itemKey in playerInventory.activableItems) {
+        if (playerInventory.activableItems.hasOwnProperty(itemKey)) {
+          playerInventory.activableItems[itemKey].cooldown *= 0.9;
         }
-    }
+      }
+      scene.hud.displayTemporaryEffect('Cooldowns Reduzidos!', '#ADD8E6', 1500);
+    },
+    maxPurchases: 2
+  },
+  {
+    nome: "Pacote de Sucata",
+    descricao: "Ganhe 100 Sucatas extras.",
+    tipo: "consumable",
+    custo: 20,
+    efeito: (scene) => {
+        playerStats.currency += 100;
+        scene.hud.updateCurrencyDisplay();
+    },
+    maxPurchases: 1 // Can only buy once per wave/shop visit
+  },
+  // --- NEW SHOP ITEMS ---
+  {
+    nome: "Olho de Xenosynth",
+    descricao: "+20% chance de drop de item por 30s.",
+    tipo: "upgrade",
+    custo: 150,
+    efeito: (scene) => {
+      playerStats.increasedDropRate = true;
+      scene.time.delayedCall(30000, () => { playerStats.increasedDropRate = false; });
+    },
+    maxPurchases: 2
+  },
+  {
+    nome: "Óleo de Ferro-Vivo",
+    descricao: "Recupera vida completamente, mas reduz bullet damage em 20% até fim da wave.",
+    tipo: "consumable",
+    custo: 100,
+    efeito: (scene) => {
+      playerStats.life = playerStats.maxLife;
+      playerStats.bulletDamage *= 0.8;
+      scene.hud.updateHealthBar();
+    },
+    maxPurchases: 1
+  }
+];
 
-    hitEnemy(bullet, enemy) {
-        if (!enemy.active || !bullet.active) return;
 
-        let finalDamage = bullet.damage;
-        let isCrit = false;
-        if (Math.random() * 100 < bullet.critChance) {
-            finalDamage *= bullet.critDamage;
-            isCrit = true;
-        }
+// --- Player Inventory and Upgrades ---
+let playerInventory = {
+  passiveItems: {},
+  activableItems: {},
+  activeItem: null, // Currently selected activable item
+  activableItemCooldowns: {}, // To track cooldowns
+  activableItemTimers: {}, // To track cooldown timers for UI
+};
 
-        enemy.health -= finalDamage;
-        createFloatingText(this, enemy.x, enemy.y - 20, Math.round(finalDamage).toString(), isCrit ? '#FF0000' : '#FFFFFF');
+let playerCards = []; // Cards chosen for upgrades
 
-        if (!bullet.piercing) {
-            bullet.destroy();
-        }
 
-        if (enemy.health <= 0) {
-            this.killEnemy(enemy);
-        }
-    }
+// --- HUD Class (Assumed/Placeholder) ---
+// You MUST ensure your actual HUD class has these methods,
+// or integrate the display logic directly into the scene.
+class HUD {
+  constructor(scene) {
+    this.scene = scene;
+    // Basic HUD elements - replace with your actual HUD implementation
+    this.lifeText = scene.add.text(10, 10, 'Vida: ' + playerStats.life, { fontSize: '20px', fill: '#FF0000' });
+    this.levelText = scene.add.text(10, 40, 'Nível: ' + playerStats.level, { fontSize: '20px', fill: '#FFFF00' });
+    this.xpBar = scene.add.graphics();
+    this.currencyText = scene.add.text(10, 70, 'Sucata: ' + playerStats.currency, { fontSize: '20px', fill: '#FFD700' });
+    this.waveText = scene.add.text(config.width / 2, 10, 'Onda: ' + waveNumber, { fontSize: '24px', fill: '#FFFFFF' }).setOrigin(0.5);
 
-    takeDamage(player, bullet) {
-        if (!player.active) return;
-        bullet.destroy();
-        player.health -= 10;
-        this.updateHud();
-        createFloatingText(this, player.x, player.y, '-10', '#FF0000');
+    // Initial updates
+    this.updateHealthBar();
+    this.updateXpBar();
+    this.updateLevelDisplay();
+    this.updateCurrencyDisplay();
+  }
 
-        if (player.health <= 0) {
-            this.gameOver();
-        }
-    }
+  updateHealthBar() {
+    this.lifeText.setText('Vida: ' + playerStats.life + '/' + playerStats.maxLife);
+  }
 
-    playerHitByEnemy(player, enemy) {
-        if (!player.active || !enemy.active) return;
-        player.health -= 1;
-        this.updateHud();
+  updateXpBar() {
+    this.xpBar.clear();
+    const xpBarWidth = 200;
+    const xpBarHeight = 15;
+    const currentXpRatio = playerStats.xp / playerStats.xpToNextLevel;
 
-        if (player.health <= 0) {
-            this.gameOver();
-        }
-    }
+    this.xpBar.fillStyle(0x555555); // Background
+    this.xpBar.fillRect(10, 20 + 20, xpBarWidth, xpBarHeight);
+    this.xpBar.fillStyle(0x00FF00); // Fill
+    this.xpBar.fillRect(10, 20 + 20, xpBarWidth * currentXpRatio, xpBarHeight);
+    this.xpBar.lineStyle(2, 0xFFFFFF);
+    this.xpBar.strokeRect(10, 20 + 20, xpBarWidth, xpBarHeight);
+  }
 
-    killEnemy(enemy) {
-        createFloatingText(this, enemy.x, enemy.y, `+${enemy.xpReward} XP`, '#00FF00');
-        xp += enemy.xpReward + (enemy.xpReward * playerStats.xpBonus);
-        score += 10;
-        enemy.destroy();
-        waveEnemiesRemaining--;
+  updateLevelDisplay() {
+    this.levelText.setText('Nível: ' + playerStats.level);
+  }
 
-        this.dropItem(enemy.x, enemy.y);
+  updateCurrencyDisplay() {
+    this.currencyText.setText('Sucata: ' + playerStats.currency);
+  }
 
-        if (xp >= level * 100) {
-            this.levelUp();
-        }
+  updatePlayerStatsDisplay() {
+      // This could be used to update all stats displayed, or specific ones.
+      // For now, it just calls the existing update methods.
+      this.updateHealthBar();
+      this.updateXpBar();
+      this.updateLevelDisplay();
+      this.updateCurrencyDisplay();
+      // Add more if you display other stats directly
+  }
 
-        this.updateHud();
-        this.checkWaveCompletion();
-        this.increaseKillStreak();
-    }
-
-    enemyShoot(enemy) {
-        if (!player.active) return;
-        let enemyBullet = enemyBullets.get(enemy.x, enemy.y, 'bullet');
-        if (enemyBullet) {
-            enemyBullet.setActive(true).setVisible(true);
-            this.physics.moveToObject(enemyBullet, player, 200);
-            this.time.delayedCall(3000, () => {
-                if (enemyBullet.active) {
-                    enemyBullet.destroy();
-                }
-            });
-        }
-    }
-
-    levelUp() {
-        level++;
-        xp = 0;
-        playerStats.maxHealth += 10;
-        player.health = playerStats.maxHealth;
-        playerStats.bulletDamage += 2;
-        playerStats.fireRate = Math.max(100, playerStats.fireRate - 20);
-        playerStats.speed += 5;
-        playerStats.bulletSpeedBoost += 0.05;
-
-        displayTemporaryEffect(this, `Nível ${level}!`, '#00FFFF');
-        this.updateHud();
-    }
-
-    gameOver() {
-        player.setActive(false).setVisible(false);
-        this.physics.pause();
-        this.add.text(this.game.config.width / 2, this.game.config.height / 2, 'GAME OVER', {
-            fontSize: '64px',
-            fill: '#F00'
-        }).setOrigin(0.5);
-        this.add.text(this.game.config.width / 2, this.game.config.height / 2 + 60, 'Pressione ESPAÇO para reiniciar', {
-            fontSize: '24px',
-            fill: '#FFF'
-        }).setOrigin(0.5);
-    }
-
-    startWave() {
-        currentWave++;
-        if (currentWave > waveConfig.length) {
-            displayTemporaryEffect(this, 'Todas as ondas completas!', '#FFD700');
-            this.physics.pause();
-            return;
-        }
-
-        let waveInfo = waveConfig[currentWave - 1];
-        waveEnemiesRemaining = waveInfo.count;
-
-        displayTemporaryEffect(this, `Onda ${currentWave} - ${waveInfo.type.toUpperCase()}!`, '#00FF00');
-
-        for (let i = 0; i < waveInfo.count; i++) {
-            this.time.delayedCall(i * 500, () => {
-                let x = Phaser.Math.Between(50, this.game.config.width - 50);
-                let y = Phaser.Math.Between(50, this.game.config.height - 50);
-
-                let attempts = 0;
-                while (Phaser.Math.Distance.Between(x, y, player.x, player.y) < 200 && attempts < 10) {
-                    x = Phaser.Math.Between(50, this.game.config.width - 50);
-                    y = Phaser.Math.Between(50, this.game.config.height - 50);
-                    attempts++;
-                }
-
-                this.spawnEnemy(x, y, waveInfo);
-            }, [], this);
-        }
-
-        if (waveTimer) waveTimer.remove();
-        waveTimer = this.time.delayedCall(waveInterval, this.startWave, [], this);
-    }
-
-    spawnEnemy(x, y, waveInfo) {
-        let enemyTypeData = enemyTypes[waveInfo.type];
-        if (!enemyTypeData) {
-            console.warn(`Tipo de inimigo desconhecido: ${waveInfo.type}`);
-            return;
-        }
-
-        let enemy = enemies.get(x, y, enemyTypeData.texture);
-        if (enemy) {
-            enemy.setActive(true).setVisible(true);
-            enemy.setTint(0xff0000);
-            enemy.setScale(enemyTypeData.scale); // Agora usa a escala de 0.08 do enemyTypes
-            enemy.health = waveInfo.health || enemyTypeData.baseHealth;
-            enemy.maxHealth = waveInfo.health || enemyTypeData.baseHealth;
-            enemy.speed = waveInfo.speed || enemyTypeData.speed;
-            enemy.xpReward = waveInfo.xp || enemyTypeData.xpReward;
-            enemy.setCollideWorldBounds(true);
-        }
-    }
-
-    checkWaveCompletion() {
-        if (waveEnemiesRemaining <= 0) {
-            displayTemporaryEffect(this, `Onda ${currentWave} Concluída!`, '#00FF00');
-            if (waveTimer) waveTimer.remove();
-            this.time.delayedCall(5000, this.startWave, [], this);
-        }
-    }
-
-    dropItem(x, y) {
-        let rand = Math.random();
-        if (rand < 0.20) {
-            let xpAmount = Math.floor(Phaser.Math.Between(5, 15) * (1 + level * 0.1));
-            this.spawnPickup(x, y, 'pickup_xp', 'xp', xpAmount);
-        } else if (rand < 0.30) {
-            let healthAmount = Math.floor(Phaser.Math.Between(10, 20) * (1 + level * 0.05));
-            this.spawnPickup(x, y, 'pickup_health', 'health', healthAmount);
-        } else if (rand < 0.45) {
-            let coinAmount = Phaser.Math.Between(1, 5);
-            this.spawnPickup(x, y, 'pickup_coin', 'coin', coinAmount);
-        }
-    }
-
-    spawnPickup(x, y, texture, type, value) {
-        let item = itemsGroup.get(x, y, texture);
-        if (item) {
-            item.setActive(true).setVisible(true);
-            item.type = type;
-            item.value = value;
-            item.setCircle(item.width / 2);
-
-            this.physics.moveTo(item, player, 50);
-            this.time.delayedCall(200, () => {
-                if (item.active) {
-                    item.setVelocity(0);
-                }
-            });
-
-            this.time.delayedCall(10000, () => {
-                if (item.active) {
-                    item.destroy();
-                }
-            });
-        }
-    }
-
-    collectItem(player, item) {
-        if (!item.active) return;
-
-        switch (item.type) {
-            case 'xp':
-                xp += item.value + (item.value * playerStats.xpBonus);
-                createFloatingText(this, item.x, item.y, `+${item.value} XP`, '#00FFFF');
-                if (xp >= level * 100) {
-                    this.levelUp();
-                }
-                break;
-            case 'health':
-                player.health = Math.min(player.health + item.value, player.maxHealth);
-                createFloatingText(this, item.x, item.y, `+${item.value} Vida`, '#00FF00');
-                break;
-            case 'coin':
-                playerStats.coins += item.value;
-                createFloatingText(this, item.x, item.y, `+${item.value} Moedas`, '#FFD700');
-                break;
-        }
-        item.destroy();
-        this.updateHud();
-    }
-
-    increaseKillStreak() {
-        killStreak++;
-        if (killStreakTimer) {
-            killStreakTimer.remove(false);
-        }
-        killStreakTimer = this.time.delayedCall(5000, this.endKillStreak, [], this);
-
-        if (killStreak % 5 === 0) {
-            displayTemporaryEffect(this, `${killStreak} Kills!`, '#FF8C00');
-
-            if (killStreak % 10 === 0) {
-                this.startFrenzy();
-            }
-        }
-    }
-
-    startFrenzy() {
-        displayTemporaryEffect(this, 'FRENESI ATIVADO!', '#FF00FF');
-        player.setTint(0xFF00FF);
-        playerStats.fireRate /= 2;
-        playerStats.bulletDamage *= 1.2;
-        playerStats.speed *= 1.1;
-        this.time.delayedCall(5000, this.endFrenzy, [], this);
-    }
-
-    endFrenzy() {
-        player.setTint(0xFFFFFF);
-        playerStats.fireRate *= 2;
-        playerStats.bulletDamage /= 1.2;
-        playerStats.speed /= 1.1;
-        displayTemporaryEffect(this, 'Frenesi Encerrado.', '#FFFFFF');
-    }
-
-    endKillStreak() {
-        killStreak = 0;
-    }
-}
-
-// Funções auxiliares (fora da classe GameScene para serem globais ou passadas)
-function displayTemporaryEffect(scene, text, color = '#FFFFFF') {
+  displayTemporaryEffect(text, color, duration) {
     if (temporaryEffectText) {
         temporaryEffectText.destroy();
+        temporaryEffectText = null;
     }
     if (temporaryEffectTimer) {
         temporaryEffectTimer.remove(false);
+        temporaryEffectTimer = null;
     }
 
-    temporaryEffectText = scene.add.text(scene.cameras.main.width / 2, scene.cameras.main.height / 2 - 50, text, {
+    temporaryEffectText = this.scene.add.text(config.width / 2, config.height / 2 - 50, text, {
         fontSize: '36px',
         fill: color,
         align: 'center'
     }).setOrigin(0.5);
-    temporaryEffectText.setDepth(2);
+    temporaryEffectText.setDepth(200); // Ensure it's on top
 
-    temporaryEffectTimer = scene.time.delayedCall(2000, () => {
+    temporaryEffectTimer = this.scene.time.delayedCall(duration, () => {
         if (temporaryEffectText) {
             temporaryEffectText.destroy();
             temporaryEffectText = null;
         }
     });
+  }
+
+  updateWaveDisplay() {
+      this.waveText.setText('Onda: ' + waveNumber);
+  }
+}
+
+// --- Phaser Scene Functions ---
+function preload() {
+  // Game Assets
+  this.load.image('cardBg', 'assets/card.png');
+  this.load.image('player', 'assets/player.png');
+  this.load.image('bullet', 'assets/bullet.png');
+  this.load.image('arma1', 'assets/pistolinha.png'); // Pistol
+  this.load.image('arma2', 'assets/metralha.png');    // Machinegun
+  this.load.image('arma3', 'assets/lancarrio.png');   // Grenade launcher (Lança-rio)
+  this.load.image('fundogame', 'assets/fundogame.png'); // Background
+  this.load.image('cora', 'assets/cora.png');         // Heart for life display
+
+  // Enemy Assets
+  this.load.image('enemy', 'assets/enemy_robot.png');
+  this.load.image('enemy_fast', 'assets/enemy_fast.png');
+  this.load.image('enemy_tank', 'assets/enemy_tank.png');
+  this.load.image('boss_robot', 'assets/boss_robot.png'); // Preload boss image
+
+  // Item Textures (Assumed paths - UPDATE THESE IF DIFFERENT)
+  this.load.image('item_core', 'assets/item_core.png');
+  this.load.image('item_goggles', 'assets/item_goggles.png');
+  this.load.image('item_jump_module', 'assets/item_jump_module.png');
+  this.load.image('item_chain', 'assets/item_chain.png');
+  this.load.image('item_mask', 'assets/item_mask.png');
+  this.load.image('item_armor', 'assets/item_armor.png');
+  this.load.image('item_overclock', 'assets/item_overclock.png');
+  this.load.image('item_dpe', 'assets/ammo.png'); // Use ammo.png for DPE as per original
+  this.load.image('item_camouflaged_armor', 'assets/item_camouflaged_armor.png');
+  this.load.image('item_neutron_battery', 'assets/item_neutron_battery.png');
+  this.load.image('item_drone', 'assets/item_drone.png');
+  this.load.image('item_capacitor', 'assets/item_capacitor.png');
+  this.load.image('item_cooling_modules', 'assets/item_cooling_modules.png');
+  this.load.image('item_transducer', 'assets/item_transducer.png');
+  // For items that used 'b' in original, and I don't have specific textures:
+  this.load.image('item_b', 'assets/ammo.png'); // Generic 'b' placeholder, replace with actual textures
+
+  // Load new item textures
+  this.load.image('item_basilisk_heart', 'assets/item_basilisk_heart.png');
+  this.load.image('item_rootless', 'assets/item_rootless.png');
+  this.load.image('item_metalion_echo', 'assets/item_metalion_echo.png');
+  this.load.image('item_lumiren_fragment', 'assets/item_lumiren_fragment.png');
+  this.load.image('item_igniun_breath', 'assets/item_igniun_breath.png');
+
+
+  // Ensure all item textures are loaded or assigned correctly
+  itemOptions.forEach(item => {
+    if (item.textura && !this.textures.exists(item.textura)) {
+      // Fallback or warning if a texture is defined but not preloaded
+      console.warn(`Texture for item ${item.nome} (${item.textura}) not explicitly preloaded. Make sure it points to an existing asset.`);
+    }
+  });
+
+  // For shop items, if they use unique textures not covered by itemOptions
+  shopItems.forEach(item => {
+    // If shop items have distinct textures, load them here
+    // Example: if (item.textureKey && !this.textures.exists(item.textureKey)) { this.load.image(item.textureKey, `assets/${item.textureKey}.png`); }
+  });
+}
+
+function create() {
+  this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1).setScale(1.2);
+
+  player = this.physics.add.sprite(config.width / 2, config.height / 2, 'player').setScale(0.08);
+  player.setCollideWorldBounds(true);
+  player.setBodySize(player.width * 0.7, player.height * 0.7); // Adjust hitbox
+  playerOriginalTint = player.tintTopLeft; // Store original tint
+
+  cursors = this.input.keyboard.createCursorKeys();
+  this.keyW = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+  this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+  this.keyS = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+  this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+  this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+  this.keyOne = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
+  this.keyTwo = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO);
+  this.keyThree = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE);
+  this.keyF = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F); // For activable item
+  this.keyK = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K); // NEW: Key for Shop
+
+  // --- Groups ---
+  bullets = this.physics.add.group({ classType: Bullet, runChildUpdate: true });
+  enemies = this.physics.add.group({ classType: Enemy, runChildUpdate: true });
+  enemyBullets = this.physics.add.group({ classType: EnemyBullet, runChildUpdate: true });
+  armas = this.physics.add.group({ key: 'arma1', frameQuantity: 10, active: false, visible: false, classType: Weapon }); // Group for weapons on ground
+  itemsGroup = this.physics.add.group({ classType: ItemCard, runChildUpdate: true }); // Group for item cards
+
+  // --- Colliders and Overlaps ---
+  this.physics.add.overlap(bullets, enemies, bulletHitEnemy, null, this);
+  this.physics.add.overlap(enemyBullets, player, enemyBulletHitPlayer, null, this);
+  this.physics.add.collider(player, enemies, playerHitEnemy, null, this); // Player takes damage from touching enemies
+  this.physics.add.overlap(player, itemsGroup, pickUpItem, null, this);
+
+  // --- HUD Initialization ---
+  this.hud = new HUD(this);
+  this.hud.updateWeaponDisplay = (weaponKey) => { // Placeholder for weapon display
+      // You'll need to implement how your HUD displays the current weapon
+      // For example, an image and text.
+      if (this.armaImagem) this.armaImagem.destroy();
+      if (this.armaNomeText) this.armaNomeText.destroy();
+
+      this.armaImagem = this.add.image(config.width - 100, 50, weaponKey).setScale(0.15).setDepth(1);
+      this.armaNomeText = this.add.text(config.width - 100, 80, `Arma ${currentWeapon}`, { fontSize: '16px', fill: '#FFFFFF' }).setOrigin(0.5).setDepth(1);
+  };
+  this.hud.updateWeaponDisplay('arma1');
+
+  // --- Timed Events ---
+  // Wave Spawner timer
+  this.time.addEvent({
+    delay: enemySpawnRate,
+    callback: spawnEnemy,
+    callbackScope: this,
+    loop: true
+  });
+  this.time.addEvent({
+    delay: 1000,
+    callback: updateGameTime,
+    callbackScope: this,
+    loop: true
+  });
+
+  // Player regen timer (if active)
+  this.time.addEvent({
+    delay: 1000,
+    callback: () => {
+      if (playerStats.passiveRegenActive && playerStats.life < playerStats.maxLife) {
+        playerStats.life = Math.min(playerStats.life + 0.1, playerStats.maxLife); // Small regen
+        this.hud.updateHealthBar();
+      }
+    },
+    callbackScope: this,
+    loop: true
+  });
+
+  // --- Input Listeners ---
+  this.input.keyboard.on('keydown-K', () => { // NEW: Shop Key
+    showShopMenu.call(this);
+  });
+}
+
+function update(time, delta) {
+  player.body.setVelocity(0);
+
+  // Player Movement (WASD or Arrows)
+  let playerMoveSpeed = playerStats.playerSpeed;
+  if (playerStats.speedBoost) {
+    playerMoveSpeed *= 1.5; // Apply speed boost from Overclock
+  }
+  // Effect from Eco de Metalion
+  if (playerStats.metalionEchoActive) {
+      playerMoveSpeed *= 0.95;
+  }
+
+
+  let velocityX = 0;
+  let velocityY = 0;
+
+  if (this.keyA.isDown || cursors.left.isDown) velocityX = -1;
+  else if (this.keyD.isDown || cursors.right.isDown) velocityX = 1;
+
+  if (this.keyW.isDown || cursors.up.isDown) velocityY = -1;
+  else if (this.keyS.isDown || cursors.down.isDown) velocityY = 1;
+
+  const length = Math.sqrt(velocityX * velocityX + velocityY * velocityY);
+  if (length > 0) {
+    velocityX /= length;
+    velocityY /= length;
+  }
+
+  player.body.setVelocity(velocityX * playerMoveSpeed, velocityY * playerMoveSpeed);
+
+  // Player Dash (Spacebar)
+  if (Phaser.Input.Keyboard.JustDown(this.keySpace) && playerStats.dashAvailable && !playerStats.dashCooldown) {
+    playerStats.dashAvailable = false; // Prevent immediate re-dash
+    playerStats.dashCooldown = true; // Start cooldown
+
+    const dashDuration = 150;
+    const dashDistance = 200; // Increased dash distance
+    const dashVelocity = playerMoveSpeed * (dashDistance / dashDuration * 1000 / playerMoveSpeed); // Calculate velocity based on distance and duration
+
+    let dashX = 0;
+    let dashY = 0;
+
+    if (this.keyA.isDown || cursors.left.isDown) dashX = -dashVelocity;
+    else if (this.keyD.isDown || cursors.right.isDown) dashX = dashVelocity;
+
+    if (this.keyW.isDown || cursors.up.isDown) dashY = -dashVelocity;
+    else if (this.keyS.isDown || cursors.down.isDown) dashY = dashVelocity;
+
+    if (dashX === 0 && dashY === 0) { // If no directional input, dash in current facing direction or default
+        dashY = -dashVelocity; // Default dash up if no direction
+    }
+
+    player.body.setVelocity(dashX, dashY);
+    player.setTint(0x00FF00); // Green tint during dash
+
+    this.time.delayedCall(dashDuration, () => {
+      player.body.setVelocity(0);
+      player.setTint(playerOriginalTint); // Revert tint
+
+      this.time.delayedCall(3000, () => { // Dash cooldown
+        playerStats.dashAvailable = true;
+        playerStats.dashCooldown = false;
+      });
+    });
+  }
+
+  // Player Shooting (Mouse Click)
+  if (this.input.activePointer.isDown && time > lastShoot) {
+    let fireRate = playerStats.fireRate;
+    if (playerStats.speedBoost) { // No, this speed boost is for movement
+        // Fire rate is already modified by Agility and goggles.
+    }
+
+    shootBullet.call(this);
+    lastShoot = time + fireRate;
+  }
+
+  // Weapon Switching
+  if (Phaser.Input.Keyboard.JustDown(this.keyOne) && !weaponSwitchCooldown) {
+    switchWeapon.call(this, 1);
+  } else if (Phaser.Input.Keyboard.JustDown(this.keyTwo) && !weaponSwitchCooldown) {
+    switchWeapon.call(this, 2);
+  } else if (Phaser.Input.Keyboard.JustDown(this.keyThree) && !weaponSwitchCooldown) {
+    switchWeapon.call(this, 3);
+  }
+
+  // Use activable item
+  if (Phaser.Input.Keyboard.JustDown(this.keyF) && playerInventory.activeItem) {
+    useActivableItem.call(this);
+  }
+
+  // Update activable item cooldowns
+  for (const key in playerInventory.activableItemCooldowns) {
+    if (playerInventory.activableItemCooldowns[key] > 0) {
+      playerInventory.activableItemCooldowns[key] -= delta;
+      if (playerInventory.activableItemCooldowns[key] < 0) {
+        playerInventory.activableItemCooldowns[key] = 0;
+      }
+      // Update UI for cooldowns if you have it in HUD
+      // this.hud.updateActivableItemCooldown(key, playerInventory.activableItemCooldowns[key]);
+    }
+  }
+
+  // Update enemy positions/movement
+  enemies.children.each(function (enemy) {
+    if (enemy.active && player.active) {
+      this.physics.moveToObject(enemy, player, enemy.speed);
+    }
+  }, this);
+
+  // Damage Aura
+  if (playerStats.damageAura) {
+    enemies.children.each(function (enemy) {
+      if (Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y) < 70) { // Aura radius
+        enemy.health -= 0.05; // Small continuous damage
+        if (enemy.health <= 0) {
+            enemy.destroy();
+            gainXp.call(this, enemy.xpReward);
+            playerStats.currency += enemy.currencyReward || 5;
+            this.hud.updateCurrencyDisplay();
+            dropItem.call(this, enemy.x, enemy.y);
+        }
+      }
+    }, this);
+  }
+
+  // Sopro de Igniun
+  if (playerStats.igniunExplosion && playerStats.life <= playerStats.maxLife * 0.1) {
+    const explosion = this.add.circle(player.x, player.y, 100, 0xFF4500, 0.8).setDepth(99);
+    enemies.children.each(function(enemy) {
+      if (Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y) < 100) {
+        enemy.health -= 50;
+      }
+    }, this);
+    this.time.delayedCall(200, () => { explosion.destroy(); });
+    this.time.delayedCall(5000, () => { gameOver.call(this); });
+    playerStats.igniunExplosion = false; // só ativa uma vez
+  }
+}
+
+// --- Game Logic Functions ---
+function shootBullet() {
+  let bulletSpeed = playerStats.weaponBulletSpeed; // Base bullet speed
+  if (playerStats.bulletSpeedBoost) {
+    bulletSpeed *= 1.2; // Increase bullet speed if boost is active
+  }
+
+  let baseBulletCount = 1;
+  if (playerStats.doubleBullets) baseBulletCount = 2;
+  if (playerStats.tripleBullets) baseBulletCount = 3; // Triple overrides double
+
+  const angleRad = Phaser.Math.Angle.Between(player.x, player.y, this.input.activePointer.x, this.input.activePointer.y);
+  const angleDeg = Phaser.Math.RAD_TO_DEG * angleRad;
+
+  for (let i = 0; i < baseBulletCount; i++) {
+    let offsetAngle = 0;
+    if (baseBulletCount > 1) {
+      offsetAngle = Phaser.Math.DEG_TO_RAD * ((i - (baseBulletCount - 1) / 2) * 10); // Spread for multiple bullets
+    }
+
+    const bullet = bullets.get(player.x, player.y, 'bullet');
+    if (bullet) {
+      bullet.setActive(true).setVisible(true);
+      this.physics.velocityFromRotation(angleRad + offsetAngle, bulletSpeed, bullet.body.velocity);
+      bullet.setRotation(angleRad + offsetAngle);
+      bullet.damage = playerStats.bulletDamage;
+      bullet.piercing = playerStats.bulletPiercing;
+      bullet.range = playerStats.bulletRange; // Apply range modifier
+      bullet.setBodySize(bullet.width * 0.5, bullet.height * 0.5); // Adjust hitbox
+      bullet.setScale(0.5); // 50% do tamanho original
+    }
+  }
+
+  if (playerStats.lumirenTeleport) {
+    const angle = Phaser.Math.Angle.Between(player.x, player.y, this.input.activePointer.x, this.input.activePointer.y) + Math.PI;
+    player.x += Math.cos(angle) * 50;
+    player.y += Math.sin(angle) * 50;
+    playerStats.life -= 1;
+    if (playerStats.life <= 0) {
+      gameOver.call(this);
+    } else {
+      this.hud.updateHealthBar();
+    }
+  }
+}
+
+function switchWeapon(weaponNum) {
+  if (currentWeapon === weaponNum) return;
+
+  currentWeapon = weaponNum;
+  weaponSwitchCooldown = true; // Activate cooldown
+
+  // Apply weapon-specific fire rate
+  switch (currentWeapon) {
+    case 1: // Pistolinha
+      playerStats.fireRate = 500;
+      playerStats.bulletDamage = 1 + (playerStats.strength * 0.2); // Base + Strength
+      playerStats.weaponBulletSpeed = 500;
+      this.hud.updateWeaponDisplay('arma1');
+      break;
+    case 2: // Metralha
+      playerStats.fireRate = 100;
+      playerStats.bulletDamage = 0.5 + (playerStats.strength * 0.1); // Lower base damage, faster fire
+      playerStats.weaponBulletSpeed = 600;
+      this.hud.updateWeaponDisplay('arma2');
+      break;
+    case 3: // Lança-rio (slower, higher damage, maybe AOE or slow effect)
+      playerStats.fireRate = 1500;
+      playerStats.bulletDamage = 5 + (playerStats.strength * 0.5); // High damage, slow fire
+      playerStats.weaponBulletSpeed = 300;
+      this.hud.updateWeaponDisplay('arma3');
+      break;
+  }
+  this.hud.displayTemporaryEffect(`Arma ${currentWeapon} Selecionada`, '#00FF00', 1000);
+
+  this.time.delayedCall(500, () => { // 0.5 second cooldown for switching weapons
+    weaponSwitchCooldown = false;
+  });
+}
+
+function bulletHitEnemy(bullet, enemy) {
+  if (bullet.piercing) {
+    enemy.health -= bullet.damage;
+    createFloatingText(this, enemy.x, enemy.y, bullet.damage.toFixed(1), '#FF0000'); // Show damage
+  } else {
+    bullet.destroy();
+    enemy.health -= bullet.damage;
+    createFloatingText(this, enemy.x, enemy.y, bullet.damage.toFixed(1), '#FF0000');
+  }
+
+  // Poison effect from Coração Fraturado de Basilisco
+  if (playerStats.poisonTrail) {
+      enemy.health -= 0.1; // Small continuous damage from poison
+      createFloatingText(this, enemy.x, enemy.y, '0.1 Poison', '#00FF00');
+  }
+
+  if (enemy.health <= 0) {
+    enemy.destroy();
+    gainXp.call(this, enemy.xpReward);
+    playerStats.currency += enemy.currencyReward || 5; // NEW: Enemies drop currency
+    this.hud.updateCurrencyDisplay();
+    startKillStreak.call(this);
+
+    if (playerStats.healOnKill) {
+      playerStats.life = Math.min(playerStats.life + playerStats.lifestealOnKill, playerStats.maxLife);
+      this.hud.updateHealthBar();
+    }
+    dropItem.call(this, enemy.x, enemy.y);
+  }
+}
+
+function enemyBulletHitPlayer(player, enemyBullet) {
+  enemyBullet.destroy();
+
+  // Evasion chance
+  if (Math.random() < playerStats.evasionChance) {
+    this.hud.displayTemporaryEffect('Desviado!', '#00FFFF', 500);
+    return;
+  }
+
+  // Incoming damage reduction
+  let damageTaken = 1 * playerStats.incomingDamageMultiplier;
+
+  playerStats.life -= damageTaken;
+  this.hud.updateHealthBar();
+  createFloatingText(this, player.x, player.y, `-${damageTaken.toFixed(1)} Vida`, '#FF0000'); // Show damage
+
+  player.setTint(0xFF0000); // Red tint when hit
+  this.time.delayedCall(200, () => {
+    player.setTint(playerOriginalTint); // Revert tint
+  });
+
+  // Thorns
+  if (playerStats.thorns) {
+    enemyBullet.shooter.health -= playerStats.reflectDamage * 10; // Thorns do fixed damage, not relative to incoming
+    createFloatingText(this, enemyBullet.shooter.x, enemyBullet.shooter.y, `${(playerStats.reflectDamage * 10).toFixed(1)} Thorns!`, '#9900FF');
+    if (enemyBullet.shooter.health <= 0) {
+      enemyBullet.shooter.destroy();
+      gainXp.call(this, enemyBullet.shooter.xpReward);
+      playerStats.currency += enemyBullet.shooter.currencyReward || 5;
+      this.hud.updateCurrencyDisplay();
+      dropItem.call(this, enemyBullet.shooter.x, enemyBullet.shooter.y);
+    }
+  }
+
+  // Revive once
+  if (playerStats.life <= 0) {
+    if (playerStats.reviveOnce) {
+      playerStats.life = playerStats.maxLife / 2; // Revive with half health
+      playerStats.reviveOnce = false; // Only once
+      this.hud.updateHealthBar();
+      this.hud.displayTemporaryEffect('Revivido!', '#00FF00', 2000);
+    } else {
+      gameOver.call(this);
+    }
+  }
+}
+
+function playerHitEnemy(player, enemy) {
+    // Player takes damage from touching enemies
+    if (!playerStats.hasShield) {
+        playerStats.life -= 0.1; // Small continuous damage for touching
+        this.hud.updateHealthBar();
+        if (playerStats.life <= 0) {
+            if (playerStats.reviveOnce) {
+                playerStats.life = playerStats.maxLife / 2;
+                playerStats.reviveOnce = false;
+                this.hud.updateHealthBar();
+                this.hud.displayTemporaryEffect('Revivido!', '#00FF00', 2000);
+            } else {
+                gameOver.call(this);
+            }
+        }
+    }
+
+    // Player touch damage (from 'Pele Metálica')
+    if (playerStats.touchDamage > 0) {
+        enemy.health -= playerStats.touchDamage;
+        createFloatingText(this, enemy.x, enemy.y, playerStats.touchDamage.toFixed(1), '#FF0000');
+        if (enemy.health <= 0) {
+            enemy.destroy();
+            gainXp.call(this, enemy.xpReward);
+            playerStats.currency += enemy.currencyReward || 5;
+            this.hud.updateCurrencyDisplay();
+            dropItem.call(this, enemy.x, enemy.y);
+        }
+    }
+}
+
+
+function pickUpItem(player, itemCard) {
+  itemCard.destroy(); // Remove the card from the game
+
+  // Apply the item's effect based on its type
+  const item = itemCard.itemData;
+  this.hud.displayTemporaryEffect(`Item Coletado: ${item.nome}`, '#00FFFF', 1500);
+
+  if (item.tipo === "passivo") {
+    playerInventory.passiveItems[item.nome] = item;
+    if (item.efeito) {
+      item.efeito(this); // Apply passive effect immediately
+      this.hud.updatePlayerStatsDisplay(); // Update HUD if stats changed
+    }
+  } else if (item.tipo === "ativavel") {
+    playerInventory.activableItems[item.nome] = item;
+    playerInventory.activableItemCooldowns[item.nome] = 0; // Initialize cooldown
+    if (!playerInventory.activeItem) { // Set as active if no item is currently active
+      playerInventory.activeItem = item.nome;
+      this.hud.displayTemporaryEffect(`Item Ativável Selecionado: ${item.nome}`, '#FFD700', 1500);
+    }
+  }
+}
+
+function useActivableItem() {
+  const itemName = playerInventory.activeItem;
+  if (!itemName) {
+    this.hud.displayTemporaryEffect('Nenhum item ativável selecionado!', '#FF0000', 1000);
+    return;
+  }
+
+  const item = playerInventory.activableItems[itemName];
+  if (item && playerInventory.activableItemCooldowns[itemName] <= 0) {
+    item.efeito(this); // Apply the effect
+    this.hud.displayTemporaryEffect(`Ativou: ${item.nome}!`, '#00FF00', 1000);
+    playerInventory.activableItemCooldowns[itemName] = item.cooldown; // Start cooldown
+  } else if (item && playerInventory.activableItemCooldowns[itemName] > 0) {
+    const timeLeft = (playerInventory.activableItemCooldowns[itemName] / 1000).toFixed(1);
+    this.hud.displayTemporaryEffect(`Cooldown: ${timeLeft}s`, '#FF0000', 1000);
+  }
+}
+
+function dropItem(x, y) {
+  // Logic to randomly drop an item card
+  let dropChance = 0.2; // 20% base chance
+  if (playerStats.increasedDropRate) {
+    dropChance += 0.2; // +20% from "Olho de Xenosynth"
+  }
+
+  if (Math.random() < dropChance) { // Chance to drop an item
+    const randomIndex = Phaser.Math.RND.between(0, itemOptions.length - 1);
+    const itemData = itemOptions[randomIndex];
+    const itemCard = itemsGroup.get(x, y, itemData.textura || 'item_b'); // Use generic 'item_b' if specific texture not found
+    if (itemCard) {
+      itemCard.setActive(true).setVisible(true).setScale(0.05);
+      itemCard.itemData = itemData; // Store item data
+      itemCard.setBodySize(itemCard.width * 0.8, itemCard.height * 0.8);
+      itemCard.setBounce(0.2);
+      itemCard.setCollideWorldBounds(true);
+      itemCard.body.setVelocity(Phaser.Math.RND.between(-100, 100), Phaser.Math.RND.between(-100, 100));
+    }
+  }
+}
+
+// --- RPG System Functions (NEW) ---
+function gainXp(amount) {
+  playerStats.xp += amount;
+  this.hud.updateXpBar(); // Assuming HUD has an XP bar
+
+  if (playerStats.xp >= playerStats.xpToNextLevel) {
+    playerStats.level++;
+    playerStats.xp -= playerStats.xpToNextLevel; // Carry over excess XP
+    playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.5); // Increase XP needed for next level
+    playerStats.skillPoints += 1; // Award a skill point on level up
+    this.hud.displayTemporaryEffect(`Level Up! Nível ${playerStats.level}`, '#FFFF00', 3000); // Yellow text for level up
+    this.hud.updateLevelDisplay(); // Update HUD level display
+    showLevelUpMenu.call(this); // Show level up menu
+  }
+}
+
+function showLevelUpMenu() {
+  this.scene.pause();
+  // Create UI elements for the level-up menu
+  const menuBg = this.add.rectangle(config.width / 2, config.height / 2, 400, 380, 0x000000, 0.9).setDepth(100).setInteractive();
+  const menuTitle = this.add.text(config.width / 2, config.height / 2 - 160, 'Level Up! Pontos de Habilidade: ' + playerStats.skillPoints, {
+    fontSize: '24px',
+    fill: '#FFFFFF'
+  }).setOrigin(0.5).setDepth(101);
+
+  const createStatButton = (x, y, text, statName) => {
+    const button = this.add.text(x, y, text, {
+      fontSize: '18px',
+      fill: '#00FF00',
+      backgroundColor: '#333333',
+      padding: { x: 10, y: 5 }
+    }).setOrigin(0.5).setDepth(101).setInteractive();
+
+    button.on('pointerdown', () => {
+      if (playerStats.skillPoints > 0) {
+        playerStats.skillPoints--;
+        playerStats[statName]++; // Increment the chosen stat
+        applyStatBonus.call(this, statName); // Apply the bonus effect
+        menuTitle.setText('Level Up! Pontos de Habilidade: ' + playerStats.skillPoints); // Update points display
+        this.hud.displayTemporaryEffect(`+1 ${text.split(' ')[0]}!`, '#00FF00', 1000);
+      } else {
+        this.hud.displayTemporaryEffect('Sem pontos de habilidade!', '#FF0000', 1000);
+      }
+    });
+    return button;
+  };
+
+  const strengthButton = createStatButton(config.width / 2, config.height / 2 - 100, `Força (${playerStats.strength}) (+Dano)`, 'strength');
+  const agilityButton = createStatButton(config.width / 2, config.height / 2 - 60, `Agilidade (${playerStats.agility}) (+Velocidade Ataque, +Movimento)`, 'agility');
+  const constitutionButton = createStatButton(config.width / 2, config.height / 2 - 20, `Constituição (${playerStats.constitution}) (+Vida)`, 'constitution');
+  const intelligenceButton = createStatButton(config.width / 2, config.height / 2 + 20, `Inteligência (${playerStats.intelligence}) (+Cooldowns)`, 'intelligence');
+
+  const continueButton = this.add.text(config.width / 2, config.height / 2 + 150, 'Continuar', {
+    fontSize: '20px',
+    fill: '#FFFFFF',
+    backgroundColor: '#555555',
+    padding: { x: 15, y: 8 }
+  }).setOrigin(0.5).setDepth(101).setInteractive();
+
+  continueButton.on('pointerdown', () => {
+    menuBg.destroy();
+    menuTitle.destroy();
+    strengthButton.destroy();
+    agilityButton.destroy();
+    constitutionButton.destroy();
+    intelligenceButton.destroy();
+    continueButton.destroy();
+    this.scene.resume();
+  });
+}
+
+function applyStatBonus(statName) {
+  switch (statName) {
+    case 'strength':
+      playerStats.bulletDamage += 0.1; // Small increase per strength point
+      playerStats.touchDamage += 0.1; // Strength also boosts touch damage
+      break;
+    case 'agility':
+      playerStats.fireRate = Math.max(50, playerStats.fireRate * 0.98); // Reduce fire rate by 2%
+      playerStats.playerSpeed += 5; // Increase speed
+      playerStats.evasionChance = Math.min(0.5, playerStats.evasionChance + 0.01); // Max 50% evasion
+      break;
+    case 'constitution':
+      playerStats.maxLife += 1;
+      playerStats.life = playerStats.maxLife; // Heal to new max
+      this.hud.updateHealthBar();
+      playerStats.passiveRegenActive = true; // Constitution points can unlock/improve regen
+      break;
+    case 'intelligence':
+      // Reduce cooldowns for activable items
+      for (const key in playerInventory.activableItems) {
+        if (playerInventory.activableItems.hasOwnProperty(key)) {
+            playerInventory.activableItems[key].cooldown *= 0.95; // 5% reduction
+        }
+      }
+      break;
+  }
+  this.hud.updatePlayerStatsDisplay(); // Update HUD after stat change
+}
+
+// --- Shop System Functions (NEW) ---
+function showShopMenu() {
+  this.scene.pause();
+  const shopBg = this.add.rectangle(config.width / 2, config.height / 2, 800, 500, 0x000000, 0.9).setDepth(100).setInteractive();
+  const shopTitle = this.add.text(config.width / 2, config.height / 2 - 200, 'Loja do Ferro-Velho', {
+    fontSize: '32px',
+    fill: '#FFFFFF'
+  }).setOrigin(0.5).setDepth(101);
+
+  const currencyText = this.add.text(config.width / 2, config.height / 2 - 160, `Sucata: ${playerStats.currency}`, {
+    fontSize: '20px',
+    fill: '#FFD700'
+  }).setOrigin(0.5).setDepth(101);
+
+  const itemStartX = config.width / 2 - 300;
+  const itemStartY = config.height / 2 - 100;
+  const itemXSpacing = 180;
+  const itemYSpacing = 120;
+
+  // Function to create and manage a single shop item UI element
+  const createShopItemUI = (item, index) => {
+    const x = itemStartX + (index % 4) * itemXSpacing; // 4 items per row
+    const y = itemStartY + Math.floor(index / 4) * itemYSpacing;
+
+    const itemPanel = this.add.rectangle(x, y, 150, 100, 0x333333, 0.7).setStrokeStyle(1, 0xFFFFFF, 0.5).setDepth(101);
+    const itemName = this.add.text(x, y - 35, item.nome, { fontSize: '14px', fill: '#FFFFFF', wordWrap: { width: 140 } }).setOrigin(0.5).setDepth(102);
+    const itemCost = this.add.text(x, y + 5, `Custo: ${item.custo} Sucata`, { fontSize: '12px', fill: '#FFD700' }).setOrigin(0.5).setDepth(102);
+    const itemDesc = this.add.text(x, y + 25, item.descricao, { fontSize: '10px', fill: '#CCCCCC', wordWrap: { width: 140 } }).setOrigin(0.5).setDepth(102);
+
+    const buyButton = this.add.text(x, y + 45, 'Comprar', {
+      fontSize: '12px',
+      fill: '#00FF00',
+      backgroundColor: '#005500',
+      padding: { x: 5, y: 2 }
+    }).setOrigin(0.5).setDepth(102).setInteractive();
+
+    // Track purchased count for items with maxPurchases
+    if (item.maxPurchases) {
+        item.purchasedCount = item.purchasedCount || 0;
+        if (item.purchasedCount >= item.maxPurchases) {
+            buyButton.setText('ESGOTADO').setColor('#FF0000').disableInteractive();
+            buyButton.setBackgroundColor('#550000');
+        } else {
+            // Display remaining stock if applicable
+            itemCost.setText(`Custo: ${item.custo} Sucata (${item.purchasedCount}/${item.maxPurchases})`);
+        }
+    }
+
+    buyButton.on('pointerdown', () => {
+      if (item.purchasedCount !== undefined && item.purchasedCount >= item.maxPurchases) {
+          this.hud.displayTemporaryEffect('Item esgotado!', '#FF0000', 1000);
+          return;
+      }
+      if (playerStats.currency >= item.custo) {
+        playerStats.currency -= item.custo;
+        item.efeito(this); // Apply item effect
+        currencyText.setText(`Sucata: ${playerStats.currency}`); // Update currency display
+        this.hud.displayTemporaryEffect(`Comprou: ${item.nome}!`, '#00FF00', 1500);
+
+        if (item.maxPurchases) {
+            item.purchasedCount++;
+            if (item.purchasedCount >= item.maxPurchases) {
+                buyButton.setText('ESGOTADO').setColor('#FF0000').disableInteractive();
+                buyButton.setBackgroundColor('#550000');
+            }
+            itemCost.setText(`Custo: ${item.custo} Sucata (${item.purchasedCount}/${item.maxPurchases})`);
+        }
+        this.hud.updatePlayerStatsDisplay(); // Update HUD after purchase
+      } else {
+        this.hud.displayTemporaryEffect('Sucata insuficiente!', '#FF0000', 1500);
+      }
+    });
+    return [itemPanel, itemName, itemCost, itemDesc, buyButton]; // Return all UI elements for destruction later
+  };
+
+  const shopUIElements = [];
+  shopItems.forEach((item, index) => {
+      shopUIElements.push(...createShopItemUI(item, index));
+  });
+
+
+  const closeButton = this.add.text(config.width / 2, config.height / 2 + 220, 'Fechar Loja', {
+    fontSize: '20px',
+    fill: '#FFFFFF',
+    backgroundColor: '#555555',
+    padding: { x: 15, y: 8 }
+  }).setOrigin(0.5).setDepth(101).setInteractive();
+
+  closeButton.on('pointerdown', () => {
+    shopBg.destroy();
+    shopTitle.destroy();
+    currencyText.destroy();
+    shopUIElements.forEach(element => element.destroy()); // Destroy all shop item UIs
+    closeButton.destroy();
+    this.scene.resume();
+  });
+}
+
+// --- Wave Management ---
+function spawnEnemy() {
+  if (enemiesSpawnedThisWave < enemiesInWave) {
+    let x, y;
+    if (Math.random() < 0.5) { // Spawn from top/bottom
+      x = Phaser.Math.Between(50, config.width - 50);
+      y = (Math.random() < 0.5) ? -50 : config.height + 50;
+    } else { // Spawn from left/right
+      x = (Math.random() < 0.5) ? -50 : config.width + 50;
+      y = Phaser.Math.Between(50, config.height - 50);
+    }
+
+    let enemyType = enemyTypes.normal;
+    // Introduce other enemy types based on wave or random chance
+    if (waveNumber >= 3 && Math.random() < 0.3) {
+        enemyType = enemyTypes.fast;
+    }
+    if (waveNumber >= 5 && Math.random() < 0.2) {
+        enemyType = enemyTypes.tank;
+    }
+    if (waveNumber % 10 === 0 && enemiesSpawnedThisWave === 0 && waveNumber > 0) { // Boss every 10 waves
+        enemyType = enemyTypes.boss;
+        this.hud.displayTemporaryEffect('CHEFE INIMIGO DETECTADO!', '#FF4500', 4000);
+    }
+
+    const enemy = enemies.get(x, y, enemyType.texture);
+    if (enemy) {
+      enemy.setActive(true).setVisible(true);
+      enemy.health = enemyType.baseHealth + (waveNumber * 0.5); // Enemies get tougher
+      enemy.speed = enemyType.speed;
+      enemy.setScale(enemyType.scale);
+      enemy.setBodySize(enemy.width * 0.8, enemy.height * 0.8);
+      enemy.xpReward = enemyType.xpReward;
+      enemy.currencyReward = enemyType.currencyReward;
+      enemiesSpawnedThisWave++;
+    }
+  } else if (enemies.countActive(true) === 0) {
+    // All enemies for the current wave are spawned and destroyed
+    startNextWave.call(this);
+  }
+}
+
+function startNextWave() {
+  waveNumber++;
+  enemiesInWave = 5 + (waveNumber * 2); // More enemies per wave
+  enemySpawnRate = Math.max(500, 2000 - (waveNumber * 50)); // Faster spawn rate
+  enemiesSpawnedThisWave = 0;
+  this.hud.updateWaveDisplay();
+  this.hud.displayTemporaryEffect(`Onda ${waveNumber} Iniciada!`, '#FFFFFF', 2000);
+}
+
+// Initial call to start the first wave
+function updateGameTime() {
+    // This function is currently just a placeholder.
+    // Can be used to update game timer, trigger events at specific intervals etc.
+}
+
+
+// --- Helper Classes (Bullet, Enemy, ItemCard) ---
+class Bullet extends Phaser.Physics.Arcade.Sprite {
+  constructor(scene, x, y) {
+    super(scene, x, y, 'bullet');
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
+    this.damage = 1;
+    this.piercing = false;
+    this.range = 1; // 1 means normal range, higher for more
+    this.lifeSpan = 0; // Track lifespan to control range
+  }
+
+  preUpdate(time, delta) {
+    super.preUpdate(time, delta);
+    this.lifeSpan += delta;
+    // Bullet disappears after a certain range or time
+    if (this.lifeSpan > 1000 * this.range) { // 1 second * range multiplier
+      this.destroy();
+    }
+  }
+}
+
+class EnemyBullet extends Phaser.Physics.Arcade.Sprite {
+    constructor(scene, x, y, texture, shooter) {
+        super(scene, x, y, texture);
+        scene.add.existing(this);
+        scene.physics.add.existing(this);
+        this.damage = 1;
+        this.shooter = shooter; // Keep track of who shot it
+    }
+
+    preUpdate(time, delta) {
+        super.preUpdate(time, delta);
+        if (this.y > config.height + 50 || this.y < -50 || this.x > config.width + 50 || this.x < -50) {
+            this.destroy();
+        }
+    }
+}
+
+class Enemy extends Phaser.Physics.Arcade.Sprite {
+  constructor(scene, x, y, texture) {
+    super(scene, x, y, texture);
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
+    this.health = 1;
+    this.speed = 100;
+    this.xpReward = 20;
+    this.currencyReward = 5;
+    this.nextShot = 0; // For enemies that shoot
+  }
+
+  preUpdate(time, delta) {
+    super.preUpdate(time, delta);
+
+    if (this.active && player.active) {
+        // Simple enemy shooting behavior for some enemies (e.g., boss)
+        if (this.texture.key === 'boss_robot' && time > this.nextShot) {
+            const bullet = enemyBullets.get(this.x, this.y, 'bullet', this); // Reusing player bullet texture for now
+            if (bullet) {
+                bullet.setActive(true).setVisible(true);
+                this.scene.physics.moveToObject(bullet, player, 200); // Bullet speed
+                this.nextShot = time + 2000; // Shoot every 2 seconds
+            }
+        }
+    }
+  }
+}
+
+class ItemCard extends Phaser.Physics.Arcade.Sprite {
+  constructor(scene, x, y, texture) {
+    super(scene, x, y, texture);
+    scene.add.existing(this);
+    scene.physics.add.existing(this);
+    this.itemData = null; // To store the actual item data from itemOptions
+    this.setCollideWorldBounds(true);
+    this.setBounce(0.5);
+  }
+}
+
+class Weapon extends Phaser.Physics.Arcade.Sprite {
+    constructor(scene, x, y, texture) {
+        super(scene, x, y, texture);
+        scene.add.existing(this);
+        scene.physics.add.existing(this);
+        this.setCollideWorldBounds(true);
+        this.setBounce(0.5);
+    }
+}
+
+// --- Effects and UI ---
+function startKillStreak() {
+  killStreak++;
+  this.hud.displayTemporaryEffect(`Kill Streak: ${killStreak}!`, '#FFD700', 1000); // Gold text
+
+  if (killStreakTimer) {
+    killStreakTimer.remove(false); // Reset existing timer
+  }
+  killStreakTimer = this.time.delayedCall(5000, endKillStreak, [], this); // 5 seconds to get next kill
+}
+
+function endKillStreak() {
+  this.hud.displayTemporaryEffect('Frenesi Encerrado.', '#FFFFFF', 1000);
+  killStreak = 0; // Resets the kill streak
 }
 
 function createFloatingText(scene, x, y, text, color = '#FFFFFF') {
@@ -691,7 +1331,7 @@ function createFloatingText(scene, x, y, text, color = '#FFFFFF') {
         fill: color,
         align: 'center'
     }).setOrigin(0.5);
-    floatText.setDepth(2);
+    floatText.setDepth(200); // Ensure it's on top
 
     scene.tweens.add({
         targets: floatText,
@@ -705,22 +1345,30 @@ function createFloatingText(scene, x, y, text, color = '#FFFFFF') {
     });
 }
 
+function gameOver() {
+  this.physics.pause();
+  player.setTint(0xFF0000);
+  this.add.text(config.width / 2, config.height / 2, 'GAME OVER', {
+    fontSize: '64px',
+    fill: '#FF0000'
+  }).setOrigin(0.5);
+  this.scene.pause();
+  // Optionally, add a restart button
+  const restartButton = this.add.text(config.width / 2, config.height / 2 + 100, 'Reiniciar', {
+    fontSize: '32px',
+    fill: '#00FF00',
+    backgroundColor: '#333333',
+    padding: { x: 20, y: 10 }
+  }).setOrigin(0.5).setInteractive();
 
-const config = {
-  type: Phaser.AUTO,
-  width: 1380,
-  height: 580,
-  backgroundColor: '#000000',
-  physics: {
-    default: 'arcade',
-    arcade: { debug: false }
-  },
-  scene: [GameScene, ShopScene]
-};
+  restartButton.on('pointerdown', () => {
+    location.reload(); // Reload the page to restart the game
+  });
+}
 
-const game = new Phaser.Game(config);
 
+// Start the game
+new Phaser.Game(config);
 </script>
-
 </body>
 </html>
