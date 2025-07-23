@@ -192,7 +192,7 @@ const enemyTypes = {
     attacks: []
   },
   healer: { // NEW ENEMY: Heals allies
-    texture: 'enemy_healer', // You'll need this asset
+    texture: 'enemy_tank', // You'll need this asset
     baseHealth: 7,
     speed: 80,
     scale: 0.07,
@@ -201,7 +201,7 @@ const enemyTypes = {
     attacks: ['heal'] // Special attack type
   },
   kamikaze: { // NEW ENEMY: Explodes on player contact
-    texture: 'enemy_kamikaze', // You'll need this asset
+    texture: 'enemy_fast', // You'll need this asset
     baseHealth: 5,
     speed: 150,
     scale: 0.06,
@@ -210,7 +210,7 @@ const enemyTypes = {
     attacks: ['explode']
   },
   shooter: { // NEW ENEMY: Shoots back
-    texture: 'enemy_shooter', // You'll need this asset
+    texture: 'enemy_fast', // You'll need this asset
     baseHealth: 6,
     speed: 90,
     scale: 0.07,
@@ -239,38 +239,38 @@ const itemRarities = {
 
 // --- Item Definitions (Card System) ---
 const itemOptions = [
-  { nome: "Núcleo de Energia (Passivo)", descricao: "Aumenta o dano da bala.", tipo: "passivo", textura: "item_core", efeito: (scene) => { playerStats.bulletDamage += 0.5; }, peso: 1, rarity: 'common' },
-  { nome: "Óculos de Precisão (Passivo)", descricao: "Aumenta a velocidade de ataque.", tipo: "passivo", textura: "item_goggles", efeito: (scene) => { playerStats.fireRate = Math.max(50, playerStats.fireRate * 0.9); }, peso: 1, rarity: 'common' },
-  { nome: "Módulo de Salto (Ativável)", descricao: "Permite usar Dash.", tipo: "ativavel", textura: "item_jump_module", cooldown: 5000, efeito: (scene) => { playerStats.dashAvailable = true; }, peso: 1, rarity: 'common' },
-  { nome: "Corrente Eletrostática (Passivo)", descricao: "Bala perfurante.", tipo: "passivo", textura: "item_chain", efeito: (scene) => { playerStats.bulletPiercing = true; }, peso: 1, rarity: 'rare' },
-  { nome: "Máscara de Gás (Passivo)", descricao: "Cria uma aura de dano ao redor do jogador.", tipo: "passivo", textura: "item_mask", efeito: (scene) => { playerStats.damageAura = true; }, peso: 1, rarity: 'rare' },
-  { nome: "Armadura Reconstruída (Passivo)", descricao: "Reduz o dano recebido.", tipo: "passivo", textura: "item_armor", efeito: (scene) => { playerStats.incomingDamageMultiplier -= 0.1; playerStats.incomingDamageMultiplier = Math.max(0.5, playerStats.incomingDamageMultiplier); }, peso: 1, rarity: 'rare' },
-  { nome: "Overclock (Ativável)", descricao: "Aumenta temporariamente a velocidade de movimento.", tipo: "ativavel", textura: "item_overclock", cooldown: 10000, efeito: (scene) => { playerStats.speedBoost = true; scene.time.delayedCall(3000, () => { playerStats.speedBoost = false; }); }, peso: 1, rarity: 'common' },
-  { nome: "DPE (Passivo)", descricao: "Atira duas balas por vez.", tipo: "passivo", textura: "item_dpe", efeito: (scene) => { playerStats.doubleBullets = true; }, peso: 1, rarity: 'common' },
-  { nome: "Armadura Camuflada (Passivo)", descricao: "Chance de desviar de ataques.", tipo: "passivo", textura: "item_camouflaged_armor", efeito: (scene) => { playerStats.evasionChance += 0.1; }, peso: 1, rarity: 'rare' },
-  { nome: "Bateria de Nêutrons (Passivo)", descricao: "Vida máxima +1.", tipo: "passivo", textura: "item_neutron_battery", efeito: (scene) => { playerStats.maxLife += 1; playerStats.life = playerStats.maxLife; scene.hud.updateHealthBar(); }, peso: 1, rarity: 'common' },
-  { nome: "Mini Drone de Ataque (Passivo)", descricao: "Spawna um drone aliado.", tipo: "passivo", textura: "item_drone", efeito: (scene) => { spawnDrone.call(scene, 'attack'); }, peso: 1, rarity: 'epic' }, // Uses new drone system
-  { nome: "Capacitor de Pulso (Passivo)", descricao: "Aumenta o alcance das balas.", tipo: "passivo", textura: "item_capacitor", efeito: (scene) => { playerStats.bulletRange += 0.5; }, peso: 1, rarity: 'common' },
-  { nome: "Módulos de Resfriamento (Ativável)", descricao: "Reduz cooldowns de itens ativáveis.", tipo: "ativavel", textura: "item_cooling_modules", cooldown: 20000, efeito: (scene) => { /* Handled by Intelligence/Metalion Echo now */ }, peso: 1, rarity: 'rare' },
-  { nome: "Transdutor de Energia (Passivo)", descricao: "Recupera vida ao matar inimigos.", tipo: "passivo", textura: "item_transducer", efeito: (scene) => { playerStats.healOnKill = true; playerStats.lifestealOnKill = 0.5; }, peso: 1, rarity: 'common' },
-  { nome: "Campo de Distorção (Ativável)", descricao: "Cria zona segura por um tempo.", tipo: "ativavel", textura: "item_b", cooldown: 15000, efeito: (scene) => { playerStats.safeZoneActive = true; scene.time.delayedCall(5000, () => { playerStats.safeZoneActive = false; }); }, peso: 1, rarity: 'rare' },
-  { nome: "Estabilizador de Matriz (Passivo)", descricao: "Atira 3 balas por vez.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.tripleBullets = true; }, peso: 1, rarity: 'epic' },
-  { nome: "Regenerador Automático (Passivo)", descricao: "Regeneração passiva de vida.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.passiveRegenActive = true; }, peso: 1, rarity: 'rare' },
-  { nome: "Arma Espinhenta (Passivo)", descricao: "Dano de espinhos ao ser atingido.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.thorns = true; playerStats.reflectDamage = 0.2; }, peso: 1, rarity: 'rare' },
-  { nome: "Refletor de Dano (Ativável)", descricao: "Reflete dano por um tempo.", tipo: "ativavel", textura: "item_b", cooldown: 10000, efeito: (scene) => { playerStats.reflectDamage = 1; scene.time.delayedCall(3000, () => { playerStats.reflectDamage = 0; }); }, peso: 1, rarity: 'epic' },
-  { nome: "Pele Metálica (Passivo)", descricao: "Dano ao toque (player).", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.touchDamage = 1; }, peso: 1, rarity: 'rare' },
-  { nome: "Modulo de Carga Rápida (Passivo)", descricao: "Aumenta velocidade da bala.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.bulletSpeedBoost = true; playerStats.weaponBulletSpeed += 100; }, peso: 1, rarity: 'common' },
-  { nome: "Casulo de Segurança (Ativável)", descricao: "Recupera 1 de vida ao ser ativado.", tipo: "ativavel", textura: "item_b", cooldown: 15000, efeito: (scene) => { playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife); scene.hud.updateHealthBar(); }, peso: 1, rarity: 'rare' },
-  { nome: "Camuflagem Óptica (Passivo)", descricao: "Chance de reviver uma vez.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.reviveOnce = true; }, peso: 1, rarity: 'epic' },
-  { nome: "Magnetizador de Sucata (Passivo)", descricao: "Aumenta drop de sucata.", tipo: "passivo", textura: "item_b", efeito: (scene) => { playerStats.increasedDropRate = true; }, peso: 1, rarity: 'common' },
-  { nome: "Criador de Clones (Ativável)", descricao: "Cria clone que atira.", tipo: "ativavel", textura: "item_b", cooldown: 20000, efeito: (scene) => { playerStats.cloneActive = true; scene.time.delayedCall(5000, () => { playerStats.cloneActive = false; }); }, peso: 1, rarity: 'epic' },
+  { nome: "Núcleo de Energia (Passivo)", descricao: "Aumenta o dano da bala.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.bulletDamage += 0.5; }, peso: 1, rarity: 'common' },
+  { nome: "Óculos de Precisão (Passivo)", descricao: "Aumenta a velocidade de ataque.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.fireRate = Math.max(50, playerStats.fireRate * 0.9); }, peso: 1, rarity: 'common' },
+  { nome: "Módulo de Salto (Ativável)", descricao: "Permite usar Dash.", tipo: "ativavel", textura: "ammo", cooldown: 5000, efeito: (scene) => { playerStats.dashAvailable = true; }, peso: 1, rarity: 'common' },
+  { nome: "Corrente Eletrostática (Passivo)", descricao: "Bala perfurante.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.bulletPiercing = true; }, peso: 1, rarity: 'rare' },
+  { nome: "Máscara de Gás (Passivo)", descricao: "Cria uma aura de dano ao redor do jogador.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.damageAura = true; }, peso: 1, rarity: 'rare' },
+  { nome: "Armadura Reconstruída (Passivo)", descricao: "Reduz o dano recebido.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.incomingDamageMultiplier -= 0.1; playerStats.incomingDamageMultiplier = Math.max(0.5, playerStats.incomingDamageMultiplier); }, peso: 1, rarity: 'rare' },
+  { nome: "Overclock (Ativável)", descricao: "Aumenta temporariamente a velocidade de movimento.", tipo: "ativavel", textura: "ammo", cooldown: 10000, efeito: (scene) => { playerStats.speedBoost = true; scene.time.delayedCall(3000, () => { playerStats.speedBoost = false; }); }, peso: 1, rarity: 'common' },
+  { nome: "DPE (Passivo)", descricao: "Atira duas balas por vez.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.doubleBullets = true; }, peso: 1, rarity: 'common' },
+  { nome: "Armadura Camuflada (Passivo)", descricao: "Chance de desviar de ataques.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.evasionChance += 0.1; }, peso: 1, rarity: 'rare' },
+  { nome: "Bateria de Nêutrons (Passivo)", descricao: "Vida máxima +1.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.maxLife += 1; playerStats.life = playerStats.maxLife; scene.hud.updateHealthBar(); }, peso: 1, rarity: 'common' },
+  { nome: "Mini Drone de Ataque (Passivo)", descricao: "Spawna um drone aliado.", tipo: "passivo", textura: "ammo", efeito: (scene) => { spawnDrone.call(scene, 'attack'); }, peso: 1, rarity: 'epic' }, // Uses new drone system
+  { nome: "Capacitor de Pulso (Passivo)", descricao: "Aumenta o alcance das balas.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.bulletRange += 0.5; }, peso: 1, rarity: 'common' },
+  { nome: "Módulos de Resfriamento (Ativável)", descricao: "Reduz cooldowns de itens ativáveis.", tipo: "ativavel", textura: "ammo", cooldown: 20000, efeito: (scene) => { /* Handled by Intelligence/Metalion Echo now */ }, peso: 1, rarity: 'rare' },
+  { nome: "Transdutor de Energia (Passivo)", descricao: "Recupera vida ao matar inimigos.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.healOnKill = true; playerStats.lifestealOnKill = 0.5; }, peso: 1, rarity: 'common' },
+  { nome: "Campo de Distorção (Ativável)", descricao: "Cria zona segura por um tempo.", tipo: "ativavel", textura: "ammo", cooldown: 15000, efeito: (scene) => { playerStats.safeZoneActive = true; scene.time.delayedCall(5000, () => { playerStats.safeZoneActive = false; }); }, peso: 1, rarity: 'rare' },
+  { nome: "Estabilizador de Matriz (Passivo)", descricao: "Atira 3 balas por vez.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.tripleBullets = true; }, peso: 1, rarity: 'epic' },
+  { nome: "Regenerador Automático (Passivo)", descricao: "Regeneração passiva de vida.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.passiveRegenActive = true; }, peso: 1, rarity: 'rare' },
+  { nome: "Arma Espinhenta (Passivo)", descricao: "Dano de espinhos ao ser atingido.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.thorns = true; playerStats.reflectDamage = 0.2; }, peso: 1, rarity: 'rare' },
+  { nome: "Refletor de Dano (Ativável)", descricao: "Reflete dano por um tempo.", tipo: "ativavel", textura: "ammo", cooldown: 10000, efeito: (scene) => { playerStats.reflectDamage = 1; scene.time.delayedCall(3000, () => { playerStats.reflectDamage = 0; }); }, peso: 1, rarity: 'epic' },
+  { nome: "Pele Metálica (Passivo)", descricao: "Dano ao toque (player).", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.touchDamage = 1; }, peso: 1, rarity: 'rare' },
+  { nome: "Modulo de Carga Rápida (Passivo)", descricao: "Aumenta velocidade da bala.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.bulletSpeedBoost = true; playerStats.weaponBulletSpeed += 100; }, peso: 1, rarity: 'common' },
+  { nome: "Casulo de Segurança (Ativável)", descricao: "Recupera 1 de vida ao ser ativado.", tipo: "ativavel", textura: "ammo", cooldown: 15000, efeito: (scene) => { playerStats.life = Math.min(playerStats.life + 1, playerStats.maxLife); scene.hud.updateHealthBar(); }, peso: 1, rarity: 'rare' },
+  { nome: "Camuflagem Óptica (Passivo)", descricao: "Chance de reviver uma vez.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.reviveOnce = true; }, peso: 1, rarity: 'epic' },
+  { nome: "Magnetizador de Sucata (Passivo)", descricao: "Aumenta drop de sucata.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.increasedDropRate = true; }, peso: 1, rarity: 'common' },
+  { nome: "Criador de Clones (Ativável)", descricao: "Cria clone que atira.", tipo: "ativavel", textura: "ammo", cooldown: 20000, efeito: (scene) => { playerStats.cloneActive = true; scene.time.delayedCall(5000, () => { playerStats.cloneActive = false; }); }, peso: 1, rarity: 'epic' },
 
   // --- NEW CARDS (from previous prompt) ---
   {
     nome: "Coração Fraturado de Basilisco",
     descricao: "+5% dano, -2 vida máxima, tiros deixam veneno.",
     tipo: "passivo",
-    textura: "item_basilisk_heart",
+    textura: "ammo",
     efeito: (scene) => {
       playerStats.bulletDamage *= 1.05;
       playerStats.maxLife = Math.max(1, playerStats.maxLife - 2); // Ensure maxLife doesn't go below 1
@@ -284,7 +284,7 @@ const itemOptions = [
     nome: "Raiz Sem Alma",
     descricao: "Dash infinito por 10s, perde -1 vida máxima.",
     tipo: "ativavel",
-    textura: "item_rootless",
+    textura: "ammo",
     cooldown: 30000,
     efeito: (scene) => {
       playerStats.dashCooldown = false; // Make dash immediately available
@@ -301,7 +301,7 @@ const itemOptions = [
     nome: "Eco de Metalion",
     descricao: "Cooldowns -20%, usar item perde 5% velocidade até fim da wave.",
     tipo: "passivo",
-    textura: "item_metalion_echo",
+    textura: "ammo",
     efeito: (scene) => {
       playerStats.metalionEchoActive = true;
     },
@@ -311,7 +311,7 @@ const itemOptions = [
     nome: "Fragmento de Lumiren",
     descricao: "Atirar teleporta 50px p/ trás, cada tp consome 1 vida.",
     tipo: "passivo",
-    textura: "item_lumiren_fragment",
+    textura: "ammo",
     efeito: (scene) => {
       playerStats.lumirenTeleport = true;
     },
@@ -321,7 +321,7 @@ const itemOptions = [
     nome: "Sopro de Igniun",
     descricao: "Com <10% vida, explode em fogo mas morre depois de 5s.",
     tipo: "passivo",
-    textura: "item_igniun_breath",
+    textura: "ammo",
     efeito: (scene) => {
       playerStats.igniunExplosion = true;
     },
@@ -609,35 +609,8 @@ function preload() {
   this.load.image('enemy_fast', 'assets/enemy_fast.png');
   this.load.image('enemy_tank', 'assets/enemy_tank.png');
   this.load.image('boss_robot', 'assets/boss_robot.png'); // Preload boss image
-  this.load.image('enemy_healer', 'assets/enemy_healer.png'); // NEW: Healer enemy asset
-  this.load.image('enemy_kamikaze', 'assets/enemy_kamikaze.png'); // NEW: Kamikaze enemy asset
-  this.load.image('enemy_shooter', 'assets/enemy_shooter.png'); // NEW: Shooter enemy asset
-
-  // Destructible Objects (NEW)
-  this.load.image('crate', 'assets/crate.png'); // Example destructible
-
-  // Drone Assets (NEW)
-  this.load.image('drone_attack', 'assets/drone_attack.png'); // Attack drone
-  this.load.image('drone_support', 'assets/drone_support.png'); // Support drone (healing/buffs)
-  this.load.image('drone_collector', 'assets/drone_collector.png'); // Collector drone (currency pickup)
-
-  // Item Textures (Assumed paths - UPDATE THESE IF DIFFERENT)
-  this.load.image('item_core', 'assets/item_core.png');
-  this.load.image('item_goggles', 'assets/item_goggles.png');
-  this.load.image('item_jump_module', 'assets/item_jump_module.png');
-  this.load.image('item_chain', 'assets/item_chain.png');
-  this.load.image('item_mask', 'assets/item_mask.png');
-  this.load.image('item_armor', 'assets/item_armor.png');
-  this.load.image('item_overclock', 'assets/item_overclock.png');
-  this.load.image('item_dpe', 'assets/ammo.png'); // Use ammo.png for DPE as per original
-  this.load.image('item_camouflaged_armor', 'assets/item_camouflaged_armor.png');
-  this.load.image('item_neutron_battery', 'assets/item_neutron_battery.png');
-  this.load.image('item_drone', 'assets/item_drone.png'); // Generic drone icon if specific types not used for card
-  this.load.image('item_capacitor', 'assets/item_capacitor.png');
-  this.load.image('item_cooling_modules', 'assets/item_cooling_modules.png');
-  this.load.image('item_transducer', 'assets/item_transducer.png');
-  // For items that used 'b' in original, and I don't have specific textures:
-  this.load.image('item_b', 'assets/ammo.png'); // Generic 'b' placeholder, replace with actual textures
+  
+  this.load.image('ammo', 'assets/ammo.png'); // Generic 'b' placeholder, replace with actual textures
 
   // Load new item textures (from previous prompt)
   this.load.image('item_basilisk_heart', 'assets/item_basilisk_heart.png');
@@ -683,9 +656,7 @@ function create() {
   enemyBullets = this.physics.add.group({ classType: EnemyBullet, runChildUpdate: true });
   armas = this.physics.add.group({ key: 'arma1', frameQuantity: 10, active: false, visible: false, classType: Weapon }); // Group for weapons on ground
   itemsGroup = this.physics.add.group({ classType: ItemCard, runChildUpdate: true }); // Group for item cards
-  destructiblesGroup = this.physics.add.group({ classType: Destructible, runChildUpdate: true }); // NEW: Destructible objects
-  dronesGroup = this.physics.add.group({ classType: Drone, runChildUpdate: true }); // NEW: Drones
-
+  
   // --- Colliders and Overlaps ---
   this.physics.add.overlap(bullets, enemies, bulletHitEnemy, null, this);
   this.physics.add.overlap(enemyBullets, player, enemyBulletHitPlayer, null, this);
