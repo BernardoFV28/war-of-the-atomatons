@@ -22,8 +22,8 @@
 // --- Configuration ---
 const config = {
   type: Phaser.AUTO,
-  width: 1920, // Aumentado para uma largura maior
-  height: 1080, // Aumentado para uma altura maior
+  width: 1520, // Aumentado para uma largura maior
+  height: 860, // Aumentado para uma altura maior
   backgroundColor: '#000000',
   physics: {
     default: 'arcade',
@@ -442,7 +442,7 @@ function preload() {
   this.load.image('arma2', 'assets/metralha.png');    // Machinegun
   this.load.image('arma3', 'assets/lancarrio.png');   // Grenade launcher (Lança-rio)
   this.load.image('fundogame', 'assets/fundogame.png'); // Background
-  this.load.image('cora', 'assets/cora.png');         // Heart for life display
+  this.load.image('cora', 'assets/cor.a.png');         // Heart for life display
 
   // Enemy Assets
   this.load.image('enemy', 'assets/enemy_robot.png');
@@ -493,7 +493,7 @@ function preload() {
 
 function create() {
   // Ajuste a escala da imagem de fundo para cobrir o novo tamanho do mapa
-  this.add.image(config.width / 2, config.height / 2, 'fundogame').setDepth(-1).setScale(Math.max(config.width / this.textures.get('fundogame').width, config.height / this.textures.get('fundogame').height));
+  this.add.image(config.width / 3, config.height / 3, 'fundogame').setDepth(-1).setScale(Math.max(config.width / this.textures.get('fundogame').width, config.height / this.textures.get('fundogame').height));
 
   player = this.physics.add.sprite(config.width / 2, config.height / 2, 'player').setScale(PLAYER_INITIAL_SCALE);
   player.setCollideWorldBounds(true);
