@@ -740,7 +740,8 @@ function shootBullet() {
       bullet.piercing = playerStats.bulletPiercing;
       bullet.range = playerStats.bulletRange; // Apply range modifier
       bullet.setBodySize(bullet.width * 0.5, bullet.height * 0.5); // Adjust hitbox
-      bullet.setScale(0.5); // 50% do tamanho original
+      // LINHA ALTERADA AQUI:
+      bullet.setScale(0.01); // 1% do tamanho original
     }
   }
 
