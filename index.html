@@ -461,8 +461,8 @@ let playerStats = {
   life: 3,
   maxLife: 3,
   bulletDamage: 1,
-  fireRate: 300, // Cooldown in ms, lower is faster
-  playerSpeed: 800, // Now used as maxSpeed
+  fireRate: 200, // Cooldown in ms, lower is faster
+  playerSpeed: 1000, // Now used as maxSpeed
   xp: 0,
   level: 1,
   xpToNextLevel: 100,
@@ -559,7 +559,7 @@ const enemyTypes = {
   normal: {
     texture: 'enemy_robot',
     baseHealth: 4,
-    speed: 100,
+    speed: 900,
     scale: 0.06,
     xpReward: 20,
     currencyReward: 5,
@@ -568,7 +568,7 @@ const enemyTypes = {
   fast: {
     texture: 'enemy_fast',
     baseHealth: 4,
-    speed: 180,
+    speed: 980,
     scale: 0.06,
     xpReward: 25,
     currencyReward: 7,
@@ -577,7 +577,7 @@ const enemyTypes = {
   tank: {
     texture: 'enemy_tank',
     baseHealth: 9,
-    speed: 70,
+    speed: 870,
     scale: 0.08,
     xpReward: 35,
     currencyReward: 10,
@@ -586,7 +586,7 @@ const enemyTypes = {
   healer: { // NEW ENEMY: Heals allies
     texture: 'enemy_tank', // Using existing asset
     baseHealth: 7,
-    speed: 80,
+    speed: 780,
     scale: 0.07,
     xpReward: 30,
     currencyReward: 8,
@@ -595,7 +595,7 @@ const enemyTypes = {
   kamikaze: { // NEW ENEMY: Explodes on player contact
     texture: 'enemy_fast', // Using existing asset
     baseHealth: 5,
-    speed: 150,
+    speed: 950,
     scale: 0.06,
     xpReward: 25,
     currencyReward: 6,
@@ -604,7 +604,7 @@ const enemyTypes = {
   shooter: { // NEW ENEMY: Shoots back
     texture: 'enemy_fast', // Using existing asset
     baseHealth: 6,
-    speed: 90,
+    speed: 900,
     scale: 0.07,
     xpReward: 28,
     currencyReward: 9,
@@ -613,7 +613,7 @@ const enemyTypes = {
   boss_robot: {
     texture: 'boss_robot',
     baseHealth: 200, // Boss health
-    speed: 60,
+    speed: 890,
     scale: 0.2, // Larger scale for boss
     xpReward: 500,
     currencyReward: 50,
