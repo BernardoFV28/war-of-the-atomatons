@@ -35,7 +35,7 @@
       border-radius: 8px;
       text-align: center;
       color: #FFF;
-      width: 80%;
+      width: 70%;
       max-width: 900px;
       box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
     }
@@ -127,8 +127,8 @@
       border-radius: 8px;
       text-align: center;
       color: #FFF;
-      width: 80%;
-      max-width: 900px;
+      width: 70%;
+      max-width: 800;
       box-shadow: 0 0 15px rgba(255, 165, 0, 0.7);
     }
     .shop-title {
@@ -206,8 +206,8 @@
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
+      width: 80%;
+      height: 60%;
       background-color: rgba(0, 0, 0, 0.8);
       display: flex;
       justify-content: center;
@@ -221,7 +221,7 @@
       border-radius: 10px;
       text-align: center;
       color: #FFF;
-      width: 90%;
+      width: 70%;
       max-width: 1000px;
       box-shadow: 0 0 20px rgba(128, 0, 128, 0.7);
       display: flex;
@@ -260,8 +260,8 @@
       padding: 20px;
       border-radius: 8px;
       text-align: left;
-      min-height: 400px;
-      max-height: 600px;
+      min-height: 300px;
+      max-height: 500px;
       overflow-y: auto;
       margin-bottom: 20px;
     }
@@ -406,8 +406,8 @@
 // --- Configuration ---
 const config = {
   type: Phaser.AUTO,
-  width: 1320, // Aumentado para uma largura maior
-  height: 590, // Aumentado para uma altura maior
+  width: 1320, 
+  height: 590, 
   backgroundColor: '#000000',
   physics: {
     default: 'arcade',
@@ -462,7 +462,7 @@ let playerStats = {
   maxLife: 3,
   bulletDamage: 1,
   fireRate: 300, // Cooldown in ms, lower is faster
-  playerSpeed: 800, // Now used as maxSpeed
+  playerSpeed: 1000, // Now used as maxSpeed
   xp: 0,
   level: 1,
   xpToNextLevel: 100,
@@ -559,7 +559,7 @@ const enemyTypes = {
   normal: {
     texture: 'enemy_robot',
     baseHealth: 4,
-    speed: 100,
+    speed: 800,
     scale: 0.06,
     xpReward: 20,
     currencyReward: 5,
@@ -568,7 +568,7 @@ const enemyTypes = {
   fast: {
     texture: 'enemy_fast',
     baseHealth: 4,
-    speed: 180,
+    speed: 880,
     scale: 0.06,
     xpReward: 25,
     currencyReward: 7,
@@ -577,7 +577,7 @@ const enemyTypes = {
   tank: {
     texture: 'enemy_tank',
     baseHealth: 9,
-    speed: 70,
+    speed: 700,
     scale: 0.08,
     xpReward: 35,
     currencyReward: 10,
@@ -586,7 +586,7 @@ const enemyTypes = {
   healer: { // NEW ENEMY: Heals allies
     texture: 'enemy_tank', // Using existing asset
     baseHealth: 7,
-    speed: 80,
+    speed: 780,
     scale: 0.07,
     xpReward: 30,
     currencyReward: 8,
@@ -595,16 +595,16 @@ const enemyTypes = {
   kamikaze: { // NEW ENEMY: Explodes on player contact
     texture: 'enemy_fast', // Using existing asset
     baseHealth: 5,
-    speed: 150,
+    speed: 850,
     scale: 0.06,
     xpReward: 25,
     currencyReward: 6,
     attacks: ['explode']
   },
   shooter: { // NEW ENEMY: Shoots back
-    texture: 'enemy_fast', // Using existing asset
+    texture: 'enemy_tank', // Using existing asset
     baseHealth: 6,
-    speed: 90,
+    speed: 890,
     scale: 0.07,
     xpReward: 28,
     currencyReward: 9,
@@ -613,7 +613,7 @@ const enemyTypes = {
   boss_robot: {
     texture: 'boss_robot',
     baseHealth: 200, // Boss health
-    speed: 60,
+    speed: 890,
     scale: 0.2, // Larger scale for boss
     xpReward: 500,
     currencyReward: 50,
@@ -1643,7 +1643,7 @@ function applySkillTreeTalent(talentName, statCategory, level) {
         this.hud.updatePlayerStatsDisplay();
         displayPauseMenuTab.call(this, 'skills'); // Refresh skills tab
     } else {
-        this.hud.displayTemporaryEffect('Habilidade no Nível Máximo!', '#FF0000', 1000);
+        this.hud.displayTemporaryEffect('Habilidade no Nível Máximo Que Orgulho!', '#FF0000', 1000);
     }
 }
 
@@ -2093,18 +2093,18 @@ function spawnDrone(type) {
     // You should replace 'bullet' with actual drone textures.
     let droneTexture = 'bullet'; // Placeholder
     let droneDamage = 0.5;
-    let droneSpeed = 150;
+    let droneSpeed = 750;
 
     switch(type) {
         case 'attack':
             droneTexture = 'bullet'; // Replace with 'drone_attack'
             droneDamage = 1;
-            droneSpeed = 200;
+            droneSpeed = 900;
             break;
         case 'support':
             droneTexture = 'bullet'; // Replace with 'drone_support'
             droneDamage = 0; // Support drones might heal or buff
-            droneSpeed = 100;
+            droneSpeed = 800;
             break;
         // Add more drone types as needed
     }
@@ -2213,8 +2213,7 @@ function unlockAchievement(id) {
     if (playerStats.achievements[id] && !playerStats.achievements[id].unlocked) {
         playerStats.achievements[id].unlocked = true;
         this.hud.displayTemporaryEffect(`Conquista: ${playerStats.achievements[id].description}`, '#FFD700', 4000);
-        // Refresh achievements tab if pause menu is open
-        if (pauseMenuOpen) {
+         if (pauseMenuOpen) {
             displayPauseMenuTab.call(this, 'achievements');
         }
     }
