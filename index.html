@@ -183,6 +183,8 @@ function create() {
   this.physics.add.collider(player, enemies, playerHitEnemy, null, this);
   this.physics.add.overlap(player, xpGemsGroup, collectXPGem, null, this);
 
+  loadProgress();
+
   hud = new HUD(this, 0, 0);
   switchWeapon.call(this, 1); 
 
@@ -456,13 +458,39 @@ function showLevelUpMenu() {
 
 function gameOver() {
   this.physics.pause(); gamePaused = true;
+  saveProgress();
   const overlay = document.createElement('div'); overlay.className = 'menu-overlay';
   overlay.innerHTML = '<div class="menu-container"><h2 class="menu-title" style="color:red">VOCÊ MORREU</h2><button class="card-button" onclick="location.reload()">Tentar Novamente</button></div>';
   document.body.appendChild(overlay);
+}
+
+  // --- Funções de Persistência (Salvar/Carregar) ---
+
+function saveProgress() {
+    // Salva apenas o dinheiro por enquanto
+    const saveData = {
+        totalCurrency: playerStats.currency
+    };
+    // Grava no navegador do jogador
+    localStorage.setItem('WarAutomatonsSave', JSON.stringify(saveData));
+    console.log('Progresso salvo: ' + playerStats.currency + ' sucatas.');
+}
+
+function loadProgress() {
+    // Tenta ler os dados do navegador
+    const savedData = localStorage.getItem('WarAutomatonsSave');
+    if (savedData) {
+        const parsed = JSON.parse(savedData);
+        // Se existir, atualiza a moeda do jogador
+        if (parsed.totalCurrency) {
+            playerStats.currency = parsed.totalCurrency;
+        }
+    }
 }
 
 new Phaser.Game(config);
 </script>
 </body>
 </html>
+
 
