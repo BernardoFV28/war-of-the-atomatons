@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons - Survivor Mode (v1.0.1)</title>
+  <title>War of the Automatons - Survivor Mode (v1.0.2)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -24,7 +24,7 @@
 </head>
 <body>
 <script>
-// --- Game Configuration ---
+/* -------------- CONFIG DO GAME -------------- */
 const config = {
   type: Phaser.AUTO,
   width: 1320,
@@ -37,454 +37,230 @@ const config = {
   scene: { preload, create, update }
 };
 
-// --- Centralized Game Balance & Config ---
 const GAME_CONFIG = {
     PLAYER: {
         INITIAL_SCALE: 0.08,
-        DEFAULT_TINT: 0xFFFFFF,
         DASH_DURATION: 150, DASH_DISTANCE: 300, DASH_COOLDOWN_BASE: 3000,
         ACCELERATION: 2000, DRAG: 0.6,
-        BASE_MAGNET_RANGE: 150,
+        BASE_MAGNET_RANGE: 200,
         BASE_PIERCING: 1
     },
-    BULLET: { INITIAL_SPEED: 1000, INITIAL_SCALE: 0.01 },
-    WEAPONS: {
-        1: { fireRate: 1000, damage: 2, speed: 1000, range: 400 },     
-        2: { fireRate: 1000, damage: 1.5, speed: 1100, range: 350 },   
-        3: { fireRate: 1500, damage: 6, speed: 900, range: 600 }     
-    },
+    BULLET: { INITIAL_SPEED: 900, INITIAL_SCALE: 0.01 },
     WAVE: {
-        INITIAL_ENEMY_COUNT: 5, 
-        ENEMY_INCREMENT_PER_WAVE: 5,
-        INITIAL_SPAWN_RATE: 1000,
-        SPAWN_RATE_DECREASE_PER_WAVE: 80,
-        MAX_ENEMIES_ON_SCREEN: 50
-    },
-    CAMERA_SHAKE: { PLAYER_HIT: { DURATION: 100, INTENSITY: 0.02 } }
+        INITIAL_ENEMY_COUNT: 10,
+        ENEMY_INCREMENT_PER_WAVE: 3,
+        INITIAL_SPAWN_RATE: 1200,
+        MAX_ENEMIES_ON_SCREEN: 100
+    }
 };
 
-// --- Global Variables ---
-let player, cursors, bullets, enemies, enemyBullets, xpGemsGroup;
-let hud; // declarada corretamente
-let lastShoot = 0;
-let waveNumber = 1;
-let enemiesInWave = GAME_CONFIG.WAVE.INITIAL_ENEMY_COUNT;
-let enemiesSpawnedThisWave = 0;
-let enemySpawnRate = GAME_CONFIG.WAVE.INITIAL_SPAWN_RATE;
-let temporaryEffectText, temporaryEffectTimer;
+/* -------------- NORMALIZA AS PARADAS -------------- */
+let player, cursors, bullets, enemies, xpGemsGroup;
+let hud;
 let currentWeapon = 1;
-let gamePaused = false, levelUpMenuOpen = false, shopMenuOpen = false;
-let playerDashCooldownTimer = null;
-let closestEnemy = null;
+let gamePaused = false, levelUpMenuOpen = false;
+let lastShoot = 0;
+let nearestEnemy = null;
 
-// --- Player Stats ---
+/* -------------- STATS DO BRABO -------------- */
+let waveNumber = 1;
+let enemiesRemaining = GAME_CONFIG.WAVE.INITIAL_ENEMY_COUNT;
+let enemySpawnRate = GAME_CONFIG.WAVE.INITIAL_SPAWN_RATE;
+
 let playerStats = {
-  life: 3, maxLife: 3,
-  bulletDamage: 2, fireRate: 300, playerSpeed: 300,
-  xp: 0, level: 1, xpToNextLevel: 50, 
-  currency: 0,
+  life: 5, maxLife: 5,
+  bulletDamage: 2,
+  fireRate: 350,
+  playerSpeed: 260,
+  xp: 0,
+  level: 1,
+  xpToNextLevel: 50,
   magnetRange: GAME_CONFIG.PLAYER.BASE_MAGNET_RANGE,
   piercingCount: GAME_CONFIG.PLAYER.BASE_PIERCING,
-  dashAvailable: false,
-  dashCooldown: false,
-  doubleBullets: false, tripleBullets: false,
-  evasionChance: 0,
-  incomingDamageMultiplier: 1,
-  weaponBulletSpeed: GAME_CONFIG.BULLET.INITIAL_SPEED,
-  inventory: []
+  dashAvailable: true,
+  dashCooldown: false
 };
 
-// --- Enemy Definitions ---
+/* -------------- MOBS SEM FRESCURA -------------- */
 const enemyTypes = {
-  normal: { texture: 'enemy_robot', baseHealth: 3, speed: 100, scale: 0.06, xpValue: 5 },
-  fast: { texture: 'enemy_fast', baseHealth: 2, speed: 200, scale: 0.06, xpValue: 8 },
-  tank: { texture: 'enemy_tank', baseHealth: 13, speed: 50, scale: 0.08, xpValue: 15 },
-  boss_robot: { texture: 'boss_robot', baseHealth: 300, speed: 200, scale: 0.2, xpValue: 200, boss: true }
+  normal: { texture: 'enemy_robot', baseHealth: 2, speed: 90, scale: 0.06, xpValue: 5 },
+  fast: { texture: 'enemy_fast', baseHealth: 1.2, speed: 150, scale: 0.06, xpValue: 6 },
+  tank: { texture: 'enemy_tank', baseHealth: 6, speed: 50, scale: 0.07, xpValue: 12 }
 };
 
+/* -------------- ITENS -------------- */
 const itemRarities = {
-    common: { color: '#FFFFFF' }, rare: { color: '#00BFFF' }, epic: { color: '#9932CC' }, legendary: { color: '#FFD700' }
+    common: { color: '#FFFFFF' },
+    rare: { color: '#00BFFF' }
 };
 
 const itemOptions = [
-  { nome: "Balas de Titânio", descricao: "+20% Dano", rarity: 'common', efeito: () => playerStats.bulletDamage *= 1.2 },
-  { nome: "Gatilho Rápido", descricao: "+15% Velocidade de Ataque", rarity: 'common', efeito: () => playerStats.fireRate *= 0.85 },
-  { nome: "Motor V8", descricao: "+10% Velocidade de Movimento", rarity: 'common', efeito: () => playerStats.playerSpeed *= 1.1 },
-  { nome: "Imã de Sucata", descricao: "+50% Alcance de Coleta", rarity: 'common', efeito: () => playerStats.magnetRange *= 1.5 },
-  { nome: "Projétil Perfurante", descricao: "Balas atravessam +1 inimigo", rarity: 'rare', efeito: () => playerStats.piercingCount += 1 },
-  { nome: "Pele Reforçada", descricao: "+1 Vida Máxima", rarity: 'rare', efeito: () => { playerStats.maxLife++; playerStats.life++; hud.updateHealthBar(); } },
-  { nome: "Tiro Duplo", descricao: "Dispara um segundo projétil", rarity: 'epic', efeito: () => playerStats.doubleBullets = true },
-  { nome: "Módulo de Dash", descricao: "Habilita a habilidade de Dash (Espaço)", rarity: 'epic', efeito: () => playerStats.dashAvailable = true },
+  { nome: "Dano +20%", descricao: "Bate mais forte", rarity: 'common', efeito: () => playerStats.bulletDamage *= 1.2 },
+  { nome: "Atk Speed +10%", descricao: "Atira mais rápido", rarity: 'common', efeito: () => playerStats.fireRate *= 0.9 }
 ];
 
-// --- HUD Class ---
+/* -------------- HUD ZIKA -------------- */
 class HUD extends Phaser.GameObjects.Container {
-  constructor(scene, x, y) {
-    super(scene, x, y);
+  constructor(scene) {
+    super(scene);
     scene.add.existing(this);
-    this.lifeText = scene.add.text(10, 10, '', { fontSize: '20px', fill: '#FF0000' });
-    this.levelText = scene.add.text(10, 40, '', { fontSize: '20px', fill: '#FFFF00' });
-    this.currencyText = scene.add.text(10, 70, '', { fontSize: '20px', fill: '#FFD700' });
-    this.xpBarBg = scene.add.rectangle(10, 100, 200, 15, 0x555555).setOrigin(0);
-    this.xpBar = scene.add.rectangle(10, 100, 0, 15, 0x00FF00).setOrigin(0);
-    this.waveText = scene.add.text(config.width / 2, 10, '', { fontSize: '24px', fill: '#FFFFFF' }).setOrigin(0.5);
-    this.add([this.lifeText, this.levelText, this.currencyText, this.xpBarBg, this.xpBar, this.waveText]);
-    this.updateAll();
+    this.lifeText = scene.add.text(10, 10, "", { fontSize: 20, fill: "#FF0000" });
+    this.levelText = scene.add.text(10, 40, "", { fontSize: 20, fill: "#FFFF00" });
   }
   updateAll() {
-      this.lifeText.setText(`Vida: ${Math.ceil(playerStats.life)}/${playerStats.maxLife}`);
-      this.levelText.setText(`Nível: ${playerStats.level}`);
-      this.currencyText.setText(`Sucata: ${playerStats.currency}`);
-      this.waveText.setText(`Onda: ${waveNumber}`);
-      const xpRatio = playerStats.xp / playerStats.xpToNextLevel;
-      this.xpBar.width = 200 * Math.max(0, Math.min(1, xpRatio));
+    this.lifeText.setText(`Vida: ${playerStats.life}/${playerStats.maxLife}`);
+    this.levelText.setText(`Nível: ${playerStats.level}`);
   }
-  updateHealthBar() { this.updateAll(); }
-  updateXpBar() { this.updateAll(); }
-  updateCurrencyDisplay() { this.updateAll(); }
-  displayTemporaryEffect(text, color, duration) { /* Simplificado */ }
 }
 
-// --- Phaser Scene Functions ---
+/* -------------- LOAD -------------- */
 function preload() {
-  this.load.image('cardBg', 'assets/card.png');
   this.load.image('player', 'assets/player.png');
   this.load.image('bullet', 'assets/bullet.png');
   this.load.image('enemy_robot', 'assets/enemy_robot.png');
   this.load.image('enemy_fast', 'assets/enemy_fast.png');
   this.load.image('enemy_tank', 'assets/enemy_tank.png');
-  this.load.image('boss_robot', 'assets/boss_robot.png');
   this.load.image('ammo', 'assets/ammo.png');
-  if(!this.textures.exists('player')) this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
-  if(!this.textures.exists('bullet')) this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet7.png');
-  if(!this.textures.exists('enemy_robot')) this.load.image('enemy_robot', 'https://labs.phaser.io/assets/sprites/space-baddie.png');
-  if(!this.textures.exists('ammo')) this.load.image('ammo', 'https://labs.phaser.io/assets/sprites/orb-green.png');
 }
 
+/* -------------- CREATE -------------- */
 function create() {
-  player = this.physics.add.sprite(config.width / 2, config.height / 2, 'player').setScale(GAME_CONFIG.PLAYER.INITIAL_SCALE);
-  player.setCollideWorldBounds(true);
-  player.setDrag(GAME_CONFIG.PLAYER.DRAG); player.setMaxVelocity(playerStats.playerSpeed);
-  player.body.setCircle(Math.max(player.displayWidth, player.displayHeight) / 2, -player.displayWidth/2, -player.displayHeight/2); // ajuda colisão circular
+  player = this.physics.add.sprite(config.width/2, config.height/2, 'player')
+    .setScale(GAME_CONFIG.PLAYER.INITIAL_SCALE)
+    .setCollideWorldBounds(true);
 
   cursors = this.input.keyboard.createCursorKeys();
   this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-  bullets = this.physics.add.group({ classType: Bullet, runChildUpdate: true, maxSize: 100 });
-  enemies = this.physics.add.group({ classType: Enemy, runChildUpdate: true, maxSize: GAME_CONFIG.WAVE.MAX_ENEMIES_ON_SCREEN });
-  xpGemsGroup = this.physics.add.group({ classType: XPGem, runChildUpdate: true, maxSize: 300 });
+  bullets = this.physics.add.group({ classType: Bullet, runChildUpdate: true });
+  enemies = this.physics.add.group({ classType: Enemy, runChildUpdate: true });
+  xpGemsGroup = this.physics.add.group({ classType: XPGem, runChildUpdate: true });
 
   this.physics.add.overlap(bullets, enemies, bulletHitEnemy, null, this);
+  this.physics.add.overlap(player, xpGemsGroup, collectGem, null, this);
   this.physics.add.collider(player, enemies, playerHitEnemy, null, this);
-  this.physics.add.overlap(player, xpGemsGroup, collectXPGem, null, this);
 
-  hud = new HUD(this, 0, 0);
-  switchWeapon.call(this, 1);
+  hud = new HUD(this);
+  hud.updateAll();
 
-  // Spawner loop (salvando referência)
-  this.spawner = this.time.addEvent({ delay: enemySpawnRate, callback: spawnEnemy, callbackScope: this, loop: true });
+  this.spawner = this.time.addEvent({
+    delay: enemySpawnRate,
+    callback: spawnEnemy,
+    callbackScope: this,
+    loop: true
+  });
 }
 
-function update(time, delta) {
-  if (gamePaused || levelUpMenuOpen) return;
+/* -------------- UPDATE -------------- */
+function update(time) {
+  if (gamePaused) return;
 
-  player.setAcceleration(0);
-  if (cursors.left.isDown) player.setAccelerationX(-GAME_CONFIG.PLAYER.ACCELERATION);
-  else if (cursors.right.isDown) player.setAccelerationX(GAME_CONFIG.PLAYER.ACCELERATION);
-  if (cursors.up.isDown) player.setAccelerationY(-GAME_CONFIG.PLAYER.ACCELERATION);
-  else if (cursors.down.isDown) player.setAccelerationY(GAME_CONFIG.PLAYER.ACCELERATION);
+  player.setVelocity(0);
+  if (cursors.left.isDown) player.setVelocityX(-playerStats.playerSpeed);
+  if (cursors.right.isDown) player.setVelocityX(playerStats.playerSpeed);
+  if (cursors.up.isDown) player.setVelocityY(-playerStats.playerSpeed);
+  if (cursors.down.isDown) player.setVelocityY(playerStats.playerSpeed);
 
-  // Rotaciona o player para o ponteiro (visually and for dash direction)
-  const pointer = this.input.activePointer;
-  const angleToPointer = Phaser.Math.Angle.Between(player.x, player.y, pointer.worldX, pointer.worldY);
-  player.setRotation(angleToPointer);
-
-  if (Phaser.Input.Keyboard.JustDown(this.keySpace) && playerStats.dashAvailable && !playerStats.dashCooldown) {
-    performDash(this);
-  }
-
-  closestEnemy = null;
-  let minDistance = Infinity;
-  const weaponRange = GAME_CONFIG.WEAPONS[currentWeapon].range;
-
-  enemies.children.each(enemy => {
-      if (enemy.active) {
-          const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
-          if (dist < minDistance && dist <= weaponRange) {
-              minDistance = dist;
-              closestEnemy = enemy;
-          }
-      }
-  });
-
-  if (time > lastShoot && closestEnemy) {
-    shootBullet.call(this, closestEnemy);
+  // sem rotação agora
+  nearestEnemy = findNearestEnemy();
+  if (nearestEnemy && time > lastShoot) {
+    shootBullet.call(this, nearestEnemy);
     lastShoot = time + playerStats.fireRate;
   }
-
-  hud.updateAll();
 }
 
-// --- Game Logic Functions ---
-
-function shootBullet(targetEnemy) {
-  let baseBulletCount = 1;
-  if (playerStats.doubleBullets) baseBulletCount = 2;
-
-  const angleRad = Phaser.Math.Angle.Between(player.x, player.y, targetEnemy.x, targetEnemy.y);
-
-  for (let i = 0; i < baseBulletCount; i++) {
-    let offsetAngle = 0;
-    if (baseBulletCount > 1) offsetAngle = Phaser.Math.DEG_TO_RAD * ((i === 0 ? -5 : 5));
-
-    const bullet = bullets.get();
-    if (bullet) {
-      bullet.enableBody(true, player.x, player.y, true, true);
-      bullet.setPosition(player.x, player.y);
-      bullet.fire(angleRad + offsetAngle, playerStats.weaponBulletSpeed, playerStats.bulletDamage, playerStats.piercingCount);
-    }
-  }
-}
-
-function switchWeapon(weaponNum) {
-  currentWeapon = weaponNum;
-  const weaponConfig = GAME_CONFIG.WEAPONS[currentWeapon];
-  playerStats.fireRate = weaponConfig.fireRate;
-  playerStats.bulletDamage = weaponConfig.damage;
-  playerStats.weaponBulletSpeed = weaponConfig.speed;
-}
-
-function bulletHitEnemy(bullet, enemy) {
-  if (!bullet.active || !enemy.active) return;
-  enemy.takeDamage(bullet.damage);
-
-  bullet.piercingHealth--;
-  if (bullet.piercingHealth <= 0) {
-      bullet.kill();
-  }
-
-  if (enemy.health <= 0) {
-    handleEnemyDeath.call(this, enemy);
-  }
-}
-
-function playerHitEnemy(playerObj, enemy) {
-    if (!playerObj.active || !enemy.active) return;
-    if(playerObj.isInvulnerable) return;
-
-    this.cameras.main.shake(GAME_CONFIG.CAMERA_SHAKE.PLAYER_HIT.DURATION, GAME_CONFIG.CAMERA_SHAKE.PLAYER_HIT.INTENSITY);
-    playerStats.life -= 1;
-    hud.updateHealthBar();
-
-    playerObj.setTint(0xFF0000);
-    playerObj.isInvulnerable = true;
-    this.time.delayedCall(500, () => { 
-        playerObj.clearTint(); 
-        playerObj.isInvulnerable = false;
-    });
-
-    if (playerStats.life <= 0) gameOver.call(this);
-}
-
-function handleEnemyDeath(enemy) {
+/* -------------- FUNÇÕES DO GAMEPLAY -------------- */
+function findNearestEnemy() {
+  let minDist = Infinity, target = null;
+  enemies.children.each(enemy => {
     if (!enemy.active) return;
-    dropXPGem(this, enemy.x, enemy.y, enemy.enemyType.xpValue);
-    enemy.kill();
+    const d = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
+    if (d < minDist) { minDist = d; target = enemy; }
+  });
+  return target;
 }
 
-function dropXPGem(scene, x, y, xpValue) {
-    const gem = xpGemsGroup.get();
-    if (gem) {
-        gem.enableBody(true, x, y, true, true);
-        gem.setPosition(x, y);
-        gem.spawn(xpValue);
-    }
+function shootBullet(target) {
+  const angle = Phaser.Math.Angle.Between(player.x, player.y, target.x, target.y);
+  const bullet = bullets.get(player.x, player.y);
+  if (bullet) bullet.fire(angle, playerStats.bulletDamage, playerStats.piercingCount);
 }
 
-function collectXPGem(playerObj, gem) {
-    if(gem.isBeingCollected) return;
-    gem.isBeingCollected = true;
-    gainXp.call(this, gem.xpValue);
-    gem.kill();
-}
+function bulletHitEnemy(b, e) {
+  e.takeDamage(b.damage);
+  b.piercing--;
+  if (b.piercing <= 0) b.kill();
 
-function gainXp(amount) {
-  playerStats.xp += amount;
-  hud.updateXpBar();
-  if (playerStats.xp >= playerStats.xpToNextLevel) {
-    playerStats.level++;
-    playerStats.xp -= playerStats.xpToNextLevel;
-    playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.2);
-    hud.updateAll();
-    showLevelUpMenu.call(this);
+  if (e.health <= 0) {
+    dropGem(e.x, e.y, e.enemyType.xpValue);
+    e.kill();
   }
-}
-
-function performDash(scene) {
-    playerStats.dashCooldown = true;
-    playerStats.dashCooldown = true;
-    playerStats.dashCooldown = true;
-    playerStats.dashCooldown = true;
-    playerStats.dashCooldown = true;
-    playerStats.dashCooldown = true;
-    playerStats.dashCooldown = true;
-    // Usa direção do rotation (set no update para apontar ao ponteiro)
-    
-    const dashVelocity = scene.physics.(angle, GAME_CONFIG.PLAYER.DASH_DISTANCE * 4);
-    player.body.setVelocity(dashVelocity.x, dashVelocity.y);
-    player.setTint(0x00FF00);
-    playerStats.dashCooldown = true;
-    scene.time.delayedCall(GAME_CONFIG.PLAYER.DASH_DURATION, () => player.clearTint());
-    scene.time.delayedCall(GAME_CONFIG.PLAYER.DASH_COOLDOWN_BASE, () => playerStats.dashCooldown = false);
 }
 
 function spawnEnemy() {
   if (enemies.countActive() >= GAME_CONFIG.WAVE.MAX_ENEMIES_ON_SCREEN) return;
-
-  if (enemiesSpawnedThisWave >= enemiesInWave) {
-      startNextWave.call(this);
-      return;
-  }
-  
-  let x, y;
-  const padding = 50;
-  if (Math.random() < 0.5) {
-      x = Phaser.Math.Between(-padding, config.width + padding);
-      y = Math.random() < 0.5 ? -padding : config.height + padding;
-  } else {
-      x = Math.random() < 0.5 ? -padding : config.width + padding;
-      y = Phaser.Math.Between(-padding, config.height + padding);
-  }
-
-  let enemyTypeKey = 'normal';
-  if(waveNumber > 3 && Math.random() > 0.7) enemyTypeKey = 'fast';
-  if(waveNumber > 5 && Math.random() > 0.8) enemyTypeKey = 'tank';
-
-  const enemy = enemies.get();
-  if (enemy) {
-    enemy.enableBody(true, x, y, true, true);
-    enemy.setPosition(x, y);
-    enemy.spawn(enemyTypes[enemyTypeKey], x, y);
-    enemiesSpawnedThisWave++;
-  }
+  const type = Phaser.Utils.Array.GetRandom(Object.keys(enemyTypes));
+  const data = enemyTypes[type];
+  const enemy = enemies.get(
+    Phaser.Math.Between(0, config.width),
+    Phaser.Math.Between(0, config.height)
+  );
+  if (enemy) enemy.spawn(data);
 }
 
-function startNextWave() {
-  waveNumber++;
-  enemiesInWave += GAME_CONFIG.WAVE.ENEMY_INCREMENT_PER_WAVE;
-  let newRate = enemySpawnRate - GAME_CONFIG.WAVE.SPAWN_RATE_DECREASE_PER_WAVE;
-  enemySpawnRate = Math.max(200, newRate);
-  if (this.spawner) this.spawner.delay = enemySpawnRate;
-  enemiesSpawnedThisWave = 0;
+function dropGem(x, y, xp) {
+  const g = xpGemsGroup.get(x, y);
+  if (g) g.spawn(xp);
+}
+
+function collectGem(p, g) {
+  playerStats.xp += g.xpValue;
   hud.updateAll();
+  g.kill();
 }
 
-// --- Custom Classes (Pooling Enabled) ---
+function playerHitEnemy() {
+  playerStats.life--;
+  hud.updateAll();
+  if (playerStats.life <= 0) this.scene.restart();
+}
+
+/* -------------- CLASSES -------------- */
 class Bullet extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, x, y) { super(scene, x, y, 'bullet'); }
-  fire(angle, speed, damage, piercing) {
-      this.setActive(true).setVisible(true);
-      this.setScale(GAME_CONFIG.BULLET.INITIAL_SCALE);
-      this.damage = damage;
-      this.piercingHealth = piercing;
-      this.scene.physics.velocityFromRotation(angle, speed, this.body.velocity);
-      this.setRotation(angle);
-      this.lifeSpan = 2000;
+  fire(a, dmg, pierce) {
+    this.setActive(true).setVisible(true);
+    this.damage = dmg;
+    this.piercing = pierce;
+    this.scene.physics.velocityFromRotation(a, GAME_CONFIG.BULLET.INITIAL_SPEED, this.body.velocity);
   }
-  kill() { this.disableBody(true, true); this.body && this.body.stop && this.body.stop(); }
-  preUpdate(time, delta) {
-      super.preUpdate(time, delta);
-      this.lifeSpan -= delta;
-      const bounds = this.scene.physics.world.bounds;
-      if (this.lifeSpan <= 0 || !Phaser.Geom.Rectangle.Contains(bounds, this.x, this.y)) this.kill();
-  }
+  kill(){ this.disableBody(true,true); }
 }
 
 class Enemy extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, x, y) { super(scene, x, y, 'enemy_robot'); }
-  spawn(enemyData, x, y) {
-      this.setActive(true).setVisible(true);
-      this.setTexture(enemyData.texture);
-      this.setScale(enemyData.scale);
-      this.health = enemyData.baseHealth * (1 + (waveNumber * 0.1));
-      this.speed = enemyData.speed;
-      this.enemyType = enemyData;
-      this.setTint(0xffffff);
-      // garante que o body está ativo
-      if (this.body) {
-        this.enableBody(true, x, y, true, true);
-      } else {
-        this.scene.physics.world.enableBody(this);
-      }
+  spawn(d){
+    this.setActive(true).setVisible(true);
+    this.setTexture(d.texture);
+    this.setScale(d.scale);
+    this.health = d.baseHealth * (1 + waveNumber*0.05); /* NERF AQUI */
+    this.speed = d.speed;
   }
-  takeDamage(amount) { this.health -= amount; this.setTint(0xff0000); this.scene.time.delayedCall(100, ()=> { if(this.active) this.clearTint() }); }
-  kill() { this.disableBody(true, true); this.body && this.body.stop && this.body.stop(); }
-  update(time, delta) {
-    if (!this.active || !player || !player.active) return;
+  update(){
+    if (!this.active) return;
     this.scene.physics.moveToObject(this, player, this.speed);
   }
+  takeDamage(v){ this.health-=v; }
+  kill(){ this.disableBody(true,true); }
 }
 
 class XPGem extends Phaser.Physics.Arcade.Sprite {
-    constructor(scene, x, y) { 
-        super(scene, x, y, 'ammo'); 
-        this.setScale(0.04);
-        this.setTint(0x00ff00);
-    }
-    spawn(xpValue) {
-        this.setActive(true).setVisible(true);
-        this.xpValue = xpValue;
-        this.isBeingCollected = false;
-        if (this.body) this.enableBody(true, this.x, this.y, true, true);
-    }
-    kill() { this.disableBody(true, true); }
-    preUpdate(time, delta) {
-        super.preUpdate(time, delta);
-        if(!this.active) return;
-        const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
-        if (dist < playerStats.magnetRange) {
-            this.scene.physics.moveToObject(this, player, 600);
-        }
-    }
-}
-
-// --- Menus HTML (Simplificados) ---
-function showLevelUpMenu() {
-    if (levelUpMenuOpen) return;
-    gamePaused = true; levelUpMenuOpen = true; this.physics.pause();
-    
-    const overlay = document.createElement('div'); overlay.className = 'menu-overlay';
-    const container = document.createElement('div'); container.className = 'menu-container';
-    container.innerHTML = '<h2 class="menu-title">Subiu de Nível!</h2>';
-    const cardsDiv = document.createElement('div'); cardsDiv.className = 'cards-container';
-    
-    const choices = Phaser.Utils.Array.Shuffle(itemOptions).slice(0, 3);
-    
-    choices.forEach(item => {
-        const card = document.createElement('div'); card.className = 'card';
-        card.innerHTML = `<h3 class="card-title">${item.nome}</h3><p class="card-rarity" style="color:${itemRarities[item.rarity].color}">${item.rarity}</p><p>${item.descricao}</p><button class="card-button">Selecionar</button>`;
-        card.querySelector('button').onclick = () => {
-            item.efeito(this);
-            document.body.removeChild(overlay);
-            levelUpMenuOpen = false; gamePaused = false; this.physics.resume();
-        };
-        cardsDiv.appendChild(card);
-    });
-    container.appendChild(cardsDiv); overlay.appendChild(container); document.body.appendChild(overlay);
-}
-
-function gameOver() {
-  this.physics.pause(); gamePaused = true;
-  const overlay = document.createElement('div'); overlay.className = 'menu-overlay';
-  overlay.innerHTML = '<div class="menu-container"><h2 class="menu-title" style="color:red">VOCÊ MORREU</h2><button class="card-button" onclick="location.reload()">Tentar Novamente</button></div>';
-  document.body.appendChild(overlay);
+  spawn(xp){
+    this.setActive(true).setVisible(true);
+    this.xpValue = xp;
+  }
+  kill(){ this.disableBody(true,true); }
 }
 
 new Phaser.Game(config);
 </script>
 </body>
 </html>
-
-
-
-
