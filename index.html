@@ -2,14 +2,14 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons - Wave Mode</title>
+  <title>War of the Automatons - Wave Mode (Com Assets Originais)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
     body { margin: 0; overflow: hidden; background: #000008c7; font-family: Arial, sans-serif; }
     canvas { display: block; margin: auto; }
     
-    /* UI Styles */
+    /* Estilos de UI */
     .menu-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; color: #FFF; }
     .menu-container { background-color: #222; border: 2px solid #444; padding: 20px; border-radius: 8px; text-align: center; width: 90%; max-width: 800px; box-shadow: 0 0 20px #000; }
     .menu-title { font-size: 32px; margin-bottom: 20px; color: #00FFFF; text-transform: uppercase; }
@@ -23,22 +23,36 @@
 <body>
 <script>
 
+// --- CONFIGURAÇÕES E BALANCEAMENTO ---
+const ORIGINAL_SCALES = {
+    PLAYER: 0.08,
+    BULLET: 0.01,
+    GEM: 0.04
+};
+
 const GAME_CONFIG = {
     PLAYER: {
-        SPEED: 250,
+        SPEED: 300, // Velocidade padrão
         MAX_HP: 3,
-        MAGNET: 120,
-        DASH: { DIST: 250, CD: 3000 }
+        MAGNET: 150,
+        DASH: { DIST: 300, CD: 3000 }
     },
     LIMITS: {
-        MAX_ENEMIES_ON_SCREEN: 50, // Limite visual para não travar
+        MAX_ENEMIES_ON_SCREEN: 50, // LIMITE ANTI-LAG
         MAX_GEMS: 60
     },
     WAVE: {
-        START_COUNT: 10, // Inimigos na onda 1
-        INC_PER_WAVE: 5,  // Aumento por onda
-        SPAWN_DELAY: 800  // Velocidade que eles aparecem
+        START_COUNT: 15, // Inimigos na onda 1 (Original)
+        INC_PER_WAVE: 5,  // Aumento por onda (Original)
+        SPAWN_DELAY: 1000 // Velocidade que eles aparecem (Original)
     }
+};
+
+const enemyTypes = {
+  normal: { texture: 'enemy_robot', baseHealth: 4, speed: 100, scale: 0.06, xpValue: 5, chance: 1.0 }, // 100% de chance inicial
+  fast: { texture: 'enemy_fast', baseHealth: 3, speed: 200, scale: 0.06, xpValue: 8, minWave: 3, chance: 0.3 }, // 30% a partir da onda 3
+  tank: { texture: 'enemy_tank', baseHealth: 15, speed: 50, scale: 0.08, xpValue: 15, minWave: 5, chance: 0.2 } // 20% a partir da onda 5
+  // boss_robot não é incluído no spawn automático
 };
 
 // Globais
@@ -47,33 +61,46 @@ let isPaused = false;
 
 let gameState = {
     wave: 1,
-    enemiesToSpawn: 0, // Quantos faltam nascer nesta onda
-    enemiesAlive: 0    // Quantos estão na tela agora
+    enemiesToSpawn: 0, 
+    enemiesAlive: 0    
 };
 
 let playerStats = { 
     hp: 3, maxHp: 3, damage: 2, fireRate: 800, speed: GAME_CONFIG.PLAYER.SPEED, 
-    xp: 0, level: 1, xpToNext: 20, currency: 0, magnet: GAME_CONFIG.PLAYER.MAGNET,
+    xp: 0, level: 1, xpToNext: 50, currency: 0, magnet: GAME_CONFIG.PLAYER.MAGNET,
     piercing: 1, doubleShot: false, dashUnlocked: false, dashCool: false 
 };
 
 let lastShot = 0;
 
+// --- CENA PRINCIPAL ---
 class MainScene extends Phaser.Scene {
     constructor() { super({ key: 'MainScene' }); }
 
     preload() {
-        this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
-        this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet7.png');
-        this.load.image('enemy', 'https://labs.phaser.io/assets/sprites/space-baddie.png'); 
-        this.load.image('gem', 'https://labs.phaser.io/assets/sprites/orb-green.png');
+        // --- CAMINHOS ORIGINAIS ---
+        this.load.image('player', 'assets/player.png');
+        this.load.image('bullet', 'assets/bullet.png');
+        this.load.image('enemy_robot', 'assets/enemy_robot.png');
+        this.load.image('enemy_fast', 'assets/enemy_fast.png');
+        this.load.image('enemy_tank', 'assets/enemy_tank.png');
+        this.load.image('boss_robot', 'assets/boss_robot.png');
+        this.load.image('gem', 'assets/ammo.png'); // Usando 'gem' como chave, mas o path é 'ammo.png'
+        
+        // Fallbacks (em caso de falha nos assets locais)
+        if(!this.textures.exists('player')) this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
+        if(!this.textures.exists('bullet')) this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet7.png');
+        if(!this.textures.exists('enemy_robot')) this.load.image('enemy_robot', 'https://labs.phaser.io/assets/sprites/space-baddie.png');
+        if(!this.textures.exists('gem')) this.load.image('gem', 'https://labs.phaser.io/assets/sprites/orb-green.png');
+        // Você pode adicionar um asset de background ou manter o padrão
         this.load.image('bg', 'https://labs.phaser.io/assets/skies/deep-space.jpg');
     }
 
     create() {
         this.add.tileSprite(0, 0, this.scale.width, this.scale.height, 'bg').setOrigin(0).setScrollFactor(0).setAlpha(0.5);
 
-        player = this.physics.add.sprite(this.scale.width/2, this.scale.height/2, 'player').setScale(1.2);
+        // Player (Com escala original)
+        player = this.physics.add.sprite(this.scale.width/2, this.scale.height/2, 'player').setScale(ORIGINAL_SCALES.PLAYER);
         player.setCollideWorldBounds(true);
         
         // Grupos
@@ -89,14 +116,12 @@ class MainScene extends Phaser.Scene {
         cursors = this.input.keyboard.createCursorKeys();
         this.input.keyboard.on('keydown-SPACE', () => this.dash());
 
-        // Inicializa HUD e Progresso
         loadProgress();
         hud = new HUD(this);
         
-        // Inicia a primeira onda
         this.startWave(1);
 
-        // Loop de Spawn
+        // Loop de Spawn (chamando o trySpawnEnemy)
         this.time.addEvent({ delay: GAME_CONFIG.WAVE.SPAWN_DELAY, callback: this.trySpawnEnemy, callbackScope: this, loop: true });
     }
 
@@ -132,7 +157,6 @@ class MainScene extends Phaser.Scene {
     // --- SISTEMA DE ONDAS ---
     startWave(waveNum) {
         gameState.wave = waveNum;
-        // Calcula quantos inimigos teremos nesta onda
         const totalEnemies = GAME_CONFIG.WAVE.START_COUNT + ((waveNum - 1) * GAME_CONFIG.WAVE.INC_PER_WAVE);
         
         gameState.enemiesToSpawn = totalEnemies;
@@ -144,13 +168,10 @@ class MainScene extends Phaser.Scene {
     trySpawnEnemy() {
         if (isPaused) return;
         
-        // 1. Verifica se ainda tem inimigos para nascer na "reserva" da onda
         if (gameState.enemiesToSpawn <= 0) return;
 
-        // 2. Verifica se a tela já está cheia (Anti-Lag)
         if (enemies.countActive() >= GAME_CONFIG.LIMITS.MAX_ENEMIES_ON_SCREEN) return;
 
-        // Spawn
         this.spawnOneEnemy();
     }
 
@@ -165,20 +186,28 @@ class MainScene extends Phaser.Scene {
             y = Math.random() < 0.5 ? -50 : this.scale.height + 50;
         }
 
+        // Lógica de seleção de inimigo baseada na onda
+        let enemyType = enemyTypes.normal;
+        
+        // Verifica tipos mais fortes se a onda for avançada
+        if (gameState.wave >= enemyTypes.tank.minWave && Math.random() < enemyTypes.tank.chance) {
+            enemyType = enemyTypes.tank;
+        } else if (gameState.wave >= enemyTypes.fast.minWave && Math.random() < enemyTypes.fast.chance) {
+            enemyType = enemyTypes.fast;
+        }
+
         const e = enemies.get();
         if (e) {
-            e.spawn(x, y, gameState.wave);
-            gameState.enemiesToSpawn--; // Remove da reserva
-            hud.updateStats(); // Atualiza contador na tela
+            e.spawn(x, y, enemyType, gameState.wave); // Passa o tipo e a dificuldade da onda
+            gameState.enemiesToSpawn--; 
+            hud.updateStats(); 
         }
     }
 
     checkWaveEnd() {
-        // Se não falta nascer ninguém E não tem ninguém vivo na tela
         if (gameState.enemiesToSpawn <= 0 && enemies.countActive() === 0) {
-            hud.showMsg("ONDA CONCLUÍDA!", "#00FF00");
+            hud.showMsg("ONDA CONCLUÍDA! Preparando próxima...", "#00FF00");
             
-            // Espera 2 segundos e inicia a próxima
             this.time.delayedCall(2000, () => {
                 this.startWave(gameState.wave + 1);
             });
@@ -210,7 +239,6 @@ class MainScene extends Phaser.Scene {
             this.dropGem(enemy.x, enemy.y, enemy.xpValue);
             enemy.kill();
             
-            // VERIFICA SE A ONDA ACABOU AO MATAR UM INIMIGO
             this.checkWaveEnd();
             hud.updateStats();
         }
@@ -250,7 +278,7 @@ class MainScene extends Phaser.Scene {
         if (playerStats.hp <= 0) {
             this.physics.pause();
             isPaused = true;
-            saveProgress(); // Salva dinheiro ao morrer
+            saveProgress(); 
             hud.showMsg("GAME OVER - F5 para Reiniciar", "#FF0000", 99999);
         } else {
             this.time.delayedCall(1000, () => {
@@ -273,12 +301,13 @@ class MainScene extends Phaser.Scene {
     }
 }
 
-// --- CLASSES OTIMIZADAS ---
+// --- CLASSES OTIMIZADAS (Com escalas originais) ---
 class Bullet extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y) { super(scene, x, y, 'bullet'); }
     fire(x, y, angle) {
         this.body.reset(x, y);
         this.setActive(true).setVisible(true);
+        this.setScale(ORIGINAL_SCALES.BULLET); // ESCALA ORIGINAL
         this.setRotation(angle);
         this.scene.physics.velocityFromRotation(angle, 1000, this.body.velocity);
         this.damage = playerStats.damage;
@@ -294,29 +323,35 @@ class Bullet extends Phaser.Physics.Arcade.Sprite {
 }
 
 class Enemy extends Phaser.Physics.Arcade.Sprite {
-    constructor(scene, x, y) { super(scene, x, y, 'enemy'); }
-    spawn(x, y, waveDifficulty) {
+    constructor(scene, x, y) { super(scene, x, y, 'enemy_robot'); }
+    spawn(x, y, typeData, waveDifficulty) {
         this.body.reset(x, y);
         this.setActive(true).setVisible(true);
-        // Vida aumenta conforme a onda
-        this.hp = 3 + (waveDifficulty * 1.5);
-        this.xpValue = 10 + waveDifficulty;
+        this.setTexture(typeData.texture); // Usa a textura específica
+        this.setScale(typeData.scale); // Usa a escala específica
+        
+        // Vida aumenta conforme a onda, baseado no HP base do tipo
+        this.hp = typeData.baseHealth * (1 + (waveDifficulty * 0.1));
+        this.xpValue = typeData.xpValue;
+        this.speed = typeData.speed;
         this.setTint(0xffffff);
     }
     kill() { this.setActive(false).setVisible(false); }
     preUpdate(time, delta) {
         super.preUpdate(time, delta);
-        if (this.active) this.scene.physics.moveToObject(this, player, 120);
+        if (this.active) this.scene.physics.moveToObject(this, player, this.speed);
     }
 }
 
 class Gem extends Phaser.Physics.Arcade.Sprite {
-    constructor(scene, x, y) { super(scene, x, y, 'gem'); this.setScale(0.5); }
+    constructor(scene, x, y) { super(scene, x, y, 'gem'); }
     spawn(x, y, val) {
         this.body.reset(x, y);
         this.setActive(true).setVisible(true);
+        this.setScale(ORIGINAL_SCALES.GEM); // ESCALA ORIGINAL
         this.val = val;
         this.collected = false;
+        this.setTint(0x00ff00);
     }
     kill() { this.setActive(false).setVisible(false); }
     preUpdate(time, delta) {
@@ -337,7 +372,6 @@ class HUD {
         this.updateStats();
     }
     updateStats() {
-        // Mostra quantos faltam para acabar a onda (Reserva + Vivos na tela)
         const remaining = gameState.enemiesToSpawn + enemies.countActive();
         this.waveInfo.setText(`ONDA ${gameState.wave} - RESTAM: ${remaining}`);
         this.statsText.setText(`HP: ${playerStats.hp}/${playerStats.maxHp}\nLVL: ${playerStats.level}\nXP: ${playerStats.xp}/${playerStats.xpToNext}\n$: ${playerStats.currency}`);
@@ -348,7 +382,7 @@ class HUD {
     }
 }
 
-// --- PERSISTÊNCIA ---
+// --- PERSISTÊNCIA E MENU ---
 function saveProgress() {
     const data = { totalCurrency: playerStats.currency };
     localStorage.setItem('WarAutomatonsSave', JSON.stringify(data));
@@ -360,6 +394,7 @@ function loadProgress() {
 
 function showLevelUp(scene) {
     isPaused = true; scene.physics.pause();
+    // ... (Lógica do menu de Level Up mantida) ...
     const overlay = document.createElement('div'); overlay.className = 'menu-overlay';
     const box = document.createElement('div'); box.className = 'menu-container';
     box.innerHTML = '<h2 class="menu-title">SUBIU DE NÍVEL!</h2><div class="cards-container"></div>';
