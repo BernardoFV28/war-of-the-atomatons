@@ -79,7 +79,7 @@ let closestEnemy = null; // NOVO: Para o auto-attack
 
 // --- Player Stats ---
 let playerStats = {
-  life: 6, maxLife: 6,
+  life: 3, maxLife: 3,
   bulletDamage: 1, fireRate: 300, playerSpeed: 300,
   xp: 0, level: 1, xpToNextLevel: 50, // XP inicial reduzido para o primeiro nível ser rápido
   currency: 0,
@@ -206,9 +206,6 @@ function update(time, delta) {
   if (Phaser.Input.Keyboard.JustDown(this.keySpace) && playerStats.dashAvailable && !playerStats.dashCooldown) {
     performDash(this);
   }
-
-  // --- LÓGICA DE AUTO-ATTACK (Vampire Survivors Style) ---
-  // Encontra o inimigo mais próximo
   closestEnemy = null;
   let minDistance = Infinity;
   const weaponRange = GAME_CONFIG.WEAPONS[currentWeapon].range;
@@ -487,6 +484,7 @@ new Phaser.Game(config);
 </script>
 </body>
 </html>
+
 
 
 
