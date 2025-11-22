@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons - Wave Mode (Com Assets Originais)</title>
+  <title>War of the Automatons - </title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -32,10 +32,12 @@ const ORIGINAL_SCALES = {
 
 const GAME_CONFIG = {
     PLAYER: {
-        SPEED: 300, // Velocidade padrão
-        MAX_HP: 3,
-        MAGNET: 150,
-        DASH: { DIST: 300, CD: 3000 }
+        DEFAULT_TINT: 0xFFFFFF,
+        DASH_DURATION: 150, DASH_DISTANCE: 300, DASH_COOLDOWN_BASE: 3000,
+        ACCELERATION: 2000, DRAG: 0.6,
+        BASE_MAGNET_RANGE: 150, // NOVO: Alcance base de coleta
+        BASE_PIERCING: 1 // NOVO: Quantos inimigos uma bala atravessa
+    }
     },
     LIMITS: {
         MAX_ENEMIES_ON_SCREEN: 50, // LIMITE ANTI-LAG
@@ -86,7 +88,7 @@ class MainScene extends Phaser.Scene {
         this.load.image('enemy_tank', 'assets/enemy_tank.png');
         this.load.image('boss_robot', 'assets/boss_robot.png');
         this.load.image('gem', 'assets/ammo.png'); // Usando 'gem' como chave, mas o path é 'ammo.png'
-        this.load.image('fundogame', 'assets/fundogame.png');
+        this.load.image('bg', 'assets/fundogame.png');
       
     }
 
@@ -429,4 +431,5 @@ window.addEventListener('resize', () => game.scale.resize(window.innerWidth, win
 </script>
 </body>
 </html>
+
 
