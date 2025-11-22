@@ -99,10 +99,10 @@ let playerStats = {
 
 // --- Enemy Definitions (MANTIDAS AS ESCALAS ORIGINAIS) ---
 const enemyTypes = {
-  normal: { texture: 'enemy_robot', baseHealth: 4, speed: 500, scale: 0.06, xpValue: 5 }, // Velocidade reduzida ligeiramente para compensar a quantidade
-  fast: { texture: 'enemy_fast', baseHealth: 3, speed: 7000, scale: 0.06, xpValue: 8 },
-  tank: { texture: 'enemy_tank', baseHealth: 15, speed: 400, scale: 0.08, xpValue: 15 },
-  boss_robot: { texture: 'boss_robot', baseHealth: 500, speed: 600, scale: 0.2, xpValue: 200, boss: true }
+  normal: { texture: 'enemy_robot', baseHealth: 4, speed: 300, scale: 0.06, xpValue: 5 }, // Velocidade reduzida ligeiramente para compensar a quantidade
+  fast: { texture: 'enemy_fast', baseHealth: 3, speed: 500, scale: 0.06, xpValue: 8 },
+  tank: { texture: 'enemy_tank', baseHealth: 15, speed: 200, scale: 0.08, xpValue: 15 },
+  boss_robot: { texture: 'boss_robot', baseHealth: 500, speed: 500, scale: 0.2, xpValue: 200, boss: true }
 };
 
 // --- Item Rarity ---
@@ -487,4 +487,5 @@ new Phaser.Game(config);
 </script>
 </body>
 </html>
+
 
