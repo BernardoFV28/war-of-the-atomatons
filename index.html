@@ -54,13 +54,13 @@ const GAME_CONFIG = {
         3: { fireRate: 1500, damage: 6, speed: 900, range: 600 }     
     },
     WAVE: {
-        INITIAL_ENEMY_COUNT: 15, 
+        INITIAL_ENEMY_COUNT: 5, 
         ENEMY_INCREMENT_PER_WAVE: 5,
         INITIAL_SPAWN_RATE: 1000,
         SPAWN_RATE_DECREASE_PER_WAVE: 80,
-        MAX_ENEMIES_ON_SCREEN: 200
+        MAX_ENEMIES_ON_SCREEN: 50
     },
-    CAMERA_SHAKE: { PLAYER_HIT: { DURATION: 100, INTENSITY: 0.01 } }
+    CAMERA_SHAKE: { PLAYER_HIT: { DURATION: 100, INTENSITY: 0.02 } }
 };
 
 // --- Global Variables ---
@@ -96,10 +96,10 @@ let playerStats = {
 
 // --- Enemy Definitions ---
 const enemyTypes = {
-  normal: { texture: 'enemy_robot', baseHealth: 4, speed: 100, scale: 0.06, xpValue: 5 },
-  fast: { texture: 'enemy_fast', baseHealth: 3, speed: 200, scale: 0.06, xpValue: 8 },
-  tank: { texture: 'enemy_tank', baseHealth: 15, speed: 50, scale: 0.08, xpValue: 15 },
-  boss_robot: { texture: 'boss_robot', baseHealth: 500, speed: 200, scale: 0.2, xpValue: 200, boss: true }
+  normal: { texture: 'enemy_robot', baseHealth: 3, speed: 100, scale: 0.06, xpValue: 5 },
+  fast: { texture: 'enemy_fast', baseHealth: 2, speed: 200, scale: 0.06, xpValue: 8 },
+  tank: { texture: 'enemy_tank', baseHealth: 13, speed: 50, scale: 0.08, xpValue: 15 },
+  boss_robot: { texture: 'boss_robot', baseHealth: 300, speed: 200, scale: 0.2, xpValue: 200, boss: true }
 };
 
 const itemRarities = {
@@ -329,8 +329,8 @@ function performDash(scene) {
     playerStats.dashCooldown = true;
     playerStats.dashCooldown = true;
     // Usa direção do rotation (set no update para apontar ao ponteiro)
-    const angle = player.rotation || 0;
-    const dashVelocity = scene.physics.velocityFromRotation(angle, GAME_CONFIG.PLAYER.DASH_DISTANCE * 4);
+    
+    const dashVelocity = scene.physics.(angle, GAME_CONFIG.PLAYER.DASH_DISTANCE * 4);
     player.body.setVelocity(dashVelocity.x, dashVelocity.y);
     player.setTint(0x00FF00);
     playerStats.dashCooldown = true;
@@ -484,6 +484,7 @@ new Phaser.Game(config);
 </script>
 </body>
 </html>
+
 
 
 
