@@ -45,7 +45,9 @@ const GAME_CONFIG = {
         SPEED: 300,
         MAX_HP: 3,
         MAGNET: 150,
-        DASH: { DIST: 300, CD: 3000 }
+        DASH: { DIST: 300, CD: 3000 }  
+        ACCELERATION: 2000, DRAG: 0.6,
+      
     },
     LIMITS: {
         MAX_ENEMIES_ON_SCREEN: 50, 
@@ -157,7 +159,7 @@ class MainScene extends Phaser.Scene {
         this.load.image('enemy_tank', 'assets/enemy_tank.png');
         this.load.image('boss_robot', 'assets/boss_robot.png');
         this.load.image('gem', 'assets/ammo.png'); 
-        this.load.image('bg', 'https://labs.phaser.io/assets/skies/deep-space.jpg');
+        this.load.image('bg', 'assets/fundogame.png');
 
         this.load.on('fileload', (file) => {
             // Lógica de Fallbacks (mantida)
@@ -543,3 +545,4 @@ window.addEventListener('resize', () => game.scale.resize(window.innerWidth, win
 </script>
 </body>
 </html>
+
