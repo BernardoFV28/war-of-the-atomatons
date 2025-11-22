@@ -80,7 +80,7 @@ let closestEnemy = null; // NOVO: Para o auto-attack
 // --- Player Stats ---
 let playerStats = {
   life: 3, maxLife: 3,
-  bulletDamage: 1, fireRate: 200, playerSpeed: 1200,
+  bulletDamage: 1, fireRate: 200, playerSpeed: 1000,
   xp: 0, level: 1, xpToNextLevel: 50, // XP inicial reduzido para o primeiro nível ser rápido
   currency: 0,
   magnetRange: GAME_CONFIG.PLAYER.BASE_MAGNET_RANGE, // NOVO STAT
@@ -99,9 +99,9 @@ let playerStats = {
 
 // --- Enemy Definitions (MANTIDAS AS ESCALAS ORIGINAIS) ---
 const enemyTypes = {
-  normal: { texture: 'enemy_robot', baseHealth: 4, speed: 800, scale: 0.06, xpValue: 5 }, // Velocidade reduzida ligeiramente para compensar a quantidade
-  fast: { texture: 'enemy_fast', baseHealth: 3, speed: 1000, scale: 0.06, xpValue: 8 },
-  tank: { texture: 'enemy_tank', baseHealth: 15, speed: 500, scale: 0.08, xpValue: 15 },
+  normal: { texture: 'enemy_robot', baseHealth: 4, speed: 500, scale: 0.06, xpValue: 5 }, // Velocidade reduzida ligeiramente para compensar a quantidade
+  fast: { texture: 'enemy_fast', baseHealth: 3, speed: 7000, scale: 0.06, xpValue: 8 },
+  tank: { texture: 'enemy_tank', baseHealth: 15, speed: 400, scale: 0.08, xpValue: 15 },
   boss_robot: { texture: 'boss_robot', baseHealth: 500, speed: 600, scale: 0.2, xpValue: 200, boss: true }
 };
 
@@ -161,8 +161,6 @@ function preload() {
   this.load.image('enemy_tank', 'assets/enemy_tank.png');
   this.load.image('boss_robot', 'assets/boss_robot.png');
   this.load.image('ammo', 'assets/ammo.png'); // Usado para XP Gem
-  // Placeholder textures para garantir funcionamento se os assets não existirem localmente
-  // Remova estas linhas se seus assets locais estiverem funcionando corretamente
   if(!this.textures.exists('player')) this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
   if(!this.textures.exists('bullet')) this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet7.png');
   if(!this.textures.exists('enemy_robot')) this.load.image('enemy_robot', 'https://labs.phaser.io/assets/sprites/space-baddie.png');
@@ -489,3 +487,4 @@ new Phaser.Game(config);
 </script>
 </body>
 </html>
+
