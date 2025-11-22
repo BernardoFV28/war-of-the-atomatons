@@ -42,7 +42,7 @@ const GAME_CONFIG = {
         MAX_GEMS: 60
     },
     WAVE: {
-        START_COUNT: 15, // Inimigos na onda 1 (Original)
+        START_COUNT: 5, // Inimigos na onda 1 (Original)
         INC_PER_WAVE: 5,  // Aumento por onda (Original)
         SPAWN_DELAY: 1000 // Velocidade que eles aparecem (Original)
     }
@@ -86,14 +86,8 @@ class MainScene extends Phaser.Scene {
         this.load.image('enemy_tank', 'assets/enemy_tank.png');
         this.load.image('boss_robot', 'assets/boss_robot.png');
         this.load.image('gem', 'assets/ammo.png'); // Usando 'gem' como chave, mas o path é 'ammo.png'
-        
-        // Fallbacks (em caso de falha nos assets locais)
-        if(!this.textures.exists('player')) this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
-        if(!this.textures.exists('bullet')) this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet7.png');
-        if(!this.textures.exists('enemy_robot')) this.load.image('enemy_robot', 'https://labs.phaser.io/assets/sprites/space-baddie.png');
-        if(!this.textures.exists('gem')) this.load.image('gem', 'https://labs.phaser.io/assets/sprites/orb-green.png');
-        // Você pode adicionar um asset de background ou manter o padrão
-        this.load.image('bg', 'https://labs.phaser.io/assets/skies/deep-space.jpg');
+        this.load.image('fundogame', 'assets/fundogame.png');
+      
     }
 
     create() {
@@ -435,3 +429,4 @@ window.addEventListener('resize', () => game.scale.resize(window.innerWidth, win
 </script>
 </body>
 </html>
+
