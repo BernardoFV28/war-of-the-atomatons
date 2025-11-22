@@ -40,21 +40,20 @@ const config = {
 // --- Centralized Game Balance & Config ---
 const GAME_CONFIG = {
     PLAYER: {
-        INITIAL_SCALE: 0.08, // MANTIDO A ESCALA ORIGINAL
+        INITIAL_SCALE: 0.08,
         DEFAULT_TINT: 0xFFFFFF,
         DASH_DURATION: 150, DASH_DISTANCE: 300, DASH_COOLDOWN_BASE: 3000,
         ACCELERATION: 2000, DRAG: 0.6,
-        BASE_MAGNET_RANGE: 150, // NOVO: Alcance base de coleta
-        BASE_PIERCING: 1 // NOVO: Quantos inimigos uma bala atravessa
+        BASE_MAGNET_RANGE: 150, 
+        BASE_PIERCING: 1 
     },
-    BULLET: { INITIAL_SPEED: 1000, INITIAL_SCALE: 0.01 }, // MANTIDO ESCALA ORIGINAL
+    BULLET: { INITIAL_SPEED: 1000, INITIAL_SCALE: 0.01 },
     WEAPONS: {
-        1: { fireRate: 1000, damage: 2, speed: 1000, range: 400 },     
-        2: { fireRate: 1000, damage: 1.5, speed: 1100, range: 350 },   
-        3: { fireRate: 1500, damage: 6, speed: 900, range: 600 }     
+        1: { fireRate: 1000, damage: 2, speed: 1000, range: 400 },      
+        2: { fireRate: 1000, damage: 1.5, speed: 1100, range: 350 },    
+        3: { fireRate: 1500, damage: 6, speed: 900, range: 600 }      
     },
     WAVE: {
-        // Aumentei a intensidade para ficar mais parecido com Vampire Survivors
         INITIAL_ENEMY_COUNT: 15, 
         ENEMY_INCREMENT_PER_WAVE: 5,
         INITIAL_SPAWN_RATE: 1000,
@@ -65,7 +64,8 @@ const GAME_CONFIG = {
 };
 
 // --- Global Variables ---
-let player, cursors, bullets, enemies, enemyBullets, itemsGroup, xpGemsGroup; // xpGemsGroup NOVO
+// Correção: Adicionado 'hud' aqui para evitar erro de escopo global implícito
+let player, cursors, bullets, enemies, enemyBullets, itemsGroup, xpGemsGroup, hud; 
 let lastShoot = 0;
 let waveNumber = 1;
 let enemiesInWave = GAME_CONFIG.WAVE.INITIAL_ENEMY_COUNT;
@@ -75,31 +75,30 @@ let temporaryEffectText, temporaryEffectTimer;
 let currentWeapon = 1;
 let gamePaused = false, levelUpMenuOpen = false, shopMenuOpen = false;
 let playerDashCooldownTimer = null;
-let closestEnemy = null; // NOVO: Para o auto-attack
+let closestEnemy = null;
 
 // --- Player Stats ---
 let playerStats = {
   life: 3, maxLife: 3,
-  bulletDamage: 2, fireRate: 300, playerSpeed: 300,
+  bulletDamage: 2, fireRate: 1000, playerSpeed: 300, // Ajustado fireRate inicial para bater com a arma 1
   xp: 0, level: 1, xpToNextLevel: 50, 
   currency: 0,
-  magnetRange: GAME_CONFIG.PLAYER.BASE_MAGNET_RANGE, // NOVO STAT
-  piercingCount: GAME_CONFIG.PLAYER.BASE_PIERCING, // NOVO STAT
+  magnetRange: GAME_CONFIG.PLAYER.BASE_MAGNET_RANGE,
+  piercingCount: GAME_CONFIG.PLAYER.BASE_PIERCING,
   
-  // Flags e Multiplicadores
-  dashAvailable: false, // Começa sem dash (estilo VS, você ganha depois)
+  dashAvailable: false,
   dashCooldown: false,
   doubleBullets: false, tripleBullets: false,
   evasionChance: 0,
   incomingDamageMultiplier: 1,
   weaponBulletSpeed: GAME_CONFIG.BULLET.INITIAL_SPEED,
   
-  inventory: [] // Para rastrear itens passivos pegos
+  inventory: []
 };
 
-// --- Enemy Definitions (MANTIDAS AS ESCALAS ORIGINAIS) ---
+// --- Enemy Definitions ---
 const enemyTypes = {
-  normal: { texture: 'enemy_robot', baseHealth: 4, speed: 100, scale: 0.06, xpValue: 5 }, // Velocidade reduzida ligeiramente para compensar a quantidade
+  normal: { texture: 'enemy_robot', baseHealth: 4, speed: 100, scale: 0.06, xpValue: 5 },
   fast: { texture: 'enemy_fast', baseHealth: 3, speed: 200, scale: 0.06, xpValue: 8 },
   tank: { texture: 'enemy_tank', baseHealth: 15, speed: 50, scale: 0.08, xpValue: 15 },
   boss_robot: { texture: 'boss_robot', baseHealth: 500, speed: 200, scale: 0.2, xpValue: 200, boss: true }
@@ -110,13 +109,13 @@ const itemRarities = {
     common: { color: '#FFFFFF' }, rare: { color: '#00BFFF' }, epic: { color: '#9932CC' }, legendary: { color: '#FFD700' }
 };
 
-// --- Card Options (Adaptados para VS) ---
+// --- Card Options ---
 const itemOptions = [
   { nome: "Balas de Titânio", descricao: "+20% Dano", rarity: 'common', efeito: () => playerStats.bulletDamage *= 1.2 },
   { nome: "Gatilho Rápido", descricao: "+15% Velocidade de Ataque", rarity: 'common', efeito: () => playerStats.fireRate *= 0.85 },
   { nome: "Motor V8", descricao: "+10% Velocidade de Movimento", rarity: 'common', efeito: () => playerStats.playerSpeed *= 1.1 },
-  { nome: "Imã de Sucata", descricao: "+50% Alcance de Coleta", rarity: 'common', efeito: () => playerStats.magnetRange *= 1.5 }, // NOVO
-  { nome: "Projétil Perfurante", descricao: "Balas atravessam +1 inimigo", rarity: 'rare', efeito: () => playerStats.piercingCount += 1 }, // NOVO
+  { nome: "Imã de Sucata", descricao: "+50% Alcance de Coleta", rarity: 'common', efeito: () => playerStats.magnetRange *= 1.5 },
+  { nome: "Projétil Perfurante", descricao: "Balas atravessam +1 inimigo", rarity: 'rare', efeito: () => playerStats.piercingCount += 1 },
   { nome: "Pele Reforçada", descricao: "+1 Vida Máxima", rarity: 'rare', efeito: () => { playerStats.maxLife++; playerStats.life++; hud.updateHealthBar(); } },
   { nome: "Tiro Duplo", descricao: "Dispara um segundo projétil", rarity: 'epic', efeito: () => playerStats.doubleBullets = true },
   { nome: "Módulo de Dash", descricao: "Habilita a habilidade de Dash (Espaço)", rarity: 'epic', efeito: () => playerStats.dashAvailable = true },
@@ -141,18 +140,16 @@ class HUD extends Phaser.GameObjects.Container {
       this.levelText.setText(`Nível: ${playerStats.level}`);
       this.currencyText.setText(`Sucata: ${playerStats.currency}`);
       this.waveText.setText(`Onda: ${waveNumber}`);
-      const xpRatio = playerStats.xp / playerStats.xpToNextLevel;
+      const xpRatio = Math.min(1, playerStats.xp / playerStats.xpToNextLevel); // Garante que a barra não ultrapasse 100%
       this.xpBar.width = 200 * xpRatio;
   }
   updateHealthBar() { this.updateAll(); }
   updateXpBar() { this.updateAll(); }
   updateCurrencyDisplay() { this.updateAll(); }
-  displayTemporaryEffect(text, color, duration) { /* Simplificado para economizar espaço */ }
 }
 
 // --- Phaser Scene Functions ---
 function preload() {
-    // MANTIDOS OS CAMINHOS ORIGINAIS
   this.load.image('cardBg', 'assets/card.png');
   this.load.image('player', 'assets/player.png');
   this.load.image('bullet', 'assets/bullet.png');
@@ -160,7 +157,9 @@ function preload() {
   this.load.image('enemy_fast', 'assets/enemy_fast.png');
   this.load.image('enemy_tank', 'assets/enemy_tank.png');
   this.load.image('boss_robot', 'assets/boss_robot.png');
-  this.load.image('ammo', 'assets/ammo.png'); // Usado para XP Gem
+  this.load.image('ammo', 'assets/ammo.png');
+  
+  // Fallbacks caso as imagens não existam localmente
   if(!this.textures.exists('player')) this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
   if(!this.textures.exists('bullet')) this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet7.png');
   if(!this.textures.exists('enemy_robot')) this.load.image('enemy_robot', 'https://labs.phaser.io/assets/sprites/space-baddie.png');
@@ -170,42 +169,40 @@ function preload() {
 function create() {
   player = this.physics.add.sprite(config.width / 2, config.height / 2, 'player').setScale(GAME_CONFIG.PLAYER.INITIAL_SCALE);
   player.setCollideWorldBounds(true);
-  player.setDrag(GAME_CONFIG.PLAYER.DRAG); player.setMaxVelocity(playerStats.playerSpeed);
+  player.setDrag(GAME_CONFIG.PLAYER.DRAG); 
+  player.setMaxVelocity(playerStats.playerSpeed);
 
   cursors = this.input.keyboard.createCursorKeys();
   this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-  // Usando grupos com pooling para performance
   bullets = this.physics.add.group({ classType: Bullet, runChildUpdate: true, maxSize: 100 });
   enemies = this.physics.add.group({ classType: Enemy, runChildUpdate: true, maxSize: GAME_CONFIG.WAVE.MAX_ENEMIES_ON_SCREEN });
-  xpGemsGroup = this.physics.add.group({ classType: XPGem, runChildUpdate: true, maxSize: 300 }); // NOVO
+  xpGemsGroup = this.physics.add.group({ classType: XPGem, runChildUpdate: true, maxSize: 300 });
 
   this.physics.add.overlap(bullets, enemies, bulletHitEnemy, null, this);
   this.physics.add.collider(player, enemies, playerHitEnemy, null, this);
-  // Coleta de XP
   this.physics.add.overlap(player, xpGemsGroup, collectXPGem, null, this);
 
   hud = new HUD(this, 0, 0);
-  switchWeapon.call(this, 1); // Inicia com a arma 1
+  switchWeapon.call(this, 1); 
 
-  // Spawner loop
   this.time.addEvent({ delay: enemySpawnRate, callback: spawnEnemy, callbackScope: this, loop: true, id: 'spawner' });
 }
 
 function update(time, delta) {
   if (gamePaused || levelUpMenuOpen) return;
 
-  // Movimentação (Estilo VS - Joystick Virtual ou Teclado)
   player.setAcceleration(0);
   if (cursors.left.isDown) player.setAccelerationX(-GAME_CONFIG.PLAYER.ACCELERATION);
   else if (cursors.right.isDown) player.setAccelerationX(GAME_CONFIG.PLAYER.ACCELERATION);
   if (cursors.up.isDown) player.setAccelerationY(-GAME_CONFIG.PLAYER.ACCELERATION);
   else if (cursors.down.isDown) player.setAccelerationY(GAME_CONFIG.PLAYER.ACCELERATION);
 
-  // Dash (se habilitado)
   if (Phaser.Input.Keyboard.JustDown(this.keySpace) && playerStats.dashAvailable && !playerStats.dashCooldown) {
     performDash(this);
   }
+
+  // Auto-Attack Logic
   closestEnemy = null;
   let minDistance = Infinity;
   const weaponRange = GAME_CONFIG.WEAPONS[currentWeapon].range;
@@ -220,12 +217,10 @@ function update(time, delta) {
       }
   });
 
-  // Atira automaticamente se houver inimigo e o cooldown permitir
   if (time > lastShoot && closestEnemy) {
     shootBullet.call(this, closestEnemy);
     lastShoot = time + playerStats.fireRate;
   }
-  // -------------------------------------------------------
 }
 
 // --- Game Logic Functions ---
@@ -238,7 +233,6 @@ function shootBullet(targetEnemy) {
 
   for (let i = 0; i < baseBulletCount; i++) {
     let offsetAngle = 0;
-    // Pequeno espalhamento se tiver tiro duplo
     if (baseBulletCount > 1) offsetAngle = Phaser.Math.DEG_TO_RAD * ((i === 0 ? -5 : 5));
 
     const bullet = bullets.get(player.x, player.y);
@@ -261,7 +255,6 @@ function bulletHitEnemy(bullet, enemy) {
   
   enemy.takeDamage(bullet.damage);
   
-  // Lógica de Penetração
   bullet.piercingHealth--;
   if (bullet.piercingHealth <= 0) {
       bullet.kill();
@@ -274,8 +267,6 @@ function bulletHitEnemy(bullet, enemy) {
 
 function playerHitEnemy(player, enemy) {
     if (!player.active || !enemy.active) return;
-    
-    // Simples iFrame check (pode ser melhorado)
     if(player.isInvulnerable) return;
 
     this.cameras.main.shake(GAME_CONFIG.CAMERA_SHAKE.PLAYER_HIT.DURATION, GAME_CONFIG.CAMERA_SHAKE.PLAYER_HIT.INTENSITY);
@@ -294,12 +285,10 @@ function playerHitEnemy(player, enemy) {
 
 function handleEnemyDeath(enemy) {
     if (!enemy.active) return;
-    // Dropa Gema de XP em vez de dar XP direto
     dropXPGem(this, enemy.x, enemy.y, enemy.enemyType.xpValue);
     enemy.kill();
 }
 
-// NOVO: Sistema de Gemas de XP
 function dropXPGem(scene, x, y, xpValue) {
     const gem = xpGemsGroup.get(x, y);
     if (gem) {
@@ -309,7 +298,7 @@ function dropXPGem(scene, x, y, xpValue) {
 
 function collectXPGem(player, gem) {
     if(gem.isBeingCollected) return;
-    gem.isBeingCollected = true; // Evita coleta dupla
+    gem.isBeingCollected = true; 
     gainXp.call(this, gem.xpValue);
     gem.kill();
 }
@@ -320,7 +309,7 @@ function gainXp(amount) {
   if (playerStats.xp >= playerStats.xpToNextLevel) {
     playerStats.level++;
     playerStats.xp -= playerStats.xpToNextLevel;
-    playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.2); // Curva de XP
+    playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.2); 
     hud.updateAll();
     showLevelUpMenu.call(this);
   }
@@ -343,7 +332,6 @@ function spawnEnemy() {
       return;
   }
   
-  // Spawn fora da tela (lógica VS)
   let x, y;
   const padding = 50;
   if (Math.random() < 0.5) {
@@ -354,7 +342,6 @@ function spawnEnemy() {
       y = Phaser.Math.Between(-padding, config.height + padding);
   }
 
-  // Seleção de tipo simples por enquanto
   let enemyTypeKey = 'normal';
   if(waveNumber > 3 && Math.random() > 0.7) enemyTypeKey = 'fast';
   if(waveNumber > 5 && Math.random() > 0.8) enemyTypeKey = 'tank';
@@ -369,11 +356,9 @@ function spawnEnemy() {
 function startNextWave() {
   waveNumber++;
   enemiesInWave += GAME_CONFIG.WAVE.ENEMY_INCREMENT_PER_WAVE;
-  // Aumenta a frequência de spawn
   let newRate = enemySpawnRate - GAME_CONFIG.WAVE.SPAWN_RATE_DECREASE_PER_WAVE;
-  enemySpawnRate = Math.max(200, newRate); // Limite mínimo de 200ms
+  enemySpawnRate = Math.max(200, newRate); 
   
-  // Atualiza o timer do spawner
   const spawner = this.time.getEvent('spawner');
   if(spawner) spawner.delay = enemySpawnRate;
 
@@ -381,17 +366,17 @@ function startNextWave() {
   hud.updateAll();
 }
 
-// --- Custom Classes (Pooling Enabled) ---
+// --- Classes (Pooling Enabled) ---
 class Bullet extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y) { super(scene, x, y, 'bullet'); }
   fire(angle, speed, damage, piercing) {
       this.setActive(true).setVisible(true);
-      this.setScale(GAME_CONFIG.BULLET.INITIAL_SCALE); // MANTIDA ESCALA
+      this.setScale(GAME_CONFIG.BULLET.INITIAL_SCALE);
       this.damage = damage;
-      this.piercingHealth = piercing; // Quantos hits aguenta
+      this.piercingHealth = piercing;
       this.scene.physics.velocityFromRotation(angle, speed, this.body.velocity);
       this.setRotation(angle);
-      this.lifeSpan = 2000; // Tempo de vida em ms
+      this.lifeSpan = 2000;
   }
   kill() { this.setActive(false).setVisible(false); this.body.stop(); }
   preUpdate(time, delta) {
@@ -406,8 +391,8 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
   spawn(enemyData) {
       this.setActive(true).setVisible(true);
       this.setTexture(enemyData.texture);
-      this.setScale(enemyData.scale); // MANTIDA ESCALA
-      this.health = enemyData.baseHealth * (1 + (waveNumber * 0.1)); // HP escala com ondas
+      this.setScale(enemyData.scale);
+      this.health = enemyData.baseHealth * (1 + (waveNumber * 0.1)); 
       this.speed = enemyData.speed;
       this.enemyType = enemyData;
       this.setTint(0xffffff);
@@ -420,12 +405,11 @@ class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 }
 
-// NOVO: Classe para Gema de XP
 class XPGem extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y) { 
         super(scene, x, y, 'ammo'); 
-        this.setScale(0.04); // Escala pequena para a gema
-        this.setTint(0x00ff00); // Verde brilhante
+        this.setScale(0.04); 
+        this.setTint(0x00ff00); 
     }
     spawn(xpValue) {
         this.setActive(true).setVisible(true);
@@ -438,16 +422,14 @@ class XPGem extends Phaser.Physics.Arcade.Sprite {
         super.preUpdate(time, delta);
         if(!this.active) return;
         
-        // Lógica de Magnetismo
         const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
         if (dist < playerStats.magnetRange) {
-            // Voa em direção ao jogador
-            this.scene.physics.moveToObject(this, player, 600); // Velocidade do imã
+            this.scene.physics.moveToObject(this, player, 600); 
         }
     }
 }
 
-// --- Menus HTML (Simplificados para o exemplo, mas funcionais) ---
+// --- Menus ---
 function showLevelUpMenu() {
     if (levelUpMenuOpen) return;
     gamePaused = true; levelUpMenuOpen = true; this.physics.pause();
@@ -457,7 +439,6 @@ function showLevelUpMenu() {
     container.innerHTML = '<h2 class="menu-title">Subiu de Nível!</h2>';
     const cardsDiv = document.createElement('div'); cardsDiv.className = 'cards-container';
     
-    // Pega 3 itens aleatórios
     const choices = Phaser.Utils.Array.Shuffle(itemOptions).slice(0, 3);
     
     choices.forEach(item => {
@@ -484,11 +465,3 @@ new Phaser.Game(config);
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
