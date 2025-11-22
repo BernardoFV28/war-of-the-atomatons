@@ -140,7 +140,7 @@ const GAME_CONFIG = {
     },
     BULLET: { INITIAL_SPEED: 900, INITIAL_SCALE: 0.01, INITIAL_RANGE: 1 },
     WAVE: {
-        INITIAL_ENEMY_COUNT: 15,
+        INITIAL_ENEMY_COUNT: 5,
         ENEMY_INCREMENT_PER_WAVE: 5,
         INITIAL_SPAWN_RATE: 1000,
         SPAWN_RATE_DECREASE_PER_WAVE: 80,
@@ -259,7 +259,7 @@ function preload() {
     this.load.image('ammo', 'assets/ammo.png');
     
     // FIX: ADICIONADO CARREGAMENTO DO BACKGROUND DO JOGO
-    this.load.image('background_tile', 'assets/fundogame.png');
+    this.load.image('background_tile', 'assets/dungeon_floor.png');
 }
 
 function create() {
@@ -718,3 +718,4 @@ new Phaser.Game(config);
 </script>
 </body>
 </html>
+
