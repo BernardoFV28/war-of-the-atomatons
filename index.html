@@ -79,8 +79,8 @@ let closestEnemy = null; // NOVO: Para o auto-attack
 
 // --- Player Stats ---
 let playerStats = {
-  life: 3, maxLife: 3,
-  bulletDamage: 1, fireRate: 200, playerSpeed: 300,
+  life: 3, maxLife: 6,
+  bulletDamage: 1, fireRate: 300, playerSpeed: 300,
   xp: 0, level: 1, xpToNextLevel: 50, // XP inicial reduzido para o primeiro nível ser rápido
   currency: 0,
   magnetRange: GAME_CONFIG.PLAYER.BASE_MAGNET_RANGE, // NOVO STAT
@@ -99,10 +99,10 @@ let playerStats = {
 
 // --- Enemy Definitions (MANTIDAS AS ESCALAS ORIGINAIS) ---
 const enemyTypes = {
-  normal: { texture: 'enemy_robot', baseHealth: 4, speed: 200, scale: 0.06, xpValue: 5 }, // Velocidade reduzida ligeiramente para compensar a quantidade
-  fast: { texture: 'enemy_fast', baseHealth: 3, speed: 300, scale: 0.06, xpValue: 8 },
-  tank: { texture: 'enemy_tank', baseHealth: 15, speed: 100, scale: 0.08, xpValue: 15 },
-  boss_robot: { texture: 'boss_robot', baseHealth: 500, speed: 300, scale: 0.2, xpValue: 200, boss: true }
+  normal: { texture: 'enemy_robot', baseHealth: 4, speed: 100, scale: 0.06, xpValue: 5 }, // Velocidade reduzida ligeiramente para compensar a quantidade
+  fast: { texture: 'enemy_fast', baseHealth: 3, speed: 200, scale: 0.06, xpValue: 8 },
+  tank: { texture: 'enemy_tank', baseHealth: 15, speed: 50, scale: 0.08, xpValue: 15 },
+  boss_robot: { texture: 'boss_robot', baseHealth: 500, speed: 200, scale: 0.2, xpValue: 200, boss: true }
 };
 
 // --- Item Rarity ---
@@ -487,6 +487,7 @@ new Phaser.Game(config);
 </script>
 </body>
 </html>
+
 
 
 
