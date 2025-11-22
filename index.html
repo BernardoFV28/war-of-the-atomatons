@@ -43,7 +43,7 @@ const GAME_CONFIG = {
         INITIAL_SCALE: 0.08,
         DEFAULT_TINT: 0xFFFFFF,
         DASH_DURATION: 150, DASH_DISTANCE: 300, DASH_COOLDOWN_BASE: 3000,
-        ACCELERATION: 2000, DRAG: 0.6,
+        ACCELERATION: 1000, DRAG: 0.6,
         BASE_MAGNET_RANGE: 150, 
         BASE_PIERCING: 1 
     },
@@ -55,9 +55,9 @@ const GAME_CONFIG = {
     },
     WAVE: {
         INITIAL_ENEMY_COUNT: 5, 
-        ENEMY_INCREMENT_PER_WAVE: 5,
-        INITIAL_SPAWN_RATE: 1000,
-        SPAWN_RATE_DECREASE_PER_WAVE: 80,
+        ENEMY_INCREMENT_PER_WAVE: 3,
+        INITIAL_SPAWN_RATE: 2000,
+        SPAWN_RATE_DECREASE_PER_WAVE: 50,
         MAX_ENEMIES_ON_SCREEN: 50
     },
     CAMERA_SHAKE: { PLAYER_HIT: { DURATION: 100, INTENSITY: 0.01 } }
@@ -492,6 +492,7 @@ new Phaser.Game(config);
 </script>
 </body>
 </html>
+
 
 
 
