@@ -53,10 +53,10 @@ const GAME_CONFIG = {
         1: { fireRate: 1000, damage: 2, speed: 1000, range: 400 },     
     },
     WAVE: {
-        INITIAL_ENEMY_COUNT: 5, 
+        INITIAL_ENEMY_COUNT: 15, 
         ENEMY_INCREMENT_PER_WAVE: 5,
         INITIAL_SPAWN_RATE: 1000,
-        SPAWN_RATE_DECREASE_PER_WAVE: 50,
+        SPAWN_RATE_DECREASE_PER_WAVE: 80,
         MAX_ENEMIES_ON_SCREEN: 200
     },
     CAMERA_SHAKE: { PLAYER_HIT: { DURATION: 100, INTENSITY: 0.01 } }
@@ -69,6 +69,11 @@ let lastShoot = 0;
 let waveNumber = 1;
 let enemiesInWave = GAME_CONFIG.WAVE.INITIAL_ENEMY_COUNT;
 let enemiesSpawnedThisWave = 0;
+
+// FIX: NOVAS VARIÁVEIS DE CONTROLE DE FIM DE WAVE
+let enemiesToKillThisWave = enemiesInWave; 
+let enemiesKilledThisWave = 0; 
+
 let enemySpawnRate = GAME_CONFIG.WAVE.INITIAL_SPAWN_RATE;
 let currentWeapon = 1;
 let gamePaused = false, levelUpMenuOpen = false, shopMenuOpen = false;
@@ -117,8 +122,8 @@ class HUD extends Phaser.GameObjects.Container {
   constructor(scene, x, y) {
     super(scene, x, y);
     scene.add.existing(this);
-    this.setDepth(1000); // FIX: Garante que fique na frente
-    this.setScrollFactor(0); // FIX: MANTÉM O HUD FIXO
+    this.setDepth(1000); 
+    this.setScrollFactor(0); 
     this.lifeText = scene.add.text(10, 10, '', { fontSize: '20px', fill: '#FF0000' }).setScrollFactor(0);
     this.levelText = scene.add.text(10, 40, '', { fontSize: '20px', fill: '#FFFF00' }).setScrollFactor(0);
     this.currencyText = scene.add.text(10, 70, '', { fontSize: '20px', fill: '#FFD700' }).setScrollFactor(0);
@@ -132,7 +137,8 @@ class HUD extends Phaser.GameObjects.Container {
       this.lifeText.setText(`Vida: ${Math.ceil(playerStats.life)}/${playerStats.maxLife}`);
       this.levelText.setText(`Nível: ${playerStats.level}`);
       this.currencyText.setText(`Sucata: ${playerStats.currency}`);
-      this.waveText.setText(`Onda: ${waveNumber}`);
+      // FIX: Mostrar o progresso real da wave (abates/meta)
+      this.waveText.setText(`Onda ${waveNumber}: ${enemiesKilledThisWave}/${enemiesToKillThisWave}`); 
       const xpRatio = playerStats.xp / playerStats.xpToNextLevel;
       this.xpBar.width = 200 * xpRatio;
   }
@@ -150,9 +156,8 @@ function preload() {
   this.load.image('enemy_fast', 'assets/enemy_fast.png');
   this.load.image('enemy_tank', 'assets/enemy_tank.png');
   this.load.image('boss_robot', 'assets/boss_robot.png');
-  this.load.image('ammo', 'assets/ammo.png'); // Usado para XP Gem
+  this.load.image('ammo', 'assets/ammo.png'); 
 
-  // FIX: NOVO NOME DO ARQUIVO DE FUNDO
   this.load.image('background_tile', 'assets/dungeon_floor.png'); 
 
   // Fallbacks
@@ -164,22 +169,18 @@ function preload() {
 }
 
 function create() {
-  // FIX: CONFIGURAÇÃO DO MUNDO GRANDE
   this.physics.world.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
-  this.add.tileSprite(WORLD_SIZE / 2, WORLD_SIZE / 2, WORLD_SIZE, WORLD_SIZE, 'background_tile'); // ADICIONA O FUNDO
+  this.add.tileSprite(WORLD_SIZE / 2, WORLD_SIZE / 2, WORLD_SIZE, WORLD_SIZE, 'background_tile'); 
 
-  // Player Setup (posição no centro do mundo)
   player = this.physics.add.sprite(WORLD_SIZE / 2, WORLD_SIZE / 2, 'player').setScale(GAME_CONFIG.PLAYER.INITIAL_SCALE);
   player.setCollideWorldBounds(true);
   player.setDrag(GAME_CONFIG.PLAYER.DRAG); player.setMaxVelocity(playerStats.playerSpeed);
 
-  // FIX: CONFIGURAÇÃO DA CÂMERA
   this.cameras.main.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
-  this.cameras.main.startFollow(player, true, 0.09, 0.09); // CÂMERA SEGUE O JOGADOR
+  this.cameras.main.startFollow(player, true, 0.09, 0.09); 
 
   cursors = this.input.keyboard.createCursorKeys();
   this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-  // Adiciona WASD para movimento
   this.keyW = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
   this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
   this.keyS = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
@@ -193,7 +194,7 @@ function create() {
   this.physics.add.collider(player, enemies, playerHitEnemy, null, this);
   this.physics.add.overlap(player, xpGemsGroup, collectXPGem, null, this);
 
-  hud = new HUD(this, 0, 0); // HUD agora está fixo
+  hud = new HUD(this, 0, 0); 
   switchWeapon.call(this, 1);
 
   // Spawner loop
@@ -234,8 +235,6 @@ function update(time, delta) {
     shootBullet.call(this, closestEnemy);
     lastShoot = time + playerStats.fireRate;
   }
-  
-  // Magnetismo (Lógica movida para XPGem.preUpdate para melhor pooling)
 }
 
 // --- Game Logic Functions ---
@@ -280,6 +279,12 @@ function handleEnemyDeath(enemy) {
     if (!enemy.active) return;
     dropXPGem(this, enemy.x, enemy.y, enemy.enemyType.xpValue);
     enemy.kill();
+
+    // FIX: CONTAGEM E VERIFICAÇÃO DE FIM DE WAVE
+    enemiesKilledThisWave++;
+    if (enemiesKilledThisWave >= enemiesToKillThisWave) {
+        startNextWave.call(this);
+    }
 }
 
 function dropXPGem(scene, x, y, xpValue) {
@@ -319,15 +324,15 @@ function spawnEnemy() {
   if (enemies.countActive() >= GAME_CONFIG.WAVE.MAX_ENEMIES_ON_SCREEN) return;
 
   if (enemiesSpawnedThisWave >= enemiesInWave) {
-      startNextWave.call(this);
+      // FIX: O SPAWNER APENAS PARA QUANDO A META DE SPAWN É ATINGIDA, MAS NÃO INICIA A PRÓXIMA WAVE.
       return;
   }
   
-  const cam = this.cameras.main; // FIX: USANDO A CÂMERA
+  const cam = this.cameras.main; 
   let x, y;
   const padding = 50;
   
-  // FIX: Lógica de Spawn FORA da visão da câmera
+  // Lógica de Spawn FORA da visão da câmera
   if (Math.random() < 0.5) { 
       x = (Math.random() < 0.5) ? cam.scrollX - padding : cam.scrollX + cam.width + padding;
       y = Phaser.Math.Between(cam.scrollY, cam.scrollY + cam.height);
@@ -336,7 +341,6 @@ function spawnEnemy() {
       y = (Math.random() < 0.5) ? cam.scrollY - padding : cam.scrollY + cam.height + padding;
   }
 
-  // Garante que o spawn esteja dentro dos limites do mundo
   x = Phaser.Math.Clamp(x, 0, WORLD_SIZE);
   y = Phaser.Math.Clamp(y, 0, WORLD_SIZE);
 
@@ -353,18 +357,26 @@ function spawnEnemy() {
 
 function startNextWave() {
   waveNumber++;
-  enemiesInWave += GAME_CONFIG.WAVE.ENEMY_INCREMENT_PER_WAVE;
+  
+  // Aumenta o número de inimigos a serem mortos na próxima onda
+  enemiesInWave += GAME_CONFIG.WAVE.ENEMY_INCREMENT_PER_WAVE; 
+  
+  // FIX: Configura a nova meta de abate e reseta o contador
+  enemiesToKillThisWave = enemiesInWave; 
+  enemiesKilledThisWave = 0; 
+  
   let newRate = enemySpawnRate - GAME_CONFIG.WAVE.SPAWN_RATE_DECREASE_PER_WAVE;
   enemySpawnRate = Math.max(200, newRate);
   
   const spawner = this.time.getEvent('spawner');
   if(spawner) spawner.delay = enemySpawnRate;
 
-  enemiesSpawnedThisWave = 0;
+  // Reseta o contador de spawn para permitir que a nova leva comece a aparecer.
+  enemiesSpawnedThisWave = 0; 
   hud.updateAll();
 }
 
-// --- Custom Classes ---
+// --- Custom Classes (Mantidas) ---
 class Bullet extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y) { super(scene, x, y, 'bullet'); }
   fire(angle, speed, damage, piercing) {
@@ -417,7 +429,7 @@ class XPGem extends Phaser.Physics.Arcade.Sprite {
     }
 }
 
-// --- Menus HTML ---
+// --- Menus HTML (Mantidos) ---
 function showLevelUpMenu() {
     if (levelUpMenuOpen) return;
     gamePaused = true; levelUpMenuOpen = true; this.physics.pause();
@@ -453,4 +465,3 @@ new Phaser.Game(config);
 </script>
 </body>
 </html>
-
