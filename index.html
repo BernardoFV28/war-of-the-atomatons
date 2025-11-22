@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>War of the Automatons - Skill Tree Edition (CORRIGIDO)</title>
+  <title>War of the Automatons - Dungeon Floor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
   <style>
@@ -45,9 +45,7 @@ const GAME_CONFIG = {
         SPEED: 300,
         MAX_HP: 3,
         MAGNET: 150,
-        DASH: { DIST: 300, CD: 3000 }  
-        ACCELERATION: 2000, DRAG: 0.6,
-      
+        DASH: { DIST: 300, CD: 3000 }
     },
     LIMITS: {
         MAX_ENEMIES_ON_SCREEN: 50, 
@@ -131,7 +129,7 @@ let playerStats = {
     skillLevels: {
         DanoBase: 0, TaxaDeTiro: 0, VidaMaxima: 0, VelocidadeMovimento: 0, RaioIma: 0
     },
-    skillEffects: {} // Inicializado em applySkillTreeEffects
+    skillEffects: {} 
 };
 
 let gameState = {
@@ -151,7 +149,7 @@ class MainScene extends Phaser.Scene {
     constructor() { super({ key: 'MainScene' }); }
 
     preload() {
-        // Assets originais (mantidos)
+        // --- ASSETS ORIGINAIS ---
         this.load.image('player', 'assets/player.png');
         this.load.image('bullet', 'assets/bullet.png');
         this.load.image('enemy_robot', 'assets/enemy_robot.png');
@@ -159,21 +157,35 @@ class MainScene extends Phaser.Scene {
         this.load.image('enemy_tank', 'assets/enemy_tank.png');
         this.load.image('boss_robot', 'assets/boss_robot.png');
         this.load.image('gem', 'assets/ammo.png'); 
-        this.load.image('bg', 'assets/fundogame.png');
-
+        
+        // --- NOVO FUNDO DE MASMORRA ---
+        this.load.image('dungeon_floor', 'assets/dungeon_floor.png'); 
+        
+        // --- FALLBACKS (CASO OS ASSETS LOCAIS FALHEM) ---
         this.load.on('fileload', (file) => {
-            // Lógica de Fallbacks (mantida)
+            if (file.key === 'player' && !this.textures.exists('player')) this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
+            if (file.key === 'bullet' && !this.textures.exists('bullet')) this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet7.png');
+            if (file.key === 'enemy_robot' && !this.textures.exists('enemy_robot')) this.load.image('enemy_robot', 'https://labs.phaser.io/assets/sprites/space-baddie.png');
+            if (file.key === 'gem' && !this.textures.exists('gem')) this.load.image('gem', 'https://labs.phaser.io/assets/sprites/orb-green.png');
+            // Fallback para o fundo da masmorra
+            if (file.key === 'dungeon_floor' && !this.textures.exists('dungeon_floor')) this.load.image('dungeon_floor', 'https://img.itch.zone/aW1hZ2UvNjg3Mzg3LzM4NDgyODQucG5n/original/KkF6tN.png');
         });
     }
 
     create() {
         currentScene = this; 
 
-        loadProgress(); // 1. Carrega o progresso (inclui skills)
-        applySkillTreeEffects(); // 2. Aplica os bônus da Skill Tree (altera playerStats iniciais)
+        loadProgress(); 
+        applySkillTreeEffects(); 
         
-        // --- SETUP DO JOGO ---
-        this.add.tileSprite(0, 0, this.scale.width, this.scale.height, 'bg').setOrigin(0).setScrollFactor(0).setAlpha(0.5);
+        // --- USANDO O NOVO FUNDO DE MASMORRA ---
+        // Cria um tileSprite que se repete e cobre a tela
+        // O setScrollFactor(0) garante que ele não se move com a câmera, 
+        // mas o efeito de movimento do jogador ainda funciona visualmente.
+        this.add.tileSprite(0, 0, this.scale.width, this.scale.height, 'dungeon_floor')
+            .setOrigin(0)
+            .setScrollFactor(0)
+            .setAlpha(0.8); // Um pouco transparente para não ofuscar
 
         player = this.physics.add.sprite(this.scale.width/2, this.scale.height/2, 'player').setScale(ORIGINAL_SCALES.PLAYER);
         player.setCollideWorldBounds(true);
@@ -195,14 +207,14 @@ class MainScene extends Phaser.Scene {
 
         this.time.addEvent({ delay: GAME_CONFIG.WAVE.SPAWN_DELAY, callback: this.trySpawnEnemy, callbackScope: this, loop: true });
 
-        // --- CORREÇÃO DE INICIALIZAÇÃO ---
-        isPaused = true; // Mantém em pausa
-        this.physics.pause(); // Pausa o motor de física
-        showStartMenu(this); // Mostra o menu para o jogador começar
+        isPaused = true; 
+        this.physics.pause(); 
+        showStartMenu(this); 
     }
 
     update(time, delta) {
         if (isPaused) return;
+        
         // Lógica de movimento e tiro (inalterada)
         player.setVelocity(0);
         const spd = playerStats.speed;
@@ -274,7 +286,6 @@ class Bullet extends Phaser.Physics.Arcade.Sprite {
     fire(x, y, angle) {
         this.body.reset(x, y);
         this.setActive(true).setVisible(true).setScale(ORIGINAL_SCALES.BULLET).setRotation(angle);
-        // Usa o bônus de dano da Skill Tree
         this.damage = playerStats.damage * (1 + playerStats.skillEffects.damageMult); 
         this.pierce = playerStats.piercing;
         this.lifespan = 1000;
@@ -313,7 +324,6 @@ class Gem extends Phaser.Physics.Arcade.Sprite {
         super.preUpdate(time, delta);
         if (this.active) {
             const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
-            // playerStats.magnet é modificado pela Skill Tree
             if (dist < playerStats.magnet) this.scene.physics.moveToObject(this, player, 400);
         }
     }
@@ -414,7 +424,6 @@ function showStartMenu(scene) {
         <button id="skill-tree-btn" class="btn">ÁRVORE DE HABILIDADES</button>
     `;
 
-    // CORREÇÃO: Apenas remove o menu e retoma o jogo que já está carregado
     box.querySelector('#start-btn').onclick = () => {
         overlay.remove();
         scene.physics.resume();
@@ -432,7 +441,6 @@ function showStartMenu(scene) {
 function showSkillTreeMenu(scene, previousOverlay) {
     if (previousOverlay) previousOverlay.remove();
     
-    // ... (Lógica da Skill Tree mantida) ...
     const overlay = document.createElement('div');
     overlay.className = 'menu-overlay';
     
@@ -499,7 +507,6 @@ function showSkillTreeMenu(scene, previousOverlay) {
 
 function showLevelUp(scene) {
     isPaused = true; scene.physics.pause();
-    // ... (Lógica do menu de Level Up mantida, apenas mostrando a pausa/resumo) ...
     const overlay = document.createElement('div'); overlay.className = 'menu-overlay';
     const box = document.createElement('div'); box.className = 'menu-container';
     box.innerHTML = '<h2 class="menu-title">SUBIU DE NÍVEL!</h2><div class="cards-container" style="display: flex; justify-content: center; gap: 15px;"></div>';
@@ -545,4 +552,4 @@ window.addEventListener('resize', () => game.scale.resize(window.innerWidth, win
 </script>
 </body>
 </html>
-
+```http://googleusercontent.com/image_generation_content/0
