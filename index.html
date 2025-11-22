@@ -54,11 +54,11 @@ const GAME_CONFIG = {
         3: { fireRate: 1500, damage: 6, speed: 900, range: 600 }      
     },
     WAVE: {
-        INITIAL_ENEMY_COUNT: 10, 
+        INITIAL_ENEMY_COUNT: 5, 
         ENEMY_INCREMENT_PER_WAVE: 5,
         INITIAL_SPAWN_RATE: 1000,
         SPAWN_RATE_DECREASE_PER_WAVE: 80,
-        MAX_ENEMIES_ON_SCREEN: 200
+        MAX_ENEMIES_ON_SCREEN: 50
     },
     CAMERA_SHAKE: { PLAYER_HIT: { DURATION: 100, INTENSITY: 0.01 } }
 };
@@ -492,5 +492,6 @@ new Phaser.Game(config);
 </script>
 </body>
 </html>
+
 
 
