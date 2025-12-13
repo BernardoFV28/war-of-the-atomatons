@@ -665,7 +665,7 @@ const itemOptions = [
   { nome: "Sopro de Igniun", descricao: "Com <10% vida, explode em fogo mas morre depois de 5s.", tipo: "passivo", textura: "ammo", efeito: (scene) => { playerStats.igniunExplosion = true; }, peso: 1, rarity: 'legendary' },
   // --- NOVOS ITENS LENDÁRIOS ---
   {
-    nome: "Pacto do Demônio",
+    nome: "aliança da vila",
     descricao: "+50% de dano em todas as fontes. Você perde 1 de vida a cada 10 segundos.",
     tipo: "passivo",
     textura: "ammo",
@@ -896,7 +896,7 @@ function preload() {
   this.load.image('arma1', 'assets/pistolinha.png');
   this.load.image('arma2', 'assets/metralha.png');
   this.load.image('arma3', 'assets/lancarrio.png');
-  this.load.image('fundogame', 'assets/fundogame.png');
+  this.load.image('fundogame', 'assets/dungeon-floor.png');
   this.load.image('cora', 'assets/cora.png');
   this.load.image('enemy_robot', 'assets/enemy_robot.png');
   this.load.image('enemy_fast', 'assets/enemy_fast.png');
@@ -1973,3 +1973,4 @@ new Phaser.Game(config);
 </script>
 </body>
 </html>
+
