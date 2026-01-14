@@ -1,251 +1,467 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <title>War of the Automatons - Enhanced</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #000; color: white; font-family: 'Segoe UI', sans-serif; user-select: none; }
-        canvas { display: block; }
-        
-        #ui-layer { position: absolute; top: 15px; left: 15px; pointer-events: none; z-index: 5; }
-        .stat-box { background: rgba(0, 10, 20, 0.8); padding: 8px 15px; border-radius: 5px; margin-bottom: 5px; border-left: 4px solid #00d2ff; }
-
-        #menu-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; overflow-y: auto; padding: 20px; }
-        .hidden { display: none !important; }
-        
-        #shop-container { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); 
-            gap: 15px; 
-            width: 90%; 
-            max-width: 1000px;
-            margin-top: 20px; 
-        }
-
-        .upgrade-card {
-            background: #111; border: 2px solid #333; padding: 15px;
-            display: flex; flex-direction: column; align-items: center; text-align: center;
-            cursor: pointer; border-radius: 10px; transition: 0.2s;
-            min-height: 180px;
-        }
-        .upgrade-card:hover { border-color: #00d2ff; background: #1a1a1a; transform: translateY(-5px); }
-        .upgrade-card h3 { font-size: 1rem; margin: 5px 0; color: #00d2ff; }
-        .upgrade-card p { font-size: 0.75rem; color: #aaa; flex-grow: 1; }
-        .cost { color: #ffd700; font-weight: bold; margin-top: 10px; }
-
-        .btn { background: #00d2ff; border: none; padding: 15px 40px; color: #000; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 20px; }
-    </style>
+  <meta charset="UTF-8" />
+  <title>War of the Automatons - Survivor Mode</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000008c7; }
+    canvas { display: block; margin: auto; }
+    .menu-overlay, .shop-overlay, .pause-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; color: #FFF; }
+    .menu-container, .shop-container, .pause-container { background-color: #333; border: 2px solid #555; padding: 20px; border-radius: 8px; text-align: center; width: 80%; max-width: 900px; }
+    .menu-title, .shop-title, .pause-title { font-size: 36px; margin-bottom: 20px; color: #00FFFF; }
+    .cards-container, .shop-items-container { display: flex; justify-content: space-around; gap: 20px; flex-wrap: wrap; }
+    .card, .shop-item { background-color: #222; border: 1px solid #444; border-radius: 8px; padding: 15px; width: 250px; display: flex; flex-direction: column; align-items: center; text-align: left; min-height: 220px; }
+    .card:hover { transform: translateY(-5px); box-shadow: 0 5px 20px rgba(0, 255, 255, 0.5); }
+    .card-title, .shop-item-name { font-size: 22px; color: #FFD700; }
+    .card-button, .shop-item-button, .shop-close-button, .pause-close-button, .pause-tab-button { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 15px; }
+    .card-button { background-color: #008CBA; color: white; }
+    .shop-item-button { background-color: #28a745; color: white; }
+    .shop-close-button, .pause-close-button { background-color: #dc3545; color: white; }
+    .card-rarity { font-size: 12px; font-style: italic; margin: 5px 0 10px 0; }
+  </style>
 </head>
 <body>
-
-    <div id="ui-layer">
-        <div class="stat-box">LEVEL: <span id="hud-level">1</span></div>
-        <div class="stat-box">HP: <span id="hud-hp">100</span> / <span id="hud-max-hp">100</span></div>
-        <div class="stat-box">SP (PONTOS): <span id="shop-points-hud">0</span></div>
-    </div>
-
-    <div id="menu-overlay">
-        <div id="start-screen">
-            <h1>War of the Automatons</h1>
-            <center><button class="btn" onclick="game.start()">INICIAR MISSÃO</button></center>
-        </div>
-
-        <div id="shop-screen" class="hidden">
-            <h2 style="margin:0;">SISTEMA DE UPGRADES</h2>
-            <p style="color: gold;">Skill Points Disponíveis: <span id="shop-points">0</span></p>
-            <div id="shop-container">
-                <div class="upgrade-card" onclick="game.handleUpgrade('damage')"><h3>DANO</h3><p>Aumenta o poder das balas.</p><p class="cost">1 SP</p></div>
-                <div class="upgrade-card" onclick="game.handleUpgrade('speed')"><h3>AGILIDADE</h3><p>Mova-se mais rápido.</p><p class="cost">1 SP</p></div>
-                <div class="upgrade-card" onclick="game.handleUpgrade('firerate')"><h3>CADÊNCIA</h3><p>Atire mais rápido.</p><p class="cost">2 SP</p></div>
-                <div class="upgrade-card" onclick="game.handleUpgrade('multishot')"><h3>MULTI-TIRO</h3><p>+1 Bala por vez.</p><p class="cost">5 SP</p></div>
-                <div class="upgrade-card" onclick="game.handleUpgrade('heal')"><h3>REPARO</h3><p>Cura 50% de HP.</p><p class="cost">1 SP</p></div>
-                
-                <div class="upgrade-card" onclick="game.handleUpgrade('maxhp')"><h3>BLINDAGEM</h3><p>Aumenta HP Máximo em 50.</p><p class="cost">2 SP</p></div>
-                <div class="upgrade-card" onclick="game.handleUpgrade('bulletsize')"><h3>CALIBRE</h3><p>Balas maiores e mais fáceis de acertar.</p><p class="cost">2 SP</p></div>
-                <div class="upgrade-card" onclick="game.handleUpgrade('vampirism')"><h3>NANO-DRENAGEM</h3><p>Chance de curar 1 HP ao matar inimigos.</p><p class="cost">4 SP</p></div>
-                <div class="upgrade-card" onclick="game.handleUpgrade('piercing')"><h3>PERFURANTE</h3><p>Balas atravessam o primeiro inimigo.</p><p class="cost">6 SP</p></div>
-                <div class="upgrade-card" onclick="game.handleUpgrade('crit')"><h3>CRÍTICO</h3><p>10% de chance de causar dano triplo.</p><p class="cost">3 SP</p></div>
-                <div class="upgrade-card" onclick="game.handleUpgrade('knockback')"><h3>IMPACTO</h3><p>Empurra inimigos para longe ao acertar.</p><p class="cost">3 SP</p></div>
-                <div class="upgrade-card" onclick="game.handleUpgrade('xpboost')"><h3>APRENDIZADO</h3><p>Ganha 25% mais XP.</p><p class="cost">3 SP</p></div>
-                <div class="upgrade-card" onclick="game.handleUpgrade('shield')"><h3>ESCUDO AUX.</h3><p>Reduz dano recebido em 15%.</p><p class="cost">4 SP</p></div>
-            </div>
-            <center><button class="btn" onclick="game.toggleShop()">VOLTAR À LUTA</button></center>
-        </div>
-    </div>
-
-    <canvas id="gameCanvas"></canvas>
-
 <script>
-const assets = {
-    player: new Image(), bullet: new Image(), enemy: new Image(), boss: new Image()
+// --- Game Configuration ---
+const WORLD_SIZE = 4000; // FIX: Mundo grande
+const config = {
+  type: Phaser.AUTO,
+  width: 1320,
+  height: 590,
+  backgroundColor: '#000000',
+  physics: {
+    default: 'arcade',
+    arcade: { debug: false, gravity: { y: 0 } }
+  },
+  scene: { preload, create, update }
 };
-// Certifique-se que esses arquivos existem na pasta assets/
-assets.player.src = 'assets/player.png';
-assets.bullet.src = 'assets/bullet.png';
-assets.enemy.src = 'assets/enemy_robot.png';
-assets.boss.src = 'assets/boss_robot.png';
 
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-window.addEventListener('resize', resize); resize();
+// --- Centralized Game Balance & Config ---
+const GAME_CONFIG = {
+    PLAYER: {
+        INITIAL_SCALE: 0.08,
+        DEFAULT_TINT: 0xFFFFFF,
+        DASH_DURATION: 150, DASH_DISTANCE: 300, DASH_COOLDOWN_BASE: 3000,
+        ACCELERATION: 2000, DRAG: 0.6,
+        BASE_MAGNET_RANGE: 150,
+        BASE_PIERCING: 1
+    },
+    BULLET: { INITIAL_SPEED: 1000, INITIAL_SCALE: 0.01 },
+    WEAPONS: {
+        1: { fireRate: 1000, damage: 2, speed: 1000, range: 400 },     
+    },
+    WAVE: {
+        INITIAL_ENEMY_COUNT: 5, 
+        ENEMY_INCREMENT_PER_WAVE: 5,
+        INITIAL_SPAWN_RATE: 1000,
+        SPAWN_RATE_DECREASE_PER_WAVE: 80,
+        MAX_ENEMIES_ON_SCREEN: 200
+    },
+    CAMERA_SHAKE: { PLAYER_HIT: { DURATION: 100, INTENSITY: 0.01 } }
+};
 
-class Game {
-    constructor() {
-        this.player = {
-            x: 0, y: 0, hp: 100, maxHp: 100, sp: 0, lvl: 1, xp: 0, nextXp: 100,
-            dmg: 15, speed: 5, fr: 20, ms: 1, bSize: 8, 
-            vamp: 0, pierce: false, crit: 0, knock: 0, xpm: 1, def: 1
-        };
-        this.enemies = []; this.bullets = []; this.running = false; this.paused = false;
-        this.keys = {}; this.mouse = { x: 0, y: 0, down: false };
-        this.setupListeners();
-    }
+// --- Global Variables ---
+let player, cursors, bullets, enemies, xpGemsGroup;
+let hud;
+let lastShoot = 0;
+let waveNumber = 1;
+let enemiesInWave = GAME_CONFIG.WAVE.INITIAL_ENEMY_COUNT;
+let enemiesSpawnedThisWave = 0;
 
-    setupListeners() {
-        window.onkeydown = e => this.keys[e.key.toLowerCase()] = true;
-        window.onkeyup = e => this.keys[e.key.toLowerCase()] = false;
-        window.onmousemove = e => { this.mouse.x = e.clientX; this.mouse.y = e.clientY; };
-        window.onmousedown = () => this.mouse.down = true;
-        window.onmouseup = () => this.mouse.down = false;
-    }
+// FIX: NOVAS VARIÁVEIS DE CONTROLE DE FIM DE WAVE
+let enemiesToKillThisWave = enemiesInWave; 
+let enemiesKilledThisWave = 0; 
 
-    start() {
-        this.player.x = canvas.width/2; this.player.y = canvas.height/2;
-        this.running = true;
-        document.getElementById('menu-overlay').classList.add('hidden');
-        this.loop();
-    }
+let enemySpawnRate = GAME_CONFIG.WAVE.INITIAL_SPAWN_RATE;
+let currentWeapon = 1;
+let gamePaused = false, levelUpMenuOpen = false, shopMenuOpen = false;
+let closestEnemy = null;
 
-    toggleShop() {
-        this.paused = !this.paused;
-        document.getElementById('menu-overlay').classList.toggle('hidden', !this.paused);
-        document.getElementById('shop-screen').classList.toggle('hidden', !this.paused);
-        document.getElementById('start-screen').classList.add('hidden');
-        document.getElementById('shop-points').innerText = this.player.sp;
-        if(!this.paused) this.loop();
-    }
+// --- Player Stats ---
+let playerStats = {
+  life: 3, maxLife: 3,
+  bulletDamage: 2, fireRate: 300, playerSpeed: 300,
+  xp: 0, level: 1, xpToNextLevel: 50, 
+  currency: 0,
+  magnetRange: GAME_CONFIG.PLAYER.BASE_MAGNET_RANGE,
+  piercingCount: GAME_CONFIG.PLAYER.BASE_PIERCING,
+  dashAvailable: false, dashCooldown: false, doubleBullets: false,
+  incomingDamageMultiplier: 1, weaponBulletSpeed: GAME_CONFIG.BULLET.INITIAL_SPEED,
+  inventory: []
+};
 
-    handleUpgrade(type) {
-        const p = this.player;
-        const costs = { damage:1, speed:1, firerate:2, multishot:5, heal:1, maxhp:2, bulletsize:2, vampirism:4, piercing:6, crit:3, knockback:3, xpboost:3, shield:4 };
-        
-        if (p.sp >= costs[type]) {
-            p.sp -= costs[type];
-            if(type === 'damage') p.dmg += 10;
-            if(type === 'speed') p.speed += 0.8;
-            if(type === 'firerate') p.fr = Math.max(5, p.fr - 3);
-            if(type === 'multishot') p.ms++;
-            if(type === 'heal') p.hp = Math.min(p.maxHp, p.hp + p.maxHp/2);
-            if(type === 'maxhp') { p.maxHp += 50; p.hp += 50; }
-            if(type === 'bulletsize') p.bSize += 4;
-            if(type === 'vampirism') p.vamp += 0.05;
-            if(type === 'piercing') p.pierce = true;
-            if(type === 'crit') p.crit += 0.1;
-            if(type === 'knockback') p.knock += 2;
-            if(type === 'xpboost') p.xpm += 0.25;
-            if(type === 'shield') p.def *= 0.85;
+// --- Enemy Definitions ---
+const enemyTypes = {
+  normal: { texture: 'enemy_robot', baseHealth: 4, speed: 100, scale: 0.06, xpValue: 5 },
+  fast: { texture: 'enemy_fast', baseHealth: 3, speed: 200, scale: 0.06, xpValue: 8 },
+  tank: { texture: 'enemy_tank', baseHealth: 15, speed: 50, scale: 0.08, xpValue: 15 },
+  boss_robot: { texture: 'boss_robot', baseHealth: 500, speed: 200, scale: 0.2, xpValue: 200, boss: true }
+};
 
-            document.getElementById('shop-points').innerText = p.sp;
-            document.getElementById('shop-points-hud').innerText = p.sp;
-        }
-    }
+// --- Item Rarity ---
+const itemRarities = {
+    common: { color: '#FFFFFF' }, rare: { color: '#00BFFF' }, epic: { color: '#9932CC' }, legendary: { color: '#FFD700' }
+};
 
-    loop() {
-        if (!this.running || this.paused) return;
-        ctx.fillStyle = '#050505'; ctx.fillRect(0,0,canvas.width, canvas.height);
+// --- Card Options ---
+const itemOptions = [
+  { nome: "Balas de Titânio", descricao: "+20% Dano", rarity: 'common', efeito: () => playerStats.bulletDamage *= 1.2 },
+  { nome: "Gatilho Rápido", descricao: "+15% Velocidade de Ataque", rarity: 'common', efeito: () => playerStats.fireRate *= 0.85 },
+  { nome: "Motor V8", descricao: "+10% Velocidade de Movimento", rarity: 'common', efeito: () => playerStats.playerSpeed *= 1.1 },
+  { nome: "Imã de Sucata", descricao: "+50% Alcance de Coleta", rarity: 'common', efeito: () => playerStats.magnetRange *= 1.5 },
+  { nome: "Projétil Perfurante", descricao: "Balas atravessam +1 inimigo", rarity: 'rare', efeito: () => playerStats.piercingCount += 1 },
+  { nome: "Pele Reforçada", descricao: "+1 Vida Máxima", rarity: 'rare', efeito: () => { playerStats.maxLife++; playerStats.life++; hud.updateHealthBar(); } },
+  { nome: "Tiro Duplo", descricao: "Dispara um segundo projétil", rarity: 'epic', efeito: () => playerStats.doubleBullets = true },
+  { nome: "Módulo de Dash", descricao: "Habilita a habilidade de Dash (Espaço)", rarity: 'epic', efeito: () => playerStats.dashAvailable = true },
+];
 
-        this.updatePlayer();
-        this.updateEnemies();
-        this.updateBullets();
-        this.updateUI();
+// --- HUD Class ---
+class HUD extends Phaser.GameObjects.Container {
+  constructor(scene, x, y) {
+    super(scene, x, y);
+    scene.add.existing(this);
+    this.setDepth(1000); 
+    this.setScrollFactor(0); 
+    this.lifeText = scene.add.text(10, 10, '', { fontSize: '20px', fill: '#FF0000' }).setScrollFactor(0);
+    this.levelText = scene.add.text(10, 40, '', { fontSize: '20px', fill: '#FFFF00' }).setScrollFactor(0);
+    this.currencyText = scene.add.text(10, 70, '', { fontSize: '20px', fill: '#FFD700' }).setScrollFactor(0);
+    this.xpBarBg = scene.add.rectangle(10, 100, 200, 15, 0x555555).setOrigin(0).setScrollFactor(0);
+    this.xpBar = scene.add.rectangle(10, 100, 0, 15, 0x00FF00).setOrigin(0).setScrollFactor(0);
+    this.waveText = scene.add.text(config.width / 2, 10, '', { fontSize: '24px', fill: '#FFFFFF' }).setOrigin(0.5).setScrollFactor(0);
+    this.add([this.lifeText, this.levelText, this.currencyText, this.xpBarBg, this.xpBar, this.waveText]);
+    this.updateAll();
+  }
+  updateAll() {
+      this.lifeText.setText(`Vida: ${Math.ceil(playerStats.life)}/${playerStats.maxLife}`);
+      this.levelText.setText(`Nível: ${playerStats.level}`);
+      this.currencyText.setText(`Sucata: ${playerStats.currency}`);
+      // FIX: Mostrar o progresso real da wave (abates/meta)
+      this.waveText.setText(`Onda ${waveNumber}: ${enemiesKilledThisWave}/${enemiesToKillThisWave}`); 
+      const xpRatio = playerStats.xp / playerStats.xpToNextLevel;
+      this.xpBar.width = 200 * xpRatio;
+  }
+  updateHealthBar() { this.updateAll(); }
+  updateXpBar() { this.updateAll(); }
+  updateCurrencyDisplay() { this.updateAll(); }
+}
 
-        requestAnimationFrame(() => this.loop());
-    }
+// --- Phaser Scene Functions ---
+function preload() {
+  this.load.image('cardBg', 'assets/card.png');
+  this.load.image('player', 'assets/player.png');
+  this.load.image('bullet', 'assets/bullet.png');
+  this.load.image('enemy_robot', 'assets/enemy_robot.png');
+  this.load.image('enemy_fast', 'assets/enemy_fast.png');
+  this.load.image('enemy_tank', 'assets/enemy_tank.png');
+  this.load.image('boss_robot', 'assets/boss_robot.png');
+  this.load.image('ammo', 'assets/ammo.png'); 
 
-    updatePlayer() {
-        const p = this.player;
-        if(this.keys['w']) p.y -= p.speed;
-        if(this.keys['s']) p.y += p.speed;
-        if(this.keys['a']) p.x -= p.speed;
-        if(this.keys['d']) p.x += p.speed;
+  this.load.image('background_tile', 'assets/dungeon_floor.png'); 
 
-        if(this.cd > 0) this.cd--;
-        if(this.mouse.down && (this.cd <= 0 || !this.cd)) {
-            for(let i=0; i<p.ms; i++) {
-                const angle = Math.atan2(this.mouse.y - p.y, this.mouse.x - p.x) + (i*0.1 - (p.ms-1)*0.05);
-                this.bullets.push({ x:p.x, y:p.y, vx:Math.cos(angle)*12, vy:Math.sin(angle)*12, p: p.pierce });
-            }
-            this.cd = p.fr;
-        }
-        this.drawImg(assets.player, p.x, p.y, 40, '#00d2ff');
-    }
+  // Fallbacks
+  if(!this.textures.exists('player')) this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
+  if(!this.textures.exists('bullet')) this.load.image('bullet', 'https://labs.phaser.io/assets/sprites/bullets/bullet7.png');
+  if(!this.textures.exists('enemy_robot')) this.load.image('enemy_robot', 'https://labs.phaser.io/assets/sprites/space-baddie.png');
+  if(!this.textures.exists('ammo')) this.load.image('ammo', 'https://labs.phaser.io/assets/sprites/orb-green.png');
+  if(!this.textures.exists('background_tile')) this.load.image('background_tile', 'https://labs.phaser.io/assets/pics/dungeon-floor-fallback.png');
+}
 
-    updateEnemies() {
-        if(Math.random() < 0.02) {
-            this.enemies.push({ x: Math.random()*canvas.width, y: -20, hp: 40 + (this.player.lvl*10) });
-        }
-        this.enemies.forEach((e, i) => {
-            const angle = Math.atan2(this.player.y - e.y, this.player.x - e.x);
-            e.x += Math.cos(angle) * 2; e.y += Math.sin(angle) * 2;
-            this.drawImg(assets.enemy, e.x, e.y, 35, 'red');
+function create() {
+  this.physics.world.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
+  this.add.tileSprite(WORLD_SIZE / 2, WORLD_SIZE / 2, WORLD_SIZE, WORLD_SIZE, 'background_tile'); 
 
-            if(Math.hypot(this.player.x-e.x, this.player.y-e.y) < 30) {
-                this.player.hp -= 0.5 * this.player.def;
-                if(this.player.hp <= 0) location.reload();
-            }
-        });
-    }
+  player = this.physics.add.sprite(WORLD_SIZE / 2, WORLD_SIZE / 2, 'player').setScale(GAME_CONFIG.PLAYER.INITIAL_SCALE);
+  player.setCollideWorldBounds(true);
+  player.setDrag(GAME_CONFIG.PLAYER.DRAG); player.setMaxVelocity(playerStats.playerSpeed);
 
-    updateBullets() {
-        const p = this.player;
-        for(let i=this.bullets.length-1; i>=0; i--) {
-            const b = this.bullets[i];
-            b.x += b.vx; b.y += b.vy;
-            ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(b.x, b.y, p.bSize, 0, Math.PI*2); ctx.fill();
+  this.cameras.main.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
+  this.cameras.main.startFollow(player, true, 0.09, 0.09); 
 
-            this.enemies.forEach((e, ei) => {
-                if(Math.hypot(b.x-e.x, b.y-e.y) < 25) {
-                    let damage = p.dmg;
-                    if(Math.random() < p.crit) damage *= 3;
-                    e.hp -= damage;
-                    
-                    const angle = Math.atan2(e.y - b.y, e.x - b.x);
-                    e.x += Math.cos(angle) * p.knock; e.y += Math.sin(angle) * p.knock;
+  cursors = this.input.keyboard.createCursorKeys();
+  this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+  this.keyW = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+  this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+  this.keyS = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+  this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
 
-                    if(!b.p) this.bullets.splice(i, 1);
-                    if(e.hp <= 0) {
-                        this.enemies.splice(ei, 1);
-                        p.xp += 20 * p.xpm;
-                        if(Math.random() < p.vamp) p.hp = Math.min(p.maxHp, p.hp + 1);
-                        if(p.xp >= p.nextXp) {
-                            p.lvl++; p.sp++; p.xp = 0; p.nextXp *= 1.2;
-                            this.toggleShop();
-                        }
-                    }
-                }
-            });
-            if(b.x<0 || b.x>canvas.width || b.y<0 || b.y>canvas.height) this.bullets.splice(i,1);
-        }
-    }
+  bullets = this.physics.add.group({ classType: Bullet, runChildUpdate: true, maxSize: 100 });
+  enemies = this.physics.add.group({ classType: Enemy, runChildUpdate: true, maxSize: GAME_CONFIG.WAVE.MAX_ENEMIES_ON_SCREEN });
+  xpGemsGroup = this.physics.add.group({ classType: XPGem, runChildUpdate: true, maxSize: 300 });
 
-    drawImg(img, x, y, size, fallback) {
-        if(img.complete && img.naturalWidth !== 0) {
-            ctx.drawImage(img, x - size/2, y - size/2, size, size);
-        } else {
-            ctx.fillStyle = fallback; ctx.fillRect(x-size/2, y-size/2, size, size);
-        }
-    }
+  this.physics.add.overlap(bullets, enemies, bulletHitEnemy, null, this);
+  this.physics.add.collider(player, enemies, playerHitEnemy, null, this);
+  this.physics.add.overlap(player, xpGemsGroup, collectXPGem, null, this);
 
-    updateUI() {
-        document.getElementById('hud-level').innerText = this.player.lvl;
-        document.getElementById('hud-hp').innerText = Math.floor(this.player.hp);
-        document.getElementById('hud-max-hp').innerText = this.player.maxHp;
-        document.getElementById('shop-points-hud').innerText = this.player.sp;
+  hud = new HUD(this, 0, 0); 
+  switchWeapon.call(this, 1);
+
+  // Spawner loop
+  this.time.addEvent({ delay: enemySpawnRate, callback: spawnEnemy, callbackScope: this, loop: true, id: 'spawner' });
+}
+
+function update(time, delta) {
+  if (gamePaused || levelUpMenuOpen) return;
+
+  // Movimentação
+  player.setAcceleration(0);
+  if (cursors.left.isDown || this.keyA.isDown) player.setAccelerationX(-GAME_CONFIG.PLAYER.ACCELERATION);
+  else if (cursors.right.isDown || this.keyD.isDown) player.setAccelerationX(GAME_CONFIG.PLAYER.ACCELERATION);
+  if (cursors.up.isDown || this.keyW.isDown) player.setAccelerationY(-GAME_CONFIG.PLAYER.ACCELERATION);
+  else if (cursors.down.isDown || this.keyS.isDown) player.setAccelerationY(GAME_CONFIG.PLAYER.ACCELERATION);
+
+  // Dash
+  if (Phaser.Input.Keyboard.JustDown(this.keySpace) && playerStats.dashAvailable && !playerStats.dashCooldown) {
+    performDash(this);
+  }
+  
+  // Auto-Targeting
+  closestEnemy = null;
+  let minDistance = Infinity;
+  const weaponRange = GAME_CONFIG.WEAPONS[currentWeapon].range;
+
+  enemies.children.each(enemy => {
+      if (enemy.active) {
+          const dist = Phaser.Math.Distance.Between(player.x, player.y, enemy.x, enemy.y);
+          if (dist < minDistance && dist <= weaponRange) {
+              minDistance = dist;
+              closestEnemy = enemy;
+          }
+      }
+  });
+
+  if (time > lastShoot && closestEnemy) {
+    shootBullet.call(this, closestEnemy);
+    lastShoot = time + playerStats.fireRate;
+  }
+}
+
+// --- Game Logic Functions ---
+function shootBullet(targetEnemy) {
+  let baseBulletCount = playerStats.doubleBullets ? 2 : 1;
+  const angleRad = Phaser.Math.Angle.Between(player.x, player.y, targetEnemy.x, targetEnemy.y);
+  for (let i = 0; i < baseBulletCount; i++) {
+    let offsetAngle = (baseBulletCount > 1) ? Phaser.Math.DEG_TO_RAD * ((i === 0 ? -5 : 5)) : 0;
+    const bullet = bullets.get(player.x, player.y);
+    if (bullet) bullet.fire(angleRad + offsetAngle, playerStats.weaponBulletSpeed, playerStats.bulletDamage, playerStats.piercingCount);
+  }
+}
+
+function switchWeapon(weaponNum) {
+  currentWeapon = weaponNum;
+  const weaponConfig = GAME_CONFIG.WEAPONS[currentWeapon];
+  playerStats.fireRate = weaponConfig.fireRate;
+  playerStats.bulletDamage = weaponConfig.damage;
+  playerStats.weaponBulletSpeed = weaponConfig.speed;
+}
+
+function bulletHitEnemy(bullet, enemy) {
+  if (!bullet.active || !enemy.active) return;
+  enemy.takeDamage(bullet.damage);
+  bullet.piercingHealth--;
+  if (bullet.piercingHealth <= 0) bullet.kill();
+  if (enemy.health <= 0) handleEnemyDeath.call(this, enemy);
+}
+
+function playerHitEnemy(player, enemy) {
+    if (!player.active || !enemy.active || player.isInvulnerable) return;
+    this.cameras.main.shake(GAME_CONFIG.CAMERA_SHAKE.PLAYER_HIT.DURATION, GAME_CONFIG.CAMERA_SHAKE.PLAYER_HIT.INTENSITY);
+    playerStats.life -= 1;
+    hud.updateHealthBar();
+    player.setTint(0xFF0000);
+    player.isInvulnerable = true;
+    this.time.delayedCall(500, () => { player.clearTint(); player.isInvulnerable = false; });
+    if (playerStats.life <= 0) gameOver.call(this);
+}
+
+function handleEnemyDeath(enemy) {
+    if (!enemy.active) return;
+    dropXPGem(this, enemy.x, enemy.y, enemy.enemyType.xpValue);
+    enemy.kill();
+
+    // FIX: CONTAGEM E VERIFICAÇÃO DE FIM DE WAVE
+    enemiesKilledThisWave++;
+    if (enemiesKilledThisWave >= enemiesToKillThisWave) {
+        startNextWave.call(this);
     }
 }
 
-const game = new Game();
+function dropXPGem(scene, x, y, xpValue) {
+    const gem = xpGemsGroup.get(x, y);
+    if (gem) gem.spawn(xpValue);
+}
+
+function collectXPGem(player, gem) {
+    if(gem.isBeingCollected) return;
+    gem.isBeingCollected = true;
+    gainXp.call(this, gem.xpValue);
+    gem.kill();
+}
+
+function gainXp(amount) {
+  playerStats.xp += amount;
+  hud.updateXpBar();
+  if (playerStats.xp >= playerStats.xpToNextLevel) {
+    playerStats.level++;
+    playerStats.xp -= playerStats.xpToNextLevel;
+    playerStats.xpToNextLevel = Math.floor(playerStats.xpToNextLevel * 1.2);
+    hud.updateAll();
+    showLevelUpMenu.call(this);
+  }
+}
+
+function performDash(scene) {
+    playerStats.dashCooldown = true;
+    const dashVelocity = scene.physics.velocityFromRotation(player.rotation, GAME_CONFIG.PLAYER.DASH_DISTANCE * 4);
+    player.body.setVelocity(dashVelocity.x, dashVelocity.y);
+    player.setTint(0x00FF00);
+    scene.time.delayedCall(GAME_CONFIG.PLAYER.DASH_DURATION, () => player.clearTint());
+    scene.time.delayedCall(GAME_CONFIG.PLAYER.DASH_COOLDOWN_BASE, () => playerStats.dashCooldown = false);
+}
+
+function spawnEnemy() {
+  if (enemies.countActive() >= GAME_CONFIG.WAVE.MAX_ENEMIES_ON_SCREEN) return;
+
+  if (enemiesSpawnedThisWave >= enemiesInWave) {
+      // FIX: O SPAWNER APENAS PARA QUANDO A META DE SPAWN É ATINGIDA, MAS NÃO INICIA A PRÓXIMA WAVE.
+      return;
+  }
+  
+  const cam = this.cameras.main; 
+  let x, y;
+  const padding = 50;
+  
+  // Lógica de Spawn FORA da visão da câmera
+  if (Math.random() < 0.5) { 
+      x = (Math.random() < 0.5) ? cam.scrollX - padding : cam.scrollX + cam.width + padding;
+      y = Phaser.Math.Between(cam.scrollY, cam.scrollY + cam.height);
+  } else { 
+      x = Phaser.Math.Between(cam.scrollX, cam.scrollX + cam.width);
+      y = (Math.random() < 0.5) ? cam.scrollY - padding : cam.scrollY + cam.height + padding;
+  }
+
+  x = Phaser.Math.Clamp(x, 0, WORLD_SIZE);
+  y = Phaser.Math.Clamp(y, 0, WORLD_SIZE);
+
+  let enemyTypeKey = 'normal';
+  if(waveNumber > 3 && Math.random() > 0.7) enemyTypeKey = 'fast';
+  if(waveNumber > 5 && Math.random() > 0.8) enemyTypeKey = 'tank';
+
+  const enemy = enemies.get(x, y);
+  if (enemy) {
+    enemy.spawn(enemyTypes[enemyTypeKey]);
+    enemiesSpawnedThisWave++;
+  }
+}
+
+function startNextWave() {
+  waveNumber++;
+  
+  // Aumenta o número de inimigos a serem mortos na próxima onda
+  enemiesInWave += GAME_CONFIG.WAVE.ENEMY_INCREMENT_PER_WAVE; 
+  
+  // FIX: Configura a nova meta de abate e reseta o contador
+  enemiesToKillThisWave = enemiesInWave; 
+  enemiesKilledThisWave = 0; 
+  
+  let newRate = enemySpawnRate - GAME_CONFIG.WAVE.SPAWN_RATE_DECREASE_PER_WAVE;
+  enemySpawnRate = Math.max(200, newRate);
+  
+  const spawner = this.time.getEvent('spawner');
+  if(spawner) spawner.delay = enemySpawnRate;
+
+  // Reseta o contador de spawn para permitir que a nova leva comece a aparecer.
+  enemiesSpawnedThisWave = 0; 
+  hud.updateAll();
+}
+
+// --- Custom Classes (Mantidas) ---
+class Bullet extends Phaser.Physics.Arcade.Sprite {
+  constructor(scene, x, y) { super(scene, x, y, 'bullet'); }
+  fire(angle, speed, damage, piercing) {
+      this.setActive(true).setVisible(true).setScale(GAME_CONFIG.BULLET.INITIAL_SCALE);
+      this.damage = damage; this.piercingHealth = piercing; this.setRotation(angle);
+      this.scene.physics.velocityFromRotation(angle, speed, this.body.velocity);
+      this.lifeSpan = 2000;
+  }
+  kill() { this.setActive(false).setVisible(false); this.body.stop(); }
+  preUpdate(time, delta) {
+      super.preUpdate(time, delta);
+      this.lifeSpan -= delta;
+      if (this.lifeSpan <= 0) this.kill();
+  }
+}
+
+class Enemy extends Phaser.Physics.Arcade.Sprite {
+  constructor(scene, x, y) { super(scene, x, y, 'enemy_robot'); }
+  spawn(enemyData) {
+      this.setActive(true).setVisible(true).setTexture(enemyData.texture).setScale(enemyData.scale);
+      this.health = enemyData.baseHealth * (1 + (waveNumber * 0.1));
+      this.speed = enemyData.speed; this.enemyType = enemyData; this.setTint(0xffffff);
+  }
+  takeDamage(amount) { this.health -= amount; this.setTint(0xff0000); this.scene.time.delayedCall(100, ()=> { if(this.active) this.clearTint() }); }
+  kill() { this.setActive(false).setVisible(false); this.body.stop(); }
+  update(time, delta) {
+    if (!this.active || !player.active || gamePaused) return;
+    this.scene.physics.moveToObject(this, player, this.speed);
+  }
+}
+
+class XPGem extends Phaser.Physics.Arcade.Sprite {
+    constructor(scene, x, y) { 
+        super(scene, x, y, 'ammo'); 
+        this.setScale(0.04); this.setTint(0x00ff00);
+    }
+    spawn(xpValue) {
+        this.setActive(true).setVisible(true);
+        this.xpValue = xpValue; this.isBeingCollected = false; this.body.setVelocity(0);
+    }
+    kill() { this.setActive(false).setVisible(false); }
+    preUpdate(time, delta) {
+        super.preUpdate(time, delta);
+        if(!this.active) return;
+        
+        const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
+        if (dist < playerStats.magnetRange) {
+            this.scene.physics.moveToObject(this, player, 600);
+        }
+    }
+}
+
+// --- Menus HTML (Mantidos) ---
+function showLevelUpMenu() {
+    if (levelUpMenuOpen) return;
+    gamePaused = true; levelUpMenuOpen = true; this.physics.pause();
+    
+    const overlay = document.createElement('div'); overlay.className = 'menu-overlay';
+    const container = document.createElement('div'); container.className = 'menu-container';
+    container.innerHTML = '<h2 class="menu-title">Subiu de Nível!</h2>';
+    const cardsDiv = document.createElement('div'); cardsDiv.className = 'cards-container';
+    
+    const choices = Phaser.Utils.Array.Shuffle(itemOptions).slice(0, 3);
+    
+    choices.forEach(item => {
+        const card = document.createElement('div'); card.className = 'card';
+        card.innerHTML = `<h3 class="card-title">${item.nome}</h3><p class="card-rarity" style="color:${itemRarities[item.rarity].color}">${item.rarity}</p><p>${item.descricao}</p><button class="card-button">Selecionar</button>`;
+        card.querySelector('button').onclick = () => {
+            item.efeito(this);
+            document.body.removeChild(overlay);
+            levelUpMenuOpen = false; gamePaused = false; this.physics.resume();
+        };
+        cardsDiv.appendChild(card);
+    });
+    container.appendChild(cardsDiv); overlay.appendChild(container); document.body.appendChild(overlay);
+}
+
+function gameOver() {
+  this.physics.pause(); gamePaused = true;
+  const overlay = document.createElement('div'); overlay.className = 'menu-overlay';
+  overlay.innerHTML = '<div class="menu-container"><h2 class="menu-title" style="color:red">VOCÊ MORREU</h2><button class="card-button" onclick="location.reload()">Tentar Novamente</button></div>';
+  document.body.appendChild(overlay);
+}
+
+new Phaser.Game(config);
 </script>
 </body>
 </html>
