@@ -69,7 +69,7 @@
 </div>
 
 <div id="start-screen" class="overlay">
-    <h1 style="color:#00d2ff; font-size: 4rem; text-shadow: 0 0 30px #00d2ff;">ROBOT WARFARE</h1>
+    <h1 style="color:#00d2ff; font-size: 4rem; text-shadow: 0 0 30px #00d2ff;"></h1>
     <h2 style="color:#fff;">MODO: SOBREVIVÊNCIA</h2>
     <p style="color:#ccc">WASD para mover. Mouse para mirar. Sobreviva à horda.</p>
     <button onclick="startGame()" style="padding: 15px 40px; font-size: 1.5rem; background: #00d2ff; border: none; font-weight: bold; cursor: pointer; border-radius: 5px;">INICIAR OPERAÇÃO</button>
@@ -155,7 +155,9 @@ class MainScene extends Phaser.Scene {
         const pKey = this.textures.exists('player') ? 'player' : 'fallback_player';
         this.player = this.physics.add.sprite(2000, 2000, pKey);
         this.player.setCollideWorldBounds(true);
-        this.player.setDepth(10); // Player sempre acima do chão
+        this.player.setDepth(10); 
+        this.player.setScale(0.05);
+        // Player sempre acima do chão
         
         // Câmera
         this.cameras.main.startFollow(this.player, true);
@@ -527,3 +529,4 @@ function startGame() {
 </script>
 </body>
 </html>
+
