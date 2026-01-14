@@ -165,9 +165,13 @@ class MainScene extends Phaser.Scene {
 
         // Grupos
         this.enemies = this.physics.add.group({ runChildUpdate: true });
+        this.enemies.setScale(0.04);
         this.bullets = this.physics.add.group({ runChildUpdate: true });
+        this.bullets.setScale(0.02);
         this.xpGems = this.physics.add.group();
+        this.xpGems.setScale(0.03);
         this.damageTexts = this.add.group();
+        this.damageTexts.setScale(0.05);
 
         // Colisões
         this.physics.add.overlap(this.bullets, this.enemies, this.hitEnemy, null, this);
@@ -529,4 +533,5 @@ function startGame() {
 </script>
 </body>
 </html>
+
 
