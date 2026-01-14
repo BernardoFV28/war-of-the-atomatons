@@ -2,417 +2,246 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Robot Warfare: Pro Edition</title>
+    <title>War of the Automatons - Enhanced</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
-        canvas { display: block; filter: contrast(1.1); }
+        body { margin: 0; overflow: hidden; background: #000; color: white; font-family: 'Segoe UI', sans-serif; user-select: none; }
+        canvas { display: block; }
         
-        /* UI GERAL */
         #ui-layer { position: absolute; top: 15px; left: 15px; pointer-events: none; z-index: 5; }
-        .stat-box { 
-            background: rgba(0, 10, 20, 0.8); padding: 10px 20px; border-radius: 8px; 
-            margin-bottom: 8px; border-left: 5px solid #00d2ff; 
-            font-family: monospace; font-size: 1.1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        }
+        .stat-box { background: rgba(0, 10, 20, 0.8); padding: 8px 15px; border-radius: 5px; margin-bottom: 5px; border-left: 4px solid #00d2ff; }
 
-        /* BOSS UI */
-        #boss-hud {
-            position: absolute; top: 30px; left: 50%; transform: translateX(-50%);
-            width: 50%; display: none; z-index: 5; flex-direction: column; align-items: center;
-            animation: fadeIn 1s;
-        }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        #boss-name { font-weight: 900; font-size: 1.8rem; color: #ff0055; text-transform: uppercase; letter-spacing: 4px; text-shadow: 0 0 15px #ff0055; margin-bottom: 10px; }
-        #boss-health-bar-bg { width: 100%; height: 18px; background: #111; border: 2px solid #555; border-radius: 20px; overflow: hidden; box-shadow: 0 0 20px rgba(255, 0, 85, 0.3); }
-        #boss-health-bar-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #ff0055, #ffaa00); transition: width 0.3s cubic-bezier(0.17, 0.67, 0.83, 0.67); }
-
-        /* MENUS */
-        #menu-overlay { 
-            position: absolute; inset: 0; 
-            background: radial-gradient(circle, rgba(0,20,40,0.95) 0%, rgba(0,0,0,1) 100%); 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100;
-        }
+        #menu-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; overflow-y: auto; padding: 20px; }
         .hidden { display: none !important; }
         
-        h1 { font-size: 3.5rem; margin-bottom: 10px; color: #00d2ff; text-shadow: 0 0 30px #00d2ff; letter-spacing: 2px; text-align: center; }
-        
-        /* SHOP CARDS */
-        #shop-container { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; margin-top: 25px; }
+        #shop-container { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); 
+            gap: 15px; 
+            width: 90%; 
+            max-width: 1000px;
+            margin-top: 20px; 
+        }
+
         .upgrade-card {
-            background-color: #111; background-image: url('assets/card.png'); background-size: cover;
-            border: 2px solid #00d2ff33; padding: 20px; width: 160px; min-height: 220px;
+            background: #111; border: 2px solid #333; padding: 15px;
             display: flex; flex-direction: column; align-items: center; text-align: center;
-            cursor: pointer; border-radius: 12px; transition: all 0.3s;
+            cursor: pointer; border-radius: 10px; transition: 0.2s;
+            min-height: 180px;
         }
-        .upgrade-card:hover { transform: translateY(-8px) scale(1.02); border-color: #00d2ff; box-shadow: 0 0 30px rgba(0, 210, 255, 0.4); }
-        .upgrade-card h3 { font-size: 1.2rem; color: #fff; margin: 10px 0; }
-        .upgrade-card p { font-size: 0.85rem; color: #aaa; margin-bottom: 15px; }
-        .cost { color: #ffd700 !important; font-weight: 900; font-size: 1.1rem !important; margin-top: auto; border-top: 1px solid #333; width: 100%; pt: 10px; }
+        .upgrade-card:hover { border-color: #00d2ff; background: #1a1a1a; transform: translateY(-5px); }
+        .upgrade-card h3 { font-size: 1rem; margin: 5px 0; color: #00d2ff; }
+        .upgrade-card p { font-size: 0.75rem; color: #aaa; flex-grow: 1; }
+        .cost { color: #ffd700; font-weight: bold; margin-top: 10px; }
 
-        .btn { 
-            background: #00d2ff; border: none; padding: 18px 60px; 
-            color: #000; font-size: 1.3rem; font-weight: 900; cursor: pointer; 
-            margin-top: 30px; border-radius: 8px; transition: 0.3s;
-        }
-        .btn:hover { background: #fff; transform: scale(1.05); box-shadow: 0 0 40px #00d2ff; }
-
-        .ach-toast {
-            background: #000; color: gold; padding: 15px 30px; font-weight: bold;
-            border: 1px solid gold; border-radius: 4px; box-shadow: 0 0 20px rgba(218, 165, 32, 0.4);
-            animation: slideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-        }
-        @keyframes slideIn { from { transform: translateX(150%); } to { transform: translateX(0); } }
+        .btn { background: #00d2ff; border: none; padding: 15px 40px; color: #000; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 20px; }
     </style>
 </head>
 <body>
 
     <div id="ui-layer">
-        <div class="stat-box">LEVEL <span id="hud-level">1</span></div>
-        <div class="stat-box" style="border-color: #ffd700">XP: <span id="hud-xp">0</span> / <span id="hud-next-xp">100</span></div>
-        <div class="stat-box" style="border-color: #ff0055">HP: <span id="hud-hp">100</span> / <span id="hud-max-hp">100</span></div>
-        <div class="stat-box" style="border-color: #00ff88">SCORE: <span id="hud-score">0</span></div>
+        <div class="stat-box">LEVEL: <span id="hud-level">1</span></div>
+        <div class="stat-box">HP: <span id="hud-hp">100</span> / <span id="hud-max-hp">100</span></div>
+        <div class="stat-box">SP (PONTOS): <span id="shop-points-hud">0</span></div>
     </div>
-
-    <div id="boss-hud">
-        <div id="boss-name">YNVINIR</div>
-        <div id="boss-health-bar-bg"><div id="boss-health-bar-fill"></div></div>
-    </div>
-
-    <div id="achievement-container" style="position: absolute; bottom: 20px; right: 20px; z-index: 10; display: flex; flex-direction: column; gap: 10px;"></div>
 
     <div id="menu-overlay">
         <div id="start-screen">
-            <h1>WAR OF THE AUTOMATONS</h1>
-            <p style="text-align: center; color: #888;">Use WASD para mover e Mouse para atirar</p>
-            <center><button class="btn" onclick="game.start()">INICIAR OPERAÇÃO</button></center>
+            <h1>War of the Automatons</h1>
+            <center><button class="btn" onclick="game.start()">INICIAR MISSÃO</button></center>
         </div>
 
         <div id="shop-screen" class="hidden">
-            <h2 style="font-size: 2.5rem; text-align: center;">UPGRADES DE COMBATE</h2>
-            <p style="text-align: center; color: #ffd700; font-weight: bold;">SKILL POINTS: <span id="shop-points">0</span></p>
+            <h2 style="margin:0;">SISTEMA DE UPGRADES</h2>
+            <p style="color: gold;">Skill Points Disponíveis: <span id="shop-points">0</span></p>
             <div id="shop-container">
-                <div class="upgrade-card" onclick="game.player.upgrade('damage')">
-                    <h3>DANO BRUTAL</h3>
-                    <p>Projéteis com maior impacto destrutivo.</p>
-                    <p class="cost">1 SP</p>
-                </div>
-                <div class="upgrade-card" onclick="game.player.upgrade('speed')">
-                    <h3>AGILIDADE</h3>
-                    <p>Melhora a resposta dos propulsores.</p>
-                    <p class="cost">1 SP</p>
-                </div>
-                <div class="upgrade-card" onclick="game.player.upgrade('firerate')">
-                    <h3>CADÊNCIA</h3>
-                    <p>Diminui o tempo de recarga entre disparos.</p>
-                    <p class="cost">2 SP</p>
-                </div>
-                <div class="upgrade-card" onclick="game.player.upgrade('multishot')">
-                    <h3>NÚCLEO DUPLO</h3>
-                    <p>Dispara um projétil adicional.</p>
-                    <p class="cost">5 SP</p>
-                </div>
-                <div class="upgrade-card" onclick="game.player.heal()">
-                    <h3>AUTO-REPARO</h3>
-                    <p>Restaura 50% dos sistemas de defesa.</p>
-                    <p class="cost">1 SP</p>
-                </div>
+                <div class="upgrade-card" onclick="game.handleUpgrade('damage')"><h3>DANO</h3><p>Aumenta o poder das balas.</p><p class="cost">1 SP</p></div>
+                <div class="upgrade-card" onclick="game.handleUpgrade('speed')"><h3>AGILIDADE</h3><p>Mova-se mais rápido.</p><p class="cost">1 SP</p></div>
+                <div class="upgrade-card" onclick="game.handleUpgrade('firerate')"><h3>CADÊNCIA</h3><p>Atire mais rápido.</p><p class="cost">2 SP</p></div>
+                <div class="upgrade-card" onclick="game.handleUpgrade('multishot')"><h3>MULTI-TIRO</h3><p>+1 Bala por vez.</p><p class="cost">5 SP</p></div>
+                <div class="upgrade-card" onclick="game.handleUpgrade('heal')"><h3>REPARO</h3><p>Cura 50% de HP.</p><p class="cost">1 SP</p></div>
+                
+                <div class="upgrade-card" onclick="game.handleUpgrade('maxhp')"><h3>BLINDAGEM</h3><p>Aumenta HP Máximo em 50.</p><p class="cost">2 SP</p></div>
+                <div class="upgrade-card" onclick="game.handleUpgrade('bulletsize')"><h3>CALIBRE</h3><p>Balas maiores e mais fáceis de acertar.</p><p class="cost">2 SP</p></div>
+                <div class="upgrade-card" onclick="game.handleUpgrade('vampirism')"><h3>NANO-DRENAGEM</h3><p>Chance de curar 1 HP ao matar inimigos.</p><p class="cost">4 SP</p></div>
+                <div class="upgrade-card" onclick="game.handleUpgrade('piercing')"><h3>PERFURANTE</h3><p>Balas atravessam o primeiro inimigo.</p><p class="cost">6 SP</p></div>
+                <div class="upgrade-card" onclick="game.handleUpgrade('crit')"><h3>CRÍTICO</h3><p>10% de chance de causar dano triplo.</p><p class="cost">3 SP</p></div>
+                <div class="upgrade-card" onclick="game.handleUpgrade('knockback')"><h3>IMPACTO</h3><p>Empurra inimigos para longe ao acertar.</p><p class="cost">3 SP</p></div>
+                <div class="upgrade-card" onclick="game.handleUpgrade('xpboost')"><h3>APRENDIZADO</h3><p>Ganha 25% mais XP.</p><p class="cost">3 SP</p></div>
+                <div class="upgrade-card" onclick="game.handleUpgrade('shield')"><h3>ESCUDO AUX.</h3><p>Reduz dano recebido em 15%.</p><p class="cost">4 SP</p></div>
             </div>
-            <center><button class="btn" onclick="game.toggleShop()">RETORNAR À BATALHA</button></center>
+            <center><button class="btn" onclick="game.toggleShop()">VOLTAR À LUTA</button></center>
         </div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
 <script>
-// Auxiliares de carregamento
 const assets = {
-    bgTile: new Image(), player: new Image(), bullet: new Image(), 
-    enemyBasic: new Image(), enemyFast: new Image(), enemyTank: new Image(),
-    boss: new Image(), ammo: new Image()
+    player: new Image(), bullet: new Image(), enemy: new Image(), boss: new Image()
 };
-assets.bgTile.src = 'assets/dungeon_floor.png';
+// Certifique-se que esses arquivos existem na pasta assets/
 assets.player.src = 'assets/player.png';
 assets.bullet.src = 'assets/bullet.png';
-assets.enemyBasic.src = 'assets/enemy_robot.png';
-assets.enemyFast.src = 'assets/enemy_fast.png';
-assets.enemyTank.src = 'assets/enemy_tank.png';
+assets.enemy.src = 'assets/enemy_robot.png';
 assets.boss.src = 'assets/boss_robot.png';
-assets.ammo.src = 'assets/ammo.png';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-let shakeAmount = 0;
-
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-window.addEventListener('resize', resize);
-resize();
-
-class Player {
-    constructor() { this.reset(); }
-    reset() {
-        this.x = canvas.width/2; this.y = canvas.height/2;
-        this.size = 28; this.speed = 5;
-        this.hp = 100; this.maxHp = 100;
-        this.level = 1; this.xp = 0; this.xpToNext = 100; this.skillPoints = 0;
-        this.damage = 15; this.fireRate = 18; this.multiShot = 1; this.cooldown = 0;
-    }
-    gainXp(amt) {
-        this.xp += amt;
-        if (this.xp >= this.xpToNext) {
-            this.xp -= this.xpToNext;
-            this.level++;
-            this.xpToNext = Math.floor(this.xpToNext * 1.4);
-            this.skillPoints++;
-            this.maxHp += 15;
-            this.hp = this.maxHp;
-            game.levelUpEffect();
-        }
-        game.uiDirty = true;
-    }
-    upgrade(type) {
-        const costs = { damage: 1, speed: 1, firerate: 2, multishot: 5 };
-        if (this.skillPoints >= costs[type]) {
-            this.skillPoints -= costs[type];
-            if(type === 'damage') this.damage += 8;
-            if(type === 'speed') this.speed += 0.6;
-            if(type === 'firerate') this.fireRate = Math.max(4, this.fireRate - 3);
-            if(type === 'multishot') this.multiShot++;
-            game.uiDirty = true;
-            game.showToast("UPGRADE INSTALADO!");
-        }
-    }
-    heal() {
-        if (this.skillPoints >= 1 && this.hp < this.maxHp) {
-            this.skillPoints--;
-            this.hp = Math.min(this.maxHp, this.hp + (this.maxHp * 0.5));
-            game.uiDirty = true;
-        }
-    }
-    update(input) {
-        let mx = 0, my = 0;
-        if (input.keys['w'] || input.keys['arrowup']) my -= 1;
-        if (input.keys['s'] || input.keys['arrowdown']) my += 1;
-        if (input.keys['a'] || input.keys['arrowleft']) mx -= 1;
-        if (input.keys['d'] || input.keys['arrowright']) mx += 1;
-
-        if (mx !== 0 && my !== 0) { // Normalização de movimento diagonal
-            const len = Math.sqrt(mx * mx + my * my);
-            mx /= len; my /= len;
-        }
-
-        this.x += mx * this.speed;
-        this.y += my * this.speed;
-        this.x = Math.max(this.size, Math.min(canvas.width-this.size, this.x));
-        this.y = Math.max(this.size, Math.min(canvas.height-this.size, this.y));
-
-        if (this.cooldown > 0) this.cooldown--;
-        if (input.mouseDown && this.cooldown <= 0) {
-            for (let i = 0; i < this.multiShot; i++) {
-                let spread = (i - (this.multiShot-1)/2) * 0.15;
-                let angle = Math.atan2(input.mouseY - this.y, input.mouseX - this.x) + spread;
-                game.bullets.push({ x: this.x, y: this.y, vx: Math.cos(angle)*14, vy: Math.sin(angle)*14, dmg: this.damage, type: 'player', life: 100 });
-            }
-            this.cooldown = this.fireRate;
-        }
-    }
-    draw() {
-        ctx.save();
-        if (assets.player.complete) ctx.drawImage(assets.player, this.x - 30, this.y - 30, 60, 60);
-        else { ctx.fillStyle = '#00d2ff'; ctx.beginPath(); ctx.arc(this.x, this.y, 20, 0, Math.PI*2); ctx.fill(); }
-        ctx.restore();
-    }
-}
-
-class Boss {
-    constructor(level) {
-        this.x = canvas.width/2; this.y = -100;
-        this.hp = 1200 + (level * 300); this.maxHp = this.hp;
-        this.size = 90; this.timer = 0; this.phase = 'enter';
-    }
-    update() {
-        if (this.phase === 'enter') { this.y += 2; if (this.y >= 150) this.phase = 'fight'; return; }
-        this.x += Math.sin(Date.now()/800) * 3;
-        this.timer++;
-        if (this.timer % 80 === 0) this.attack();
-    }
-    attack() {
-        const mode = Math.random();
-        if (mode < 0.4) {
-            for(let i=0; i<12; i++) {
-                let a = (Math.PI*2 / 12) * i;
-                game.bullets.push({ x: this.x, y: this.y, vx: Math.cos(a)*5, vy: Math.sin(a)*5, dmg: 15, type: 'enemy', life: 300 });
-            }
-        } else {
-            let a = Math.atan2(game.player.y - this.y, game.player.x - this.x);
-            game.bullets.push({ x: this.x, y: this.y, vx: Math.cos(a)*9, vy: Math.sin(a)*9, dmg: 25, type: 'enemy', life: 300 });
-        }
-    }
-}
+window.addEventListener('resize', resize); resize();
 
 class Game {
     constructor() {
-        this.player = new Player();
-        this.bullets = []; this.enemies = []; this.drops = []; this.particles = [];
-        this.boss = null; this.score = 0; this.isRunning = false; this.isPaused = false;
-        this.uiDirty = true; this.input = { keys: {}, mouseX: 0, mouseY: 0, mouseDown: false };
-        this.setupInput();
-    }
-    setupInput() {
-        window.onkeydown = e => {
-            const k = e.key.toLowerCase();
-            this.input.keys[k] = true;
-            if (k === 'p' || k === 'escape') this.toggleShop();
+        this.player = {
+            x: 0, y: 0, hp: 100, maxHp: 100, sp: 0, lvl: 1, xp: 0, nextXp: 100,
+            dmg: 15, speed: 5, fr: 20, ms: 1, bSize: 8, 
+            vamp: 0, pierce: false, crit: 0, knock: 0, xpm: 1, def: 1
         };
-        window.onkeyup = e => this.input.keys[e.key.toLowerCase()] = false;
-        window.onmousemove = e => { this.input.mouseX = e.clientX; this.input.mouseY = e.clientY; };
-        window.onmousedown = () => this.input.mouseDown = true;
-        window.onmouseup = () => this.input.mouseDown = false;
+        this.enemies = []; this.bullets = []; this.running = false; this.paused = false;
+        this.keys = {}; this.mouse = { x: 0, y: 0, down: false };
+        this.setupListeners();
     }
+
+    setupListeners() {
+        window.onkeydown = e => this.keys[e.key.toLowerCase()] = true;
+        window.onkeyup = e => this.keys[e.key.toLowerCase()] = false;
+        window.onmousemove = e => { this.mouse.x = e.clientX; this.mouse.y = e.clientY; };
+        window.onmousedown = () => this.mouse.down = true;
+        window.onmouseup = () => this.mouse.down = false;
+    }
+
     start() {
-        this.player.reset(); this.enemies = []; this.bullets = []; this.boss = null; this.score = 0;
-        this.isRunning = true; document.getElementById('menu-overlay').classList.add('hidden');
-        this.updateHUD(); this.loop();
+        this.player.x = canvas.width/2; this.player.y = canvas.height/2;
+        this.running = true;
+        document.getElementById('menu-overlay').classList.add('hidden');
+        this.loop();
     }
+
     toggleShop() {
-        if (!this.isRunning) return;
-        this.isPaused = !this.isPaused;
-        document.getElementById('menu-overlay').classList.toggle('hidden', !this.isPaused);
-        document.getElementById('shop-screen').classList.toggle('hidden', !this.isPaused);
+        this.paused = !this.paused;
+        document.getElementById('menu-overlay').classList.toggle('hidden', !this.paused);
+        document.getElementById('shop-screen').classList.toggle('hidden', !this.paused);
         document.getElementById('start-screen').classList.add('hidden');
-        document.getElementById('shop-points').innerText = this.player.skillPoints;
+        document.getElementById('shop-points').innerText = this.player.sp;
+        if(!this.paused) this.loop();
     }
-    levelUpEffect() {
-        shakeAmount = 15;
-        this.showToast("LEVEL UP! SISTEMAS OTIMIZADOS");
-        this.toggleShop();
-    }
-    showToast(msg) {
-        const c = document.getElementById('achievement-container');
-        const d = document.createElement('div'); d.className = 'ach-toast'; d.innerText = msg;
-        c.appendChild(d); setTimeout(() => d.remove(), 2500);
-    }
-    spawnEnemy() {
-        if (this.boss || this.enemies.length > 20) return;
-        let x, y, side = Math.floor(Math.random()*4);
-        if(side==0){ x=Math.random()*canvas.width; y=-50; }
-        else if(side==1){ x=canvas.width+50; y=Math.random()*canvas.height; }
-        else if(side==2){ x=Math.random()*canvas.width; y=canvas.height+50; }
-        else { x=-50; y=Math.random()*canvas.height; }
 
-        let r = Math.random(), type = 'basic', hp = 30 + (this.player.level * 10), speed = 2, img = assets.enemyBasic;
-        if(r < 0.15 && this.player.level > 2) { type='tank'; hp*=3; speed=1; img=assets.enemyTank; }
-        else if(r > 0.85) { type='fast'; hp*=0.6; speed=4.5; img=assets.enemyFast; }
-        this.enemies.push({ x, y, hp, maxHp: hp, speed, size: type==='tank'?35:25, img });
-    }
-    loop() {
-        if (!this.isRunning || this.isPaused) return;
+    handleUpgrade(type) {
+        const p = this.player;
+        const costs = { damage:1, speed:1, firerate:2, multishot:5, heal:1, maxhp:2, bulletsize:2, vampirism:4, piercing:6, crit:3, knockback:3, xpboost:3, shield:4 };
         
-        // Efeito de Tremedeira (Camera Shake)
-        ctx.save();
-        if(shakeAmount > 0) {
-            ctx.translate(Math.random()*shakeAmount - shakeAmount/2, Math.random()*shakeAmount - shakeAmount/2);
-            shakeAmount *= 0.9;
+        if (p.sp >= costs[type]) {
+            p.sp -= costs[type];
+            if(type === 'damage') p.dmg += 10;
+            if(type === 'speed') p.speed += 0.8;
+            if(type === 'firerate') p.fr = Math.max(5, p.fr - 3);
+            if(type === 'multishot') p.ms++;
+            if(type === 'heal') p.hp = Math.min(p.maxHp, p.hp + p.maxHp/2);
+            if(type === 'maxhp') { p.maxHp += 50; p.hp += 50; }
+            if(type === 'bulletsize') p.bSize += 4;
+            if(type === 'vampirism') p.vamp += 0.05;
+            if(type === 'piercing') p.pierce = true;
+            if(type === 'crit') p.crit += 0.1;
+            if(type === 'knockback') p.knock += 2;
+            if(type === 'xpboost') p.xpm += 0.25;
+            if(type === 'shield') p.def *= 0.85;
+
+            document.getElementById('shop-points').innerText = p.sp;
+            document.getElementById('shop-points-hud').innerText = p.sp;
         }
+    }
 
-        // Fundo
-        if (assets.bgTile.complete) {
-            const ptrn = ctx.createPattern(assets.bgTile, 'repeat');
-            ctx.fillStyle = ptrn; ctx.fillRect(0,0,canvas.width, canvas.height);
-            ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(0,0,canvas.width, canvas.height);
-        } else { ctx.fillStyle='#050505'; ctx.fillRect(0,0,canvas.width, canvas.height); }
+    loop() {
+        if (!this.running || this.paused) return;
+        ctx.fillStyle = '#050505'; ctx.fillRect(0,0,canvas.width, canvas.height);
 
-        // Spawn Boss
-        if (this.player.level % 5 === 0 && !this.boss && this.enemies.length === 0) {
-            this.boss = new Boss(this.player.level);
-            document.getElementById('boss-hud').style.display = 'flex';
-        } else if (Math.random() < 0.02) this.spawnEnemy();
+        this.updatePlayer();
+        this.updateEnemies();
+        this.updateBullets();
+        this.updateUI();
 
-        // Updates
-        this.player.update(this.input);
-        this.player.draw();
-
-        if (this.boss) {
-            this.boss.update();
-            if(assets.boss.complete) ctx.drawImage(assets.boss, this.boss.x-this.boss.size, this.boss.y-this.boss.size, this.boss.size*2, this.boss.size*2);
-            document.getElementById('boss-health-bar-fill').style.width = (this.boss.hp/this.boss.maxHp*100) + '%';
-        }
-
-        // Balas (Otimizado)
-        for(let i=this.bullets.length-1; i>=0; i--) {
-            let b = this.bullets[i];
-            b.x += b.vx; b.y += b.vy; b.life--;
-            ctx.drawImage(assets.bullet, b.x-8, b.y-8, 16, 16);
-
-            if(b.life <= 0) { this.bullets.splice(i,1); continue; }
-
-            if(b.type === 'player') {
-                if(this.boss) {
-                    if(Math.hypot(b.x-this.boss.x, b.y-this.boss.y) < this.boss.size) {
-                        this.boss.hp -= b.dmg; b.life = 0;
-                        if(this.boss.hp <= 0) {
-                            this.player.gainXp(1000); this.boss = null;
-                            document.getElementById('boss-hud').style.display = 'none';
-                            shakeAmount = 30; this.showToast("BOSS ANIQUILADO!");
-                        }
-                    }
-                }
-                this.enemies.forEach((e, ei) => {
-                    if(Math.hypot(b.x-e.x, b.y-e.y) < e.size) {
-                        e.hp -= b.dmg; b.life = 0;
-                        if(e.hp <= 0) { 
-                            this.enemies.splice(ei, 1); 
-                            this.score += 50; this.player.gainXp(20);
-                            if(Math.random() < 0.1) this.drops.push({x: e.x, y: e.y});
-                        }
-                    }
-                });
-            } else { // Bala inimiga no player
-                if(Math.hypot(b.x-this.player.x, b.y-this.player.y) < this.player.size) {
-                    this.player.hp -= b.dmg; b.life = 0; shakeAmount = 8;
-                    this.uiDirty = true;
-                    if(this.player.hp <= 0) this.gameOver();
-                }
-            }
-        }
-
-        // Inimigos
-        this.enemies.forEach((e, i) => {
-            let a = Math.atan2(this.player.y-e.y, this.player.x-e.x);
-            e.x += Math.cos(a)*e.speed; e.y += Math.sin(a)*e.speed;
-            ctx.drawImage(e.img, e.x-e.size, e.y-e.size, e.size*2, e.size*2);
-            if(Math.hypot(this.player.x-e.x, this.player.y-e.y) < this.player.size + e.size) {
-                this.player.hp -= 0.5; this.uiDirty = true;
-                if(this.player.hp <= 0) this.gameOver();
-            }
-        });
-
-        // Drops
-        this.drops.forEach((d, i) => {
-            ctx.drawImage(assets.ammo, d.x-15, d.y-15, 30, 30);
-            if(Math.hypot(this.player.x-d.x, this.player.y-d.y) < 40) {
-                this.player.hp = Math.min(this.player.maxHp, this.player.hp + 25);
-                this.drops.splice(i,1); this.uiDirty = true;
-            }
-        });
-
-        ctx.restore();
-        if(this.uiDirty) this.updateHUD();
         requestAnimationFrame(() => this.loop());
     }
-    updateHUD() {
-        document.getElementById('hud-level').innerText = this.player.level;
-        document.getElementById('hud-xp').innerText = Math.floor(this.player.xp);
-        document.getElementById('hud-next-xp').innerText = this.player.xpToNext;
+
+    updatePlayer() {
+        const p = this.player;
+        if(this.keys['w']) p.y -= p.speed;
+        if(this.keys['s']) p.y += p.speed;
+        if(this.keys['a']) p.x -= p.speed;
+        if(this.keys['d']) p.x += p.speed;
+
+        if(this.cd > 0) this.cd--;
+        if(this.mouse.down && (this.cd <= 0 || !this.cd)) {
+            for(let i=0; i<p.ms; i++) {
+                const angle = Math.atan2(this.mouse.y - p.y, this.mouse.x - p.x) + (i*0.1 - (p.ms-1)*0.05);
+                this.bullets.push({ x:p.x, y:p.y, vx:Math.cos(angle)*12, vy:Math.sin(angle)*12, p: p.pierce });
+            }
+            this.cd = p.fr;
+        }
+        this.drawImg(assets.player, p.x, p.y, 40, '#00d2ff');
+    }
+
+    updateEnemies() {
+        if(Math.random() < 0.02) {
+            this.enemies.push({ x: Math.random()*canvas.width, y: -20, hp: 40 + (this.player.lvl*10) });
+        }
+        this.enemies.forEach((e, i) => {
+            const angle = Math.atan2(this.player.y - e.y, this.player.x - e.x);
+            e.x += Math.cos(angle) * 2; e.y += Math.sin(angle) * 2;
+            this.drawImg(assets.enemy, e.x, e.y, 35, 'red');
+
+            if(Math.hypot(this.player.x-e.x, this.player.y-e.y) < 30) {
+                this.player.hp -= 0.5 * this.player.def;
+                if(this.player.hp <= 0) location.reload();
+            }
+        });
+    }
+
+    updateBullets() {
+        const p = this.player;
+        for(let i=this.bullets.length-1; i>=0; i--) {
+            const b = this.bullets[i];
+            b.x += b.vx; b.y += b.vy;
+            ctx.fillStyle = 'yellow'; ctx.beginPath(); ctx.arc(b.x, b.y, p.bSize, 0, Math.PI*2); ctx.fill();
+
+            this.enemies.forEach((e, ei) => {
+                if(Math.hypot(b.x-e.x, b.y-e.y) < 25) {
+                    let damage = p.dmg;
+                    if(Math.random() < p.crit) damage *= 3;
+                    e.hp -= damage;
+                    
+                    const angle = Math.atan2(e.y - b.y, e.x - b.x);
+                    e.x += Math.cos(angle) * p.knock; e.y += Math.sin(angle) * p.knock;
+
+                    if(!b.p) this.bullets.splice(i, 1);
+                    if(e.hp <= 0) {
+                        this.enemies.splice(ei, 1);
+                        p.xp += 20 * p.xpm;
+                        if(Math.random() < p.vamp) p.hp = Math.min(p.maxHp, p.hp + 1);
+                        if(p.xp >= p.nextXp) {
+                            p.lvl++; p.sp++; p.xp = 0; p.nextXp *= 1.2;
+                            this.toggleShop();
+                        }
+                    }
+                }
+            });
+            if(b.x<0 || b.x>canvas.width || b.y<0 || b.y>canvas.height) this.bullets.splice(i,1);
+        }
+    }
+
+    drawImg(img, x, y, size, fallback) {
+        if(img.complete && img.naturalWidth !== 0) {
+            ctx.drawImage(img, x - size/2, y - size/2, size, size);
+        } else {
+            ctx.fillStyle = fallback; ctx.fillRect(x-size/2, y-size/2, size, size);
+        }
+    }
+
+    updateUI() {
+        document.getElementById('hud-level').innerText = this.player.lvl;
         document.getElementById('hud-hp').innerText = Math.floor(this.player.hp);
         document.getElementById('hud-max-hp').innerText = this.player.maxHp;
-        document.getElementById('hud-score').innerText = this.score;
-        this.uiDirty = false;
-    }
-    gameOver() {
-        this.isRunning = false;
-        alert("SISTEMAS CRÍTICOS: MISSÃO FALHOU!\nScore Final: " + this.score);
-        location.reload();
+        document.getElementById('shop-points-hud').innerText = this.player.sp;
     }
 }
 
