@@ -2,261 +2,160 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Robot Survivors</title>
+    <title>Robot Survivors: Biomes Edition</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; color: #00d2ff; font-family: 'Courier New', monospace; user-select: none; }
-        canvas { display: block; filter: saturate(1.5) contrast(1.2); }
+        body { margin: 0; overflow: hidden; background: #000; color: #00d2ff; font-family: 'Courier New', monospace; }
+        canvas { display: block; image-rendering: pixelated; } /* Garante que sua Pixel Art fique nítida */
         
-        /* UI Estilo Retro-Futurista */
         #ui-layer { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 10; }
-        .stat { background: rgba(0, 10, 30, 0.8); padding: 10px; border: 1px solid #00d2ff; margin-bottom: 5px; box-shadow: 0 0 10px #00d2ff55; }
+        .stat { background: rgba(0, 10, 30, 0.8); padding: 10px; border: 1px solid #00d2ff; margin-bottom: 5px; }
         
-        #xp-bar-container { position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: #111; }
-        #xp-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00d2ff, #00ff88); box-shadow: 0 0 15px #00d2ff; }
-
-        /* Menu de Upgrades (Cartas) */
-        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; display: none; }
-        #card-container { display: flex; gap: 20px; perspective: 1000px; }
-        .card { 
-            width: 220px; height: 320px; background: #050505; border: 2px solid #00d2ff; 
-            border-radius: 15px; padding: 20px; cursor: pointer; transition: 0.3s;
-            display: flex; flex-direction: column; align-items: center; text-align: center;
+        #biome-announcement { 
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 3rem; font-weight: bold; text-transform: uppercase;
+            text-shadow: 0 0 20px #00d2ff; opacity: 0; transition: 2s; pointer-events: none;
+            z-index: 50; text-align: center;
         }
-        .card:hover { transform: scale(1.05) translateY(-10px); background: #001a33; box-shadow: 0 0 30px #00d2ff88; }
-        .card.evolution { border-color: #ff00ff; box-shadow: 0 0 20px #ff00ff55; }
-        .card h3 { color: #fff; margin-bottom: 10px; text-transform: uppercase; font-size: 1.2rem; }
-        .card p { color: #888; font-size: 0.9rem; line-height: 1.4; }
-        .card .rarity { font-size: 0.7rem; color: #ffd700; margin-top: auto; }
-
-        /* Mutador HUD */
-        #mutator-hud { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); font-weight: bold; font-size: 1.5rem; color: #ff0055; text-shadow: 0 0 10px #ff0055; opacity: 0; transition: 1s; }
         
-        .glitch-text { animation: glitch 0.3s infinite; }
-        @keyframes glitch { 0% { transform: translate(0); } 20% { transform: translate(-2px, 2px); } 40% { transform: translate(-2px, -2px); } 60% { transform: translate(2px, 2px); } 80% { transform: translate(2px, -2px); } 100% { transform: translate(0); } }
+        .glitch { animation: glitch-anim 0.2s infinite; }
+        @keyframes glitch-anim {
+            0% { transform: translate(-50%, -50%) skew(0deg); }
+            20% { transform: translate(-52%, -48%) skew(10deg); color: #ff00ff; }
+            40% { transform: translate(-48%, -52%) skew(-10deg); color: #00ffff; }
+            100% { transform: translate(-50%, -50%) skew(0deg); }
+        }
     </style>
 </head>
 <body>
 
-    <div id="xp-bar-container"><div id="xp-bar-fill"></div></div>
-
     <div id="ui-layer">
-        <div class="stat">WAVE: <span id="wave-count">1</span></div>
+        <div class="stat">BIOMA: <span id="biome-name">Depósito de Sucata</span></div>
+        <div class="stat">TEMPO: <span id="game-timer">00:00</span></div>
         <div class="stat">HP: <span id="hp-count">100</span></div>
-        <div class="stat">KILLS: <span id="kill-count">0</span></div>
     </div>
 
-    <div id="mutator-hud">WAVE MUTATOR: EXPLOSIVE DEATH</div>
-
-    <div id="overlay">
-        <h1 class="glitch-text">SISTEMA ATUALIZADO</h1>
-        <div id="card-container"></div>
-    </div>
+    <div id="biome-announcement">NOVO SETOR DETECTADO</div>
 
     <canvas id="gameCanvas"></canvas>
 
 <script>
-/** CONFIGURAÇÕES TÉCNICAS E ASSETS **/
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+
+/** CARREGAMENTO DE ASSETS **/
 const assets = {
-    player: new Image(), enemy: new Image(), bullet: new Image(), particle: new Image()
+    player: new Image(),
+    enemy: new Image(),
+    // Biomas
+    bg_scrapyard: new Image(),
+    bg_neon: new Image(),
+    bg_cryo: new Image(),
+    bg_cathedral: new Image(),
+    bg_glitch: new Image()
 };
+
 assets.player.src = 'assets/player.png';
 assets.enemy.src = 'assets/enemy_robot.png';
-assets.bullet.src = 'assets/bullet.png';
+assets.bg_scrapyard.src = 'assets/bg_scrapyard.png';
+assets.bg_neon.src = 'assets/bg_neon.png';
+assets.bg_cryo.src = 'assets/bg_cryo.png';
+assets.bg_cathedral.src = 'assets/bg_cathedral.png';
+assets.bg_glitch.src = 'assets/bg_glitch.png';
+
+/** DEFINIÇÃO DOS BIOMAS **/
+const biomes = {
+    scrapyard: { name: "Depósito de Sucata", img: assets.bg_scrapyard, speedMod: 1, friction: 0.15, color: "#5d4037" },
+    neon: { name: "Rede de Fibra Neon", img: assets.bg_neon, speedMod: 1.5, friction: 0.1, color: "#00d2ff" },
+    cryo: { name: "Laboratório Criogênico", img: assets.bg_cryo, speedMod: 0.8, friction: 0.02, color: "#ffffff" },
+    cathedral: { name: "Catedral do Silício", img: assets.bg_cathedral, speedMod: 1, friction: 0.15, color: "#ffd700" },
+    glitch: { name: "Vazio do Código", img: assets.bg_glitch, speedMod: 1.2, friction: 0.1, color: "#ff00ff" }
+};
+
+let currentPlayer = { x: 0, y: 0, vx: 0, vy: 0, hp: 100, speed: 5 };
+let game = {
+    timer: 0,
+    currentBiome: biomes.scrapyard,
+    enemies: [],
+    lastBiomeUpdate: 0
+};
 
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 window.addEventListener('resize', resize); resize();
 
-/** ESTADO DO JOGO **/
-const game = {
-    running: false,
-    paused: false,
-    wave: 1,
-    kills: 0,
-    mutator: 'none', // none, explosive, fast, low_vis, gravity
-    timer: 0,
-    shake: 0,
-    particles: [],
-    enemies: [],
-    bullets: [],
-    items: [], // XP Gems
-    upgrades: [
-        { id: 'gun_dmg', name: 'Canhão Pesado', desc: '+5 Dano de Projétil', rarity: 'Comum', lv: 0 },
-        { id: 'gun_fr', name: 'Auto-Loader', desc: '-15% Tempo de Recarga', rarity: 'Raro', lv: 0 },
-        { id: 'dash_cd', name: 'Propulsor Turbo', desc: '-0.5s Cooldown do Dash', rarity: 'Comum', lv: 0 },
-        { id: 'evo_glitch', name: 'GLITCH CORE', desc: 'EVOLUÇÃO: Balas se duplicam ao atingir inimigos.', rarity: 'LENDÁRIO', lv: 0, evo: true }
-    ]
-};
-
-/** O JOGADOR **/
-const player = {
-    x: 0, y: 0, hp: 100, maxHp: 100, xp: 0, nextXp: 100, lvl: 1,
-    speed: 4, dashCd: 0, dashMaxCd: 120, iFrames: 0,
-    weapons: [
-        { name: 'Plasma Gun', damage: 15, fr: 30, cd: 0, type: 'auto' }
-    ],
-    stats: { dmgMod: 1, frMod: 1, xpMod: 1, bulletPierce: 0 }
-};
-
-/** LÓGICA DE COMBATE E MOVIMENTO **/
 const keys = {};
 window.onkeydown = e => keys[e.key.toLowerCase()] = true;
 window.onkeyup = e => keys[e.key.toLowerCase()] = false;
 
-function spawnEnemy() {
-    if (game.enemies.length > 100) return;
-    const angle = Math.random() * Math.PI * 2;
-    const dist = canvas.width;
-    game.enemies.push({
-        x: player.x + Math.cos(angle) * dist,
-        y: player.y + Math.sin(angle) * dist,
-        hp: 20 + (game.wave * 10),
-        speed: 1.5 + (Math.random() * game.wave * 0.2),
-        size: 20
-    });
+function announceBiome(name) {
+    const el = document.getElementById('biome-announcement');
+    el.innerText = name;
+    el.style.opacity = 1;
+    if(name === "Vazio do Código") el.classList.add('glitch');
+    setTimeout(() => { el.style.opacity = 0; }, 3000);
 }
 
-function handleUpgrades() {
-    game.paused = true;
-    document.getElementById('overlay').style.display = 'flex';
-    const container = document.getElementById('card-container');
-    container.innerHTML = '';
-    
-    // Sorteia 3 opções
-    const shuffled = [...game.upgrades].sort(() => 0.5 - Math.random()).slice(0, 3);
-    
-    shuffled.forEach(upg => {
-        const card = document.createElement('div');
-        card.className = `card ${upg.evo ? 'evolution' : ''}`;
-        card.innerHTML = `<h3>${upg.name}</h3><p>${upg.desc}</p><div class="rarity">${upg.rarity}</div>`;
-        card.onclick = () => applyUpgrade(upg);
-        container.appendChild(card);
-    });
-}
+function updateBiome() {
+    const minutes = game.timer / 3600;
+    let nextBiome = biomes.scrapyard;
 
-function applyUpgrade(upg) {
-    if (upg.id === 'gun_dmg') player.stats.dmgMod += 0.2;
-    if (upg.id === 'gun_fr') player.stats.frMod *= 0.85;
-    if (upg.id === 'dash_cd') player.dashMaxCd *= 0.8;
-    
-    player.xp = 0;
-    player.nextXp *= 1.3;
-    document.getElementById('overlay').style.display = 'none';
-    game.paused = false;
-    requestAnimationFrame(loop);
-}
+    if (minutes > 4) nextBiome = biomes.glitch;
+    else if (minutes > 3) nextBiome = biomes.cathedral;
+    else if (minutes > 2) nextBiome = biomes.cryo;
+    else if (minutes > 1) nextBiome = biomes.neon;
 
-function dash() {
-    if (player.dashCd <= 0) {
-        player.iFrames = 20;
-        player.dashCd = player.dashMaxCd;
-        game.shake = 10;
-        // Teleporte curto na direção das teclas
-        let dx = 0, dy = 0;
-        if(keys['w']) dy = -1; if(keys['s']) dy = 1;
-        if(keys['a']) dx = -1; if(keys['d']) dx = 1;
-        player.x += dx * 100; player.y += dy * 100;
+    if (nextBiome !== game.currentBiome) {
+        game.currentBiome = nextBiome;
+        document.getElementById('biome-name').innerText = nextBiome.name;
+        announceBiome(nextBiome.name);
     }
 }
 
-/** LOOP PRINCIPAL **/
 function loop() {
-    if (game.paused) return;
+    game.timer++;
+    updateBiome();
 
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0,0,canvas.width, canvas.height);
-
-    // Efeito de Camera Shake
-    ctx.save();
-    if(game.shake > 0) {
-        ctx.translate(Math.random()*game.shake, Math.random()*game.shake);
-        game.shake *= 0.9;
+    // Fundo com scroll (Tilling)
+    ctx.imageSmoothingEnabled = false; // Essencial para Pixel Art
+    if (game.currentBiome.img.complete) {
+        const pattern = ctx.createPattern(game.currentBiome.img, 'repeat');
+        ctx.fillStyle = pattern;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else {
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // Movimento Player
-    if(keys['w']) player.y -= player.speed;
-    if(keys['s']) player.y += player.speed;
-    if(keys['a']) player.x -= player.speed;
-    if(keys['d']) player.x += player.speed;
-    if(keys[' ']) dash();
-    if(player.dashCd > 0) player.dashCd--;
-    if(player.iFrames > 0) player.iFrames--;
+    // Movimentação com Inércia (afetada pelo bioma)
+    let ax = 0, ay = 0;
+    if(keys['w']) ay = -1; if(keys['s']) ay = 1;
+    if(keys['a']) ax = -1; if(keys['d']) ax = 1;
+
+    currentPlayer.vx += ax * currentPlayer.speed * game.currentBiome.speedMod * 0.1;
+    currentPlayer.vy += ay * currentPlayer.speed * game.currentBiome.speedMod * 0.1;
+    
+    // Aplica fricção do bioma
+    currentPlayer.vx *= (1 - game.currentBiome.friction);
+    currentPlayer.vy *= (1 - game.currentBiome.friction);
+
+    currentPlayer.x += currentPlayer.vx;
+    currentPlayer.y += currentPlayer.vy;
 
     // Desenha Player
-    ctx.shadowBlur = 15; ctx.shadowColor = '#00d2ff';
-    ctx.drawImage(assets.player, player.x-25, player.y-25, 50, 50);
-    ctx.shadowBlur = 0;
+    ctx.drawImage(assets.player, currentPlayer.x - 25, currentPlayer.y - 25, 50, 50);
 
-    // Armas Automáticas
-    player.weapons.forEach(w => {
-        w.cd--;
-        if(w.cd <= 0) {
-            // Atira no inimigo mais próximo
-            const target = game.enemies[0];
-            if(target) {
-                const angle = Math.atan2(target.y - player.y, target.x - player.x);
-                game.bullets.push({
-                    x: player.x, y: player.y,
-                    vx: Math.cos(angle) * 12, vy: Math.sin(angle) * 12,
-                    dmg: w.damage * player.stats.dmgMod
-                });
-            }
-            w.cd = w.fr * player.stats.frMod;
-        }
-    });
+    // Relógio HUD
+    const secs = Math.floor((game.timer / 60) % 60);
+    const mins = Math.floor(game.timer / 3600);
+    document.getElementById('game-timer').innerText = 
+        `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
-    // Processar Inimigos
-    game.enemies.forEach((en, i) => {
-        const angle = Math.atan2(player.y - en.y, player.x - en.x);
-        en.x += Math.cos(angle) * en.speed;
-        en.y += Math.sin(angle) * en.speed;
-        
-        ctx.drawImage(assets.enemy, en.x-20, en.y-20, 40, 40);
-
-        // Colisão com Player
-        if(Math.hypot(player.x-en.x, player.y-en.y) < 30 && player.iFrames <= 0) {
-            player.hp -= 0.1;
-            if(player.hp <= 0) location.reload();
-        }
-    });
-
-    // Processar Balas
-    for(let i=game.bullets.length-1; i>=0; i--) {
-        const b = game.bullets[i];
-        b.x += b.vx; b.y += b.vy;
-        ctx.fillStyle = '#00ff88';
-        ctx.fillRect(b.x-4, b.y-4, 8, 8);
-
-        game.enemies.forEach((en, ei) => {
-            if(Math.hypot(b.x-en.x, b.y-en.y) < 25) {
-                en.hp -= b.dmg;
-                game.bullets.splice(i, 1);
-                if(en.hp <= 0) {
-                    game.enemies.splice(ei, 1);
-                    game.kills++;
-                    player.xp += 10;
-                    if(player.xp >= player.nextXp) handleUpgrades();
-                }
-            }
-        });
-    }
-
-    // Spawn gradual
-    if(Math.random() < 0.05 + (game.wave * 0.01)) spawnEnemy();
-
-    // UI Update
-    document.getElementById('hp-count').innerText = Math.floor(player.hp);
-    document.getElementById('kill-count').innerText = game.kills;
-    document.getElementById('xp-bar-fill').style.width = (player.xp/player.nextXp)*100 + '%';
-
-    ctx.restore();
     requestAnimationFrame(loop);
 }
 
-// Iniciar
-assets.player.onload = () => {
-    player.x = canvas.width/2; player.y = canvas.height/2;
+// Iniciar quando as imagens principais carregarem
+assets.bg_scrapyard.onload = () => {
+    currentPlayer.x = canvas.width/2;
+    currentPlayer.y = canvas.height/2;
     loop();
 };
 </script>
