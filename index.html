@@ -2,13 +2,13 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Robot Survivors - Biomas & Bosses</title>
+    <title>Robot Survivors - Boss Laser Edition</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; color: #00d2ff; font-family: 'Courier New', monospace; user-select: none; }
         canvas { display: block; filter: saturate(1.2) contrast(1.1); }
         
         #ui-layer { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 10; }
-        .stat { background: rgba(0, 10, 30, 0.85); padding: 10px; border: 1px solid #00d2ff; margin-bottom: 5px; box-shadow: 0 0 10px #00d2ff55; min-width: 150px; }
+        .stat { background: rgba(0, 10, 30, 0.85); padding: 10px; border: 1px solid #00d2ff; margin-bottom: 5px; box-shadow: 0 0 10px #00d2ff55; min-width: 160px; }
         
         #xp-bar-container { position: absolute; top: 0; left: 0; width: 100%; height: 10px; background: #111; z-index: 20; }
         #xp-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00d2ff, #00ff88); box-shadow: 0 0 15px #00d2ff; transition: width 0.3s; }
@@ -17,23 +17,23 @@
         #card-container { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; padding: 20px; }
         
         .card { 
-            width: 200px; height: 280px; background: #0a0a0a; border: 2px solid #00d2ff; 
+            width: 200px; height: 280px; background: #050505; border: 2px solid #00d2ff; 
             border-radius: 10px; padding: 15px; cursor: pointer; transition: 0.3s;
             display: flex; flex-direction: column; align-items: center; text-align: center;
         }
         .card:hover { transform: translateY(-10px); background: #001a33; border-color: #fff; box-shadow: 0 0 20px #00d2ff; }
         .card h3 { font-size: 1.1rem; margin: 10px 0; color: #fff; text-transform: uppercase; }
         .card p { font-size: 0.85rem; color: #aaa; flex-grow: 1; }
-        .card .rarity { font-weight: bold; font-size: 0.7rem; color: #00ff88; }
+        .card .rarity { font-weight: bold; font-size: 0.7rem; color: #00ff88; text-transform: uppercase; }
 
-        #boss-warning { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); color: #ff0055; font-size: 3rem; font-weight: bold; display: none; text-shadow: 0 0 20px #ff0055; animation: blink 0.5s infinite; z-index: 5; }
+        #boss-warning { position: absolute; top: 25%; left: 50%; transform: translateX(-50%); color: #ff0055; font-size: 3.5rem; font-weight: bold; display: none; text-shadow: 0 0 20px #ff0055; animation: blink 0.5s infinite; z-index: 5; text-align: center;}
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 
     <div id="xp-bar-container"><div id="xp-bar-fill"></div></div>
-    <div id="boss-warning">BOSS DETECTADO!</div>
+    <div id="boss-warning">ALERTA:<br>ASSINATURA DE BOSS DETECTADA</div>
 
     <div id="ui-layer">
         <div class="stat">SETOR: <span id="biome-name">-</span></div>
@@ -43,28 +43,23 @@
     </div>
 
     <div id="overlay">
-        <h1 style="color: #00d2ff; text-shadow: 0 0 10px #00d2ff;">SISTEMA ATUALIZADO</h1>
+        <h1 style="color: #00d2ff; text-shadow: 0 0 10px #00d2ff;">UPGRADE DISPONÍVEL</h1>
         <div id="card-container"></div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
 <script>
-/** CONFIGURAÇÃO DE ASSETS E BIOMAS **/
+/** ASSETS E CONFIGURAÇÃO DE BIOMAS **/
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 const assets = {
-    player: new Image(),
-    enemy: new Image(),
-    bg_scrapyard: new Image(),
-    bg_neon: new Image(),
-    bg_cryo: new Image(),
-    bg_cathedral: new Image(),
-    bg_glitch: new Image()
+    player: new Image(), enemy: new Image(),
+    bg_scrapyard: new Image(), bg_neon: new Image(),
+    bg_cryo: new Image(), bg_cathedral: new Image(), bg_glitch: new Image()
 };
 
-// Atribuição das fontes de imagem
 assets.player.src = 'assets/player.png';
 assets.enemy.src = 'assets/enemy_robot.png';
 assets.bg_scrapyard.src = 'assets/dungeon_floor.png';
@@ -80,71 +75,52 @@ const biomes = {
     cathedral: { name: "Catedral Silicon", img: assets.bg_cathedral, speedMod: 1, friction: 0.15 },
     glitch: { name: "Vazio do Código", img: assets.bg_glitch, speedMod: 1.2, friction: 0.08 }
 };
-
 const biomeOrder = ['scrapyard', 'neon', 'cryo', 'cathedral', 'glitch'];
 
-/** ESTADO DO JOGO **/
+/** ESTADO GLOBAL **/
 const game = {
-    paused: false,
-    wave: 1,
-    kills: 0,
+    paused: false, wave: 1, kills: 0, 
     currentBiomeKey: 'scrapyard',
-    enemies: [],
-    bullets: [],
-    bossActive: false,
+    enemies: [], bullets: [], bossActive: false,
     upgrades: [
-        { id: 'dmg', name: 'Canhão Pesado', desc: '+25% de dano por tiro.', rarity: 'Comum' },
-        { id: 'fr', name: 'Auto-Loader', desc: '+20% de velocidade de tiro.', rarity: 'Comum' },
-        { id: 'speed', name: 'Overclock Transmissão', desc: '+15% vel. de movimento.', rarity: 'Comum' },
-        { id: 'pierce', name: 'Munição Perfurante', desc: 'Balas atravessam +1 inimigo.', rarity: 'Raro' },
-        { id: 'bounce', name: 'Módulo de Rebatida', desc: 'Balas ricocheteiam nas bordas.', rarity: 'Raro' },
-        { id: 'regen', name: 'Nano-Reparo', desc: 'Recupera 1 HP a cada 2 seg.', rarity: 'Raro' },
-        { id: 'shield', name: 'Escudo de Plasma', desc: 'Ganha um escudo rotativo.', rarity: 'Épico' },
-        { id: 'crit', name: 'Sensores Ópticos', desc: '+20% chance de dano crítico.', rarity: 'Comum' },
-        { id: 'nova', name: 'Pulso de Choque', desc: 'Explosão elétrica ao sofrer dano.', rarity: 'Épico' },
-        { id: 'vamp', name: 'Sifão de Código', desc: 'Cura ao destruir inimigos.', rarity: 'Lendário' },
-        { id: 'multi', name: 'Dual-Barrel', desc: 'Dispara uma bala extra.', rarity: 'Lendário' },
-        { id: 'explosive', name: 'Morte Explosiva', desc: 'Inimigos explodem ao morrer.', rarity: 'Épico' }
+        { id: 'dmg', name: 'Canhão Pesado', desc: '+30% de Dano Real', rarity: 'Comum' },
+        { id: 'fr', name: 'Módulo de Ciclo', desc: '+25% Vel. de Disparo', rarity: 'Comum' },
+        { id: 'pierce', name: 'Munição Railgun', desc: 'Balas atravessam inimigos', rarity: 'Raro' },
+        { id: 'regen', name: 'Auto-Reparo Nano', desc: 'Recupera HP passivamente', rarity: 'Raro' },
+        { id: 'multi', name: 'Burst Core', desc: '+1 Projétil por tiro', rarity: 'Épico' },
+        { id: 'vamp', name: 'Sifão de Energia', desc: 'Recupera vida ao destruir robôs', rarity: 'Lendário' },
+        { id: 'speed', name: 'Servo-Motores', desc: '+20% Vel. de Movimento', rarity: 'Comum' },
+        { id: 'nova', name: 'Backfire Shock', desc: 'Pulso elétrico ao ser atingido', rarity: 'Épico' },
+        { id: 'crit', name: 'Smart Optics', desc: 'Aumenta chance de crítico', rarity: 'Comum' },
+        { id: 'armor', name: 'Placas de Titânio', desc: 'Reduz dano recebido', rarity: 'Raro' },
+        { id: 'evo', name: 'ULTIMATE CORE', desc: 'Evolui arma para feixe contínuo', rarity: 'Lendário' }
     ]
 };
 
 const player = {
     x: 0, y: 0, vx: 0, vy: 0, hp: 100, maxHp: 100, xp: 0, nextXp: 100,
-    speed: 5, stats: { dmg: 20, fr: 30, pierce: 0, multi: 1, crit: 0.1, vamp: 0, bounce: false }
+    speed: 5, stats: { dmg: 25, fr: 25, multi: 1, pierce: 0, bounce: false, vamp: 0, regen: 0 }
 };
 
 function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 window.addEventListener('resize', resize); resize();
 
-/** LOGICA DOS BIOMAS **/
-function updateBiome() {
-    const biomeIndex = Math.floor((game.wave - 1) / 5) % biomeOrder.length;
-    game.currentBiomeKey = biomeOrder[biomeIndex];
-    document.getElementById('biome-name').innerText = biomes[game.currentBiomeKey].name;
-}
-
-/** SPAWN DE INIMIGOS E BOSS **/
-function spawnEnemy(isBoss = false) {
-    const angle = Math.random() * Math.PI * 2;
-    const dist = canvas.width;
-    const enemy = {
-        x: player.x + Math.cos(angle) * dist,
-        y: player.y + Math.sin(angle) * dist,
-        hp: isBoss ? 500 * game.wave : 20 + (game.wave * 10),
-        maxHp: isBoss ? 500 * game.wave : 20 + (game.wave * 10),
-        speed: isBoss ? 1.5 : 2 + (Math.random() * game.wave * 0.1),
-        size: isBoss ? 80 : 30,
-        boss: isBoss
+/** LOGICA DO BOSS COM LASER **/
+function spawnBoss() {
+    game.bossActive = true;
+    const boss = {
+        x: canvas.width/2, y: -100,
+        hp: 1000 * game.wave, maxHp: 1000 * game.wave,
+        size: 100, speed: 2, boss: true,
+        state: 'move', // move, charge, laser
+        timer: 0, laserAngle: 0
     };
-    game.enemies.push(enemy);
-    if(isBoss) {
-        game.bossActive = true;
-        document.getElementById('boss-warning').style.display = 'block';
-        setTimeout(() => document.getElementById('boss-warning').style.display = 'none', 3000);
-    }
+    game.enemies.push(boss);
+    document.getElementById('boss-warning').style.display = 'block';
+    setTimeout(() => document.getElementById('boss-warning').style.display = 'none', 3000);
 }
 
-/** CARTAS E UPGRADES **/
+/** MENU DE UPGRADES **/
 function showUpgradeMenu() {
     game.paused = true;
     const overlay = document.getElementById('overlay');
@@ -153,32 +129,28 @@ function showUpgradeMenu() {
     container.innerHTML = '';
     
     const pool = [...game.upgrades].sort(() => 0.5 - Math.random()).slice(0, 3);
-    
     pool.forEach(upg => {
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `<h3>${upg.name}</h3><p>${upg.desc}</p><div class="rarity">${upg.rarity}</div>`;
         card.onclick = () => {
-            applyUpgrade(upg);
+            if(upg.id === 'dmg') player.stats.dmg *= 1.3;
+            if(upg.id === 'fr') player.stats.fr *= 0.75;
+            if(upg.id === 'multi') player.stats.multi++;
+            if(upg.id === 'speed') player.speed *= 1.2;
+            if(upg.id === 'vamp') player.stats.vamp += 3;
+            if(upg.id === 'regen') player.stats.regen += 0.05;
+            if(upg.id === 'bounce') player.stats.bounce = true;
+            if(upg.id === 'pierce') player.stats.pierce += 2;
+            
+            player.xp = 0;
+            player.nextXp *= 1.4;
             game.paused = false;
             overlay.style.display = 'none';
             requestAnimationFrame(loop);
         };
         container.appendChild(card);
     });
-}
-
-function applyUpgrade(upg) {
-    if(upg.id === 'dmg') player.stats.dmg *= 1.25;
-    if(upg.id === 'fr') player.stats.fr *= 0.8;
-    if(upg.id === 'speed') player.speed *= 1.15;
-    if(upg.id === 'pierce') player.stats.pierce++;
-    if(upg.id === 'bounce') player.stats.bounce = true;
-    if(upg.id === 'multi') player.stats.multi++;
-    if(upg.id === 'vamp') player.stats.vamp += 2;
-    
-    player.xp = 0;
-    player.nextXp *= 1.3;
 }
 
 const keys = {};
@@ -193,35 +165,34 @@ function loop() {
 
     const bConfig = biomes[game.currentBiomeKey];
 
-    // Desenha Chão (Tiling)
+    // Desenha Fundo do Bioma
+    ctx.save();
     const ptrn = ctx.createPattern(bConfig.img, 'repeat');
-    ctx.fillStyle = ptrn;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if(ptrn) {
+        ctx.fillStyle = ptrn;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else {
+        ctx.fillStyle = '#111'; ctx.fillRect(0,0,canvas.width, canvas.height);
+    }
+    ctx.restore();
 
-    // Movimento com Inércia (afetado pelo Bioma)
+    // Movimentação Player (Física do Bioma)
     let ax = 0, ay = 0;
     if(keys['w']) ay = -1; if(keys['s']) ay = 1;
     if(keys['a']) ax = -1; if(keys['d']) ax = 1;
-
-    const moveSpeed = player.speed * bConfig.speedMod;
-    player.vx += ax * 0.8;
-    player.vy += ay * 0.8;
     
-    // Aplica fricção do bioma
-    player.vx *= (1 - bConfig.friction);
-    player.vy *= (1 - bConfig.friction);
-
-    player.x += player.vx;
-    player.y += player.vy;
-
-    // Limites da tela
+    player.vx += ax * 0.8; player.vy += ay * 0.8;
+    player.vx *= (1 - bConfig.friction); player.vy *= (1 - bConfig.friction);
+    player.x += player.vx * bConfig.speedMod; player.y += player.vy * bConfig.speedMod;
+    
+    // Boundary check
     player.x = Math.max(20, Math.min(canvas.width - 20, player.x));
     player.y = Math.max(20, Math.min(canvas.height - 20, player.y));
 
-    // Desenha Jogador
-    ctx.drawImage(assets.player, player.x - 25, player.y - 25, 50, 50);
+    // Regeneração
+    player.hp = Math.min(player.maxHp, player.hp + player.stats.regen);
 
-    // Atirar Automaticamente
+    // Tiro Automático
     shootTimer++;
     if(shootTimer > player.stats.fr) {
         const target = game.enemies[0];
@@ -230,60 +201,105 @@ function loop() {
             for(let i=0; i<player.stats.multi; i++) {
                 game.bullets.push({
                     x: player.x, y: player.y,
-                    vx: Math.cos(angle + (i*0.1)) * 10,
-                    vy: Math.sin(angle + (i*0.1)) * 10,
-                    dmg: player.stats.dmg,
-                    pierce: player.stats.pierce
+                    vx: Math.cos(angle + (i*0.15 - (player.stats.multi*0.07))) * 12,
+                    vy: Math.sin(angle + (i*0.15 - (player.stats.multi*0.07))) * 12,
+                    dmg: player.stats.dmg, pierce: player.stats.pierce
                 });
             }
         }
         shootTimer = 0;
     }
 
-    // Processar Inimigos
+    // Processar Inimigos e IA do Boss
     game.enemies.forEach((en, i) => {
-        const angle = Math.atan2(player.y - en.y, player.x - en.x);
-        en.x += Math.cos(angle) * en.speed;
-        en.y += Math.sin(angle) * en.speed;
+        if(en.boss) {
+            en.timer++;
+            // LÓGICA DE ESTADOS DO BOSS
+            if(en.state === 'move') {
+                const angle = Math.atan2(player.y - en.y, player.x - en.x);
+                en.x += Math.cos(angle) * en.speed;
+                en.y += Math.sin(angle) * en.speed;
+                if(en.timer > 200) { en.state = 'charge'; en.timer = 0; }
+            } 
+            else if(en.state === 'charge') {
+                // Carregando Laser (Mira no player)
+                en.laserAngle = Math.atan2(player.y - en.y, player.x - en.x);
+                // Desenha linha de aviso fina
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath(); ctx.moveTo(en.x, en.y);
+                ctx.lineTo(en.x + Math.cos(en.laserAngle)*2000, en.y + Math.sin(en.laserAngle)*2000);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                if(en.timer > 100) { en.state = 'laser'; en.timer = 0; }
+            }
+            else if(en.state === 'laser') {
+                // Atira Laser
+                ctx.shadowBlur = 20; ctx.shadowColor = 'red';
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 30;
+                ctx.beginPath(); ctx.moveTo(en.x, en.y);
+                const lx = en.x + Math.cos(en.laserAngle)*2000;
+                const ly = en.y + Math.sin(en.laserAngle)*2000;
+                ctx.lineTo(lx, ly);
+                ctx.stroke();
+                ctx.lineWidth = 1; ctx.shadowBlur = 0;
 
-        ctx.drawImage(assets.enemy, en.x - en.size/2, en.y - en.size/2, en.size, en.size);
-        
-        if(en.boss) { // Barra de vida do boss
-            ctx.fillStyle = 'red';
-            ctx.fillRect(en.x - 40, en.y - 60, (en.hp/(500*game.wave))*80, 5);
+                // Colisão do Laser (Checa se o player está perto da linha do laser)
+                const dist = Math.abs((ly-en.y)*player.x - (lx-en.x)*player.y + lx*en.y - ly*en.x) / Math.hypot(ly-en.y, lx-en.x);
+                if(dist < 40) player.hp -= 1.5;
+
+                if(en.timer > 60) { en.state = 'move'; en.timer = 0; }
+            }
+        } else {
+            const angle = Math.atan2(player.y - en.y, player.x - en.x);
+            en.x += Math.cos(angle) * en.speed;
+            en.y += Math.sin(angle) * en.speed;
         }
 
-        if(Math.hypot(player.x - en.x, player.y - en.y) < en.size) {
-            player.hp -= en.boss ? 1 : 0.2;
+        // Desenhar
+        ctx.drawImage(assets.enemy, en.x - en.size/2, en.y - en.size/2, en.size, en.size);
+        
+        // Barra de Vida Inimigo/Boss
+        ctx.fillStyle = '#333'; ctx.fillRect(en.x - 30, en.y - en.size/2 - 15, 60, 6);
+        ctx.fillStyle = en.boss ? '#ff0055' : '#00ff88';
+        ctx.fillRect(en.x - 30, en.y - en.size/2 - 15, (en.hp/en.maxHp)*60, 6);
+
+        // Colisão com Player
+        if(Math.hypot(player.x - en.x, player.y - en.y) < en.size/1.5) {
+            player.hp -= 0.5;
             if(player.hp <= 0) location.reload();
         }
     });
 
-    // Processar Balas
+    // Balas
     for(let i=game.bullets.length-1; i>=0; i--) {
         const b = game.bullets[i];
         b.x += b.vx; b.y += b.vy;
-        
         ctx.fillStyle = '#00ff88';
-        ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill();
 
         game.enemies.forEach((en, ei) => {
-            if(Math.hypot(b.x - en.x, b.y - en.y) < en.size) {
+            if(Math.hypot(b.x - en.x, b.y - en.y) < en.size/2) {
                 en.hp -= b.dmg;
                 if(b.pierce <= 0) game.bullets.splice(i, 1); else b.pierce--;
 
                 if(en.hp <= 0) {
-                    if(en.boss) { game.bossActive = false; game.wave++; updateBiome(); }
+                    if(en.boss) { 
+                        game.bossActive = false; game.wave++; 
+                        const nextIndex = Math.floor((game.wave - 1) / 5) % biomeOrder.length;
+                        game.currentBiomeKey = biomeOrder[nextIndex];
+                        document.getElementById('biome-name').innerText = biomes[game.currentBiomeKey].name;
+                    }
                     game.enemies.splice(ei, 1);
                     game.kills++;
-                    player.xp += 15;
+                    player.xp += en.boss ? 150 : 20;
                     player.hp = Math.min(player.maxHp, player.hp + player.stats.vamp);
                     if(player.xp >= player.nextXp) showUpgradeMenu();
                 }
             }
         });
 
-        // Bounce logic
         if(player.stats.bounce) {
             if(b.x < 0 || b.x > canvas.width) b.vx *= -1;
             if(b.y < 0 || b.y > canvas.height) b.vy *= -1;
@@ -292,23 +308,33 @@ function loop() {
         }
     }
 
-    // Spawner
-    if(Math.random() < 0.04 && !game.bossActive) spawnEnemy();
-    if(game.kills > 0 && game.kills % 50 === 0 && !game.bossActive) spawnEnemy(true);
+    // Sistema de Waves e Spawning
+    if(!game.bossActive) {
+        if(Math.random() < 0.03 + (game.wave * 0.005)) {
+            const angle = Math.random() * Math.PI * 2;
+            game.enemies.push({
+                x: player.x + Math.cos(angle)*canvas.width, y: player.y + Math.sin(angle)*canvas.width,
+                hp: 30 + (game.wave * 15), maxHp: 30 + (game.wave * 15),
+                speed: 2 + (game.wave * 0.1), size: 30, boss: false
+            });
+        }
+        // Spawn Boss a cada 50 kills ou marco de wave
+        if(game.kills > 0 && game.kills % 50 === 0) spawnBoss();
+    }
 
-    // UI Update
+    // UI
     document.getElementById('hp-count').innerText = Math.floor(player.hp);
     document.getElementById('kill-count').innerText = game.kills;
     document.getElementById('wave-count').innerText = game.wave;
     document.getElementById('xp-bar-fill').style.width = (player.xp/player.nextXp)*100 + '%';
+    document.getElementById('biome-name').innerText = biomes[game.currentBiomeKey].name;
 
+    ctx.drawImage(assets.player, player.x-25, player.y-25, 50, 50);
     requestAnimationFrame(loop);
 }
 
-// Iniciar após carregar player
 assets.player.onload = () => {
     player.x = canvas.width/2; player.y = canvas.height/2;
-    updateBiome();
     loop();
 };
 </script>
