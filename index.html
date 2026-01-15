@@ -237,6 +237,41 @@ window.onkeyup = e => keys[e.key.toLowerCase()] = false;
 
 let shootTimer = 0;
 
+    function showUpgradeMenu() {
+    game.paused = true; // Pausa o jogo
+    const overlay = document.getElementById('overlay');
+    const container = document.getElementById('card-container');
+    
+    overlay.style.display = 'flex'; // Mostra o menu
+    container.innerHTML = ''; // Limpa cartas anteriores
+    
+    // Escolhe 3 upgrades aleatórios
+    const pool = [...game.upgrades].sort(() => 0.5 - Math.random()).slice(0, 3);
+    
+    pool.forEach(upg => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<h3>${upg.name}</h3><p>${upg.desc}</p><div class="rarity">${upg.rarity}</div>`;
+        
+        card.onclick = () => {
+            // Aplica o efeito do upgrade
+            if(upg.id === 'dmg') player.stats.dmg *= 1.3;
+            if(upg.id === 'fr') player.stats.fr *= 0.75;
+            if(upg.id === 'multi') player.stats.multi++;
+            if(upg.id === 'speed') player.speed *= 1.2;
+            if(upg.id === 'vamp') player.stats.vamp += 3;
+            if(upg.id === 'regen') player.stats.regen += 0.05;
+            if(upg.id === 'pierce') player.stats.pierce += 1;
+
+            // Fecha o menu e volta ao jogo
+            game.paused = false;
+            overlay.style.display = 'none';
+            requestAnimationFrame(loop);
+        };
+        container.appendChild(card);
+    });
+}
+
 function loop() {
     if (game.paused) return;
 
@@ -307,7 +342,8 @@ function loop() {
                     game.enemies.splice(ei, 1);
                     game.kills++; game.totalKills++;
                     player.xp += en.boss ? 150 : 20;
-                    if(player.xp >= player.nextXp) { player.lvl++; player.xp=0; player.nextXp*=1.5; /* showUpgradeMenu aqui se desejar */ }
+                    if(player.xp >= player.nextXp) { player.lvl++; player.xp=0; player.nextXp*=1.5; showUpgradeMenu(); // AGORA A FUNÇÃO É CHAMADA AQUI
+}
                 }
             }
         });
@@ -335,3 +371,4 @@ assets.player.onload = () => { player.x = canvas.width/2; player.y = canvas.heig
 </script>
 </body>
 </html>
+
