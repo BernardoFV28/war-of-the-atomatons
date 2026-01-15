@@ -28,12 +28,35 @@
 
         #boss-warning { position: absolute; top: 25%; left: 50%; transform: translateX(-50%); color: #ff0055; font-size: 3.5rem; font-weight: bold; display: none; text-shadow: 0 0 20px #ff0055; animation: blink 0.5s infinite; z-index: 5; text-align: center;}
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    
+            /* Estilo do Inventário */
+            #inventory-btn { position: absolute; bottom: 20px; right: 20px; padding: 15px; background: #00d2ff; color: #000; cursor: pointer; font-weight: bold; border: none; }
+            
+            #inventory-screen { 
+                position: absolute; inset: 50px; background: rgba(0, 10, 20, 0.95); 
+                border: 3px solid #00d2ff; display: none; flex-direction: column; padding: 20px; z-index: 200; 
+            }
+            
+            .inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 20px; }
+            
+            .inv-slot { 
+                width: 100px; height: 100px; background: rgba(0, 210, 255, 0.1); 
+                border: 1px solid #00d2ff; display: flex; flex-direction: column; 
+                align-items: center; justify-content: center; font-size: 0.7rem; text-align: center;
+                padding: 5px; cursor: help;
+            }
+        
+            .mission-notif {
+                position: absolute; top: 100px; right: -300px; width: 250px; 
+                background: #ffd700; color: #000; padding: 10px; 
+                transition: 0.5s; font-weight: bold; z-index: 1000;
+            }
     </style>
 </head>
 <body>
 
     <div id="xp-bar-container"><div id="xp-bar-fill"></div></div>
-    <div id="boss-warning">ALERTA:<br>ASSINATURA DE BOSS DETECTADA</div>
+    <div id="boss-warning">ALERTA:<br>fenda do necrocrystal ativa</div>
 
     <div id="ui-layer">
         <div class="stat">SETOR: <span id="biome-name">-</span></div>
@@ -42,6 +65,14 @@
         <div class="stat">KILLS: <span id="kill-count">0</span></div>
     </div>
 
+        <button id="inventory-btn" onclick="toggleInventory()">INVENTÁRIO (I)</button>
+        <div id="inventory-screen">
+            <h1 style="text-align: center;">SISTEMAS EQUIPADOS</h1>
+            <div class="inv-grid" id="inv-grid"></div>
+            <button onclick="toggleInventory()" style="margin-top: auto; padding: 10px;">FECHAR</button>
+        </div>
+        <div id="mission-notif" class="mission-notif">MISSÃO CONCLUÍDA!</div>
+    
     <div id="overlay">
         <h1 style="color: #00d2ff; text-shadow: 0 0 10px #00d2ff;">UPGRADE DISPONÍVEL</h1>
         <div id="card-container"></div>
@@ -333,6 +364,95 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
+const missions = [
+    { id: 1, name: "Recruta de Sucata", goal: 50, type: "kills", reward: { name: "Placa de Ferro", stat: "hp", val: 20 } },
+    { id: 2, name: "Velocidade Neon", goal: 120, type: "timer", reward: { name: "Chip Overclock", stat: "speed", val: 1.2 } },
+    { id: 3, name: "Coração Gelado", goal: 1, type: "boss_cryo", reward: { name: "Núcleo Ártico", stat: "slow_aura", val: 0.2 } },
+    { id: 4, name: "Caçador de Elite", goal: 5, type: "boss_kills", reward: { name: "Lente de Precisão", stat: "crit", val: 0.15 } },
+    { id: 5, name: "Sobrevivente Absoluto", goal: 1, type: "low_hp_survive", reward: { name: "Módulo de Emergência", stat: "shield", val: 1 } },
+    { id: 6, name: "Engenheiro", goal: 10, type: "upgrades", reward: { name: "Bateria Estendida", stat: "fr", val: 0.8 } },
+    { id: 7, name: "Purificador Silicon", goal: 100, type: "kills_cathedral", reward: { name: "Símbolo Sagrado", stat: "heal_on_kill", val: 1 } },
+    { id: 8, name: "Mestre do Código", goal: 3, type: "glitch_hits", reward: { name: "Fragmento Glitch", stat: "dodge", val: 0.1 } },
+    { id: 9, name: "Colecionador", goal: 1000, type: "total_xp", reward: { name: "Ímã Industrial", stat: "magnet", val: 2 } },
+    { id: 10, name: "Destruidor de Tanques", goal: 1, type: "fast_boss_kill", reward: { name: "Ponta de Urânio", stat: "boss_dmg", val: 1.5 } },
+    { id: 11, name: "Pacifista Forçado", goal: 60, type: "no_fire_timer", reward: { name: "Capa Camuflagem", stat: "detection", val: 0.5 } },
+    { id: 12, name: "Artilheiro", goal: 5000, type: "total_shots", reward: { name: "Cano Duplo", stat: "extra_shot", val: 0.1 } },
+    { id: 13, name: "Inabalável", goal: 1, type: "no_hit_wave", reward: { name: "Blindagem Titânio", stat: "armor", val: 2 } },
+    { id: 14, name: "Explorador Vazio", goal: 25, type: "max_wave", reward: { name: "Drive Fantasma", stat: "dash_ghost", val: 1 } },
+    { id: 15, name: "Deus Ex Machina", goal: 1000, type: "total_kills", reward: { name: "NÚCLEO OMEGA", stat: "all_stats", val: 1.5 } }
+];
+function checkMissions() {
+    missions.forEach(m => {
+        if (completedMissions.includes(m.id)) return;
+
+        let progress = 0;
+        switch(m.type) {
+            case "kills": progress = game.kills; break;
+            case "total_kills": progress = game.totalKills; break; // acumulado entre runs
+            case "timer": progress = game.runTimer; break; // segundos da run atual
+            case "boss_kills": progress = game.bossKillsCount; break;
+            case "upgrades": progress = player.lvl; break; 
+            case "max_wave": progress = game.wave; break;
+            case "total_shots": progress = game.shotsFired; break;
+            // Para missões específicas (no hit, fast kill), mude o progresso para 1 quando a condição for aceita
+        }
+
+        if (progress >= m.goal) {
+            completeMission(m);
+        }
+    });
+}
+    function applyItemEffect(item) {
+    switch(item.stat) {
+        case "hp": 
+            player.maxHp += item.val; 
+            player.hp += item.val; 
+            break;
+        case "speed": 
+            player.speed *= item.val; 
+            break;
+        case "crit": 
+            player.stats.crit += item.val; 
+            break;
+        case "fr": 
+            player.stats.fr *= item.val; 
+            break;
+        case "magnet": 
+            player.stats.magnetRange *= item.val; 
+            break;
+        case "heal_on_kill": 
+            player.stats.vamp += item.val; 
+            break;
+        case "armor": 
+            player.stats.armor = (player.stats.armor || 0) + item.val; 
+            break;
+        case "dodge": 
+            player.stats.dodgeChance = (player.stats.dodgeChance || 0) + item.val; 
+            break;
+        case "all_stats": 
+            player.stats.dmg *= 1.5;
+            player.maxHp *= 1.5;
+            player.speed *= 1.2;
+            break;
+        case "extra_shot":
+            // Lógica para chance de tiro extra no loop de tiro
+            player.stats.doubleShotChance = item.val;
+            break;
+    }
+}
+
+    function loadSave() {
+    const savedMissions = localStorage.getItem('robot_missions');
+    if (savedMissions) {
+        completedMissions = JSON.parse(savedMissions);
+        // Aplica os efeitos das missões já completas
+        completedMissions.forEach(id => {
+            const mission = missions.find(m => m.id === id);
+            if(mission) applyItemEffect(mission.reward);
+        });
+    }
+}
+    
 assets.player.onload = () => {
     player.x = canvas.width/2; player.y = canvas.height/2;
     loop();
@@ -340,3 +460,4 @@ assets.player.onload = () => {
 </script>
 </body>
 </html>
+
