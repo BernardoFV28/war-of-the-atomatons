@@ -9,14 +9,13 @@
         
         #ui-layer { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 10; }
         .stat { background: rgba(0, 10, 30, 0.8); padding: 10px; border: 1px solid #00d2ff; margin-bottom: 5px; }
-
+        
         #xp-bar-container { position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: #111; z-index: 20; }
         #xp-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00d2ff, #00ff88); transition: width 0.2s; }
 
-        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; display: none; }
         #card-container { display: flex; gap: 20px; }
         .card { width: 200px; background: #050505; border: 2px solid #00d2ff; border-radius: 10px; padding: 15px; cursor: pointer; text-align: center; color: white; }
-        .card:hover { border-color: #00ff88; background: #001a1a; }
     </style>
 </head>
 <body>
@@ -40,19 +39,27 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Assets Diretos
 const assets = {
     player: new Image(), enemy: new Image(),
-    bg_scr: new Image(), bg_neon: new Image()
+    bg_scrapyard: new Image(), bg_neon: new Image(),
+    bg_cryo: new Image(), bg_cathedral: new Image(), bg_glitch: new Image()
 };
+
+// Carregando suas artes
 assets.player.src = 'assets/player.png';
 assets.enemy.src = 'assets/enemy_robot.png';
-assets.bg_scr.src = 'assets/bg_scrapyard.png';
+assets.bg_scrapyard.src = 'assets/bg_scrapyard.png';
 assets.bg_neon.src = 'assets/bg_neon.png';
+assets.bg_cryo.src = 'assets/bg_cryo.png';
+assets.bg_cathedral.src = 'assets/bg_cathedral.png';
+assets.bg_glitch.src = 'assets/bg_glitch.png';
 
 const biomes = {
-    scrapyard: { name: "Depósito", img: assets.bg_scr, friction: 0.15 },
-    neon: { name: "Rede Neon", img: assets.bg_neon, friction: 0.1 }
+    scrapyard: { name: "Depósito de Sucata", img: assets.bg_scrapyard, speedMod: 1, friction: 0.15 },
+    neon: { name: "Rede Neon", img: assets.bg_neon, speedMod: 1.4, friction: 0.1 },
+    cryo: { name: "Setor Criogénico", img: assets.bg_cryo, speedMod: 0.9, friction: 0.02 },
+    cathedral: { name: "Catedral Silicon", img: assets.bg_cathedral, speedMod: 1, friction: 0.15 },
+    glitch: { name: "Vazio do Código", img: assets.bg_glitch, speedMod: 1.2, friction: 0.08 }
 };
 
 const game = {
@@ -64,15 +71,9 @@ const game = {
 const player = {
     x: window.innerWidth/2, y: window.innerHeight/2,
     vx: 0, vy: 0, hp: 100, maxHp: 100,
-    speed: 0.8, level: 1, xp: 0, nextXp: 100,
+    speed: 5, level: 1, xp: 0, nextXp: 100,
     dmg: 25, fr: 20, cd: 0
 };
-
-const upgradePool = [
-    { t: "POTÊNCIA", d: "+15 Dano", f: () => player.dmg += 15 },
-    { t: "NÚCLEO", d: "-20% Recarga", f: () => player.fr *= 0.8 },
-    { t: "REPARO", d: "Cura total", f: () => player.hp = player.maxHp }
-];
 
 const keys = {};
 window.onkeydown = e => keys[e.key.toLowerCase()] = true;
@@ -83,76 +84,62 @@ window.addEventListener('resize', resize); resize();
 
 function showUpgradeMenu() {
     game.paused = true;
-    const container = document.getElementById('card-container');
-    container.innerHTML = '';
     document.getElementById('overlay').style.display = 'flex';
-    
-    // Sorteia 3 opções
-    [...upgradePool].sort(() => 0.5 - Math.random()).slice(0, 3).forEach(upg => {
-        const div = document.createElement('div');
-        div.className = 'card';
-        div.innerHTML = `<h3>${upg.t}</h3><p>${upg.d}</p>`;
-        div.onclick = () => {
-            upg.f();
-            document.getElementById('overlay').style.display = 'none';
-            game.paused = false;
-            requestAnimationFrame(loop);
-        };
-        container.appendChild(div);
-    });
+    const container = document.getElementById('card-container');
+    container.innerHTML = `<div class="card" onclick="applyUpg()"><h3>POTÊNCIA</h3><p>+10 Dano</p></div>`;
 }
+
+window.applyUpg = () => {
+    player.dmg += 10;
+    document.getElementById('overlay').style.display = 'none';
+    game.paused = false;
+    requestAnimationFrame(loop);
+};
 
 function loop() {
     if (game.paused) return;
     game.timer++;
 
-    // Mudança de Bioma
-    if(game.timer === 1500) { 
-        game.currentBiome = biomes.neon; 
-        document.getElementById('biome-name').innerText = game.currentBiome.name; 
-    }
+    // Troca de Bioma por tempo
+    if(game.timer === 1800) { game.currentBiome = biomes.neon; document.getElementById('biome-name').innerText = "Neon"; }
+    if(game.timer === 3600) { game.currentBiome = biomes.cryo; document.getElementById('biome-name').innerText = "Gelo"; }
 
-    // Render Fundo (Pattern)
+    // Render Fundo (Sem fallback)
     const pattern = ctx.createPattern(game.currentBiome.img, 'repeat');
-    ctx.fillStyle = pattern || '#111';
+    ctx.fillStyle = pattern;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Movimento com normalização (não corre mais rápido na diagonal)
-    let mx = 0, my = 0;
-    if(keys['w']) my -= 1; if(keys['s']) my += 1;
-    if(keys['a']) mx -= 1; if(keys['d']) mx += 1;
-    if(mx !== 0 && my !== 0) { mx *= 0.707; my *= 0.707; }
-
-    player.vx += mx * player.speed;
-    player.vy += my * player.speed;
+    // Movimento Player
+    let ax = 0, ay = 0;
+    if(keys['w']) ay = -1; if(keys['s']) ay = 1;
+    if(keys['a']) ax = -1; if(keys['d']) ax = 1;
+    player.vx += ax * 0.8; player.vy += ay * 0.8;
     player.vx *= (1 - game.currentBiome.friction);
     player.vy *= (1 - game.currentBiome.friction);
-    player.x += player.vx; player.y += player.vy;
+    player.x += player.vx * game.currentBiome.speedMod;
+    player.y += player.vy * game.currentBiome.speedMod;
 
-    // Desenha Player e Inimigos
+    // Desenha Player
     ctx.drawImage(assets.player, player.x - 22, player.y - 22, 45, 45);
 
-    if(Math.random() < 0.05 && game.enemies.length < 50) {
-        const ang = Math.random() * Math.PI * 2;
-        game.enemies.push({ 
-            x: player.x + Math.cos(ang) * 600, 
-            y: player.y + Math.sin(ang) * 600, 
-            hp: 50 
-        });
+    // Spawn Inimigos
+    if(Math.random() < 0.04 && game.enemies.length < 50) {
+        game.enemies.push({ x: Math.random()*canvas.width, y: -50, hp: 50 });
     }
 
+    // Processa Inimigos (Sem fallback)
     game.enemies.forEach((en, i) => {
         const ang = Math.atan2(player.y - en.y, player.x - en.x);
         en.x += Math.cos(ang) * 2; en.y += Math.sin(ang) * 2;
         ctx.drawImage(assets.enemy, en.x - 17, en.y - 17, 35, 35);
 
         if(Math.hypot(player.x-en.x, player.y-en.y) < 30) {
-            player.hp -= 0.15;
+            player.hp -= 0.1;
             if(player.hp <= 0) location.reload();
         }
     });
 
-    // Tiro e Colisões
+    // Tiro Automático
     if(player.cd > 0) player.cd--;
     if(player.cd <= 0 && game.enemies.length > 0) {
         const target = game.enemies[0];
@@ -161,13 +148,14 @@ function loop() {
         player.cd = player.fr;
     }
 
+    // Balas e XP
     for(let i=game.bullets.length-1; i>=0; i--) {
         const b = game.bullets[i];
         b.x += b.vx; b.y += b.vy;
         ctx.fillStyle = "cyan"; ctx.fillRect(b.x-2, b.y-2, 5, 5);
 
         game.enemies.forEach((en, ei) => {
-            if(Math.hypot(b.x-en.x, b.y-en.y) < 25) {
+            if(Math.hypot(b.x-en.x, b.y-en.y) < 20) {
                 en.hp -= player.dmg;
                 game.bullets.splice(i, 1);
                 if(en.hp <= 0) {
@@ -181,7 +169,6 @@ function loop() {
                 }
             }
         });
-        if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) game.bullets.splice(i, 1);
     }
 
     document.getElementById('hp-count').innerText = Math.floor(player.hp);
@@ -191,7 +178,7 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
-// Inicia ao carregar a primeira imagem essencial
+// Inicia apenas quando o player carregar
 assets.player.onload = () => loop();
 </script>
 </body>
