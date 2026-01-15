@@ -2,164 +2,166 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Robot Survivors - Expansion</title>
+    <title>Robot Survivors - Biomas & Bosses</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; color: #00d2ff; font-family: 'Courier New', monospace; user-select: none; }
-        canvas { display: block; filter: saturate(1.5) contrast(1.2); }
+        canvas { display: block; filter: saturate(1.2) contrast(1.1); }
         
         #ui-layer { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 10; }
-        .stat { background: rgba(0, 10, 30, 0.8); padding: 10px; border: 1px solid #00d2ff; margin-bottom: 5px; box-shadow: 0 0 10px #00d2ff55; }
+        .stat { background: rgba(0, 10, 30, 0.85); padding: 10px; border: 1px solid #00d2ff; margin-bottom: 5px; box-shadow: 0 0 10px #00d2ff55; min-width: 150px; }
         
-        #xp-bar-container { position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: #111; }
-        #xp-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00d2ff, #00ff88); box-shadow: 0 0 15px #00d2ff; }
+        #xp-bar-container { position: absolute; top: 0; left: 0; width: 100%; height: 10px; background: #111; z-index: 20; }
+        #xp-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00d2ff, #00ff88); box-shadow: 0 0 15px #00d2ff; transition: width 0.3s; }
 
-        #biome-announcement { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 3rem; text-align: center; pointer-events: none; opacity: 0; transition: 2s; z-index: 5; }
-
-        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; display: none; }
-        #card-container { display: flex; gap: 15px; perspective: 1000px; flex-wrap: wrap; justify-content: center; max-width: 90%; }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        #card-container { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; padding: 20px; }
+        
         .card { 
-            width: 180px; height: 260px; background: #050505; border: 2px solid #00d2ff; 
-            border-radius: 12px; padding: 15px; cursor: pointer; transition: 0.3s;
+            width: 200px; height: 280px; background: #0a0a0a; border: 2px solid #00d2ff; 
+            border-radius: 10px; padding: 15px; cursor: pointer; transition: 0.3s;
             display: flex; flex-direction: column; align-items: center; text-align: center;
         }
-        .card:hover { transform: scale(1.05); background: #001a33; box-shadow: 0 0 30px #00d2ff88; }
-        .card.rare { border-color: #00ff88; }
-        .card.epic { border-color: #ff00ff; }
-        .card.legendary { border-color: #ffd700; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 10px #ffd700; } 50% { box-shadow: 0 0 30px #ffd700; } 100% { box-shadow: 0 0 10px #ffd700; } }
-        
-        .card h3 { color: #fff; margin-bottom: 10px; font-size: 1rem; }
-        .card p { color: #888; font-size: 0.8rem; }
-        .card .rarity { font-size: 0.7rem; margin-top: auto; font-weight: bold; }
+        .card:hover { transform: translateY(-10px); background: #001a33; border-color: #fff; box-shadow: 0 0 20px #00d2ff; }
+        .card h3 { font-size: 1.1rem; margin: 10px 0; color: #fff; text-transform: uppercase; }
+        .card p { font-size: 0.85rem; color: #aaa; flex-grow: 1; }
+        .card .rarity { font-weight: bold; font-size: 0.7rem; color: #00ff88; }
+
+        #boss-warning { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); color: #ff0055; font-size: 3rem; font-weight: bold; display: none; text-shadow: 0 0 20px #ff0055; animation: blink 0.5s infinite; z-index: 5; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 
     <div id="xp-bar-container"><div id="xp-bar-fill"></div></div>
-    <div id="biome-announcement" class="glitch-text">BIOMA: SETOR URBANO</div>
+    <div id="boss-warning">BOSS DETECTADO!</div>
 
     <div id="ui-layer">
-        <div class="stat">BIOMA: <span id="biome-name">CIDADE NEON</span></div>
+        <div class="stat">SETOR: <span id="biome-name">-</span></div>
         <div class="stat">WAVE: <span id="wave-count">1</span></div>
         <div class="stat">HP: <span id="hp-count">100</span></div>
         <div class="stat">KILLS: <span id="kill-count">0</span></div>
     </div>
 
     <div id="overlay">
-        <h1 style="color: #fff;">UPGRADE DE SISTEMA</h1>
+        <h1 style="color: #00d2ff; text-shadow: 0 0 10px #00d2ff;">SISTEMA ATUALIZADO</h1>
         <div id="card-container"></div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
 <script>
+/** CONFIGURAÇÃO DE ASSETS E BIOMAS **/
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Assets Placeholder (Simulando imagens com cores caso não carreguem)
-const assets = { player: new Image(), enemy: new Image(), boss: new Image() };
+const assets = {
+    player: new Image(),
+    enemy: new Image(),
+    bg_scrapyard: new Image(),
+    bg_neon: new Image(),
+    bg_cryo: new Image(),
+    bg_cathedral: new Image(),
+    bg_glitch: new Image()
+};
+
+// Atribuição das fontes de imagem
 assets.player.src = 'assets/player.png';
 assets.enemy.src = 'assets/enemy_robot.png';
-assets.boss.src = 'assets/boss_robot.png';
+assets.bg_scrapyard.src = 'assets/dungeon_floor.png';
+assets.bg_neon.src = 'assets/bg_neon.png';
+assets.bg_cryo.src = 'assets/bg_cryo.png';
+assets.bg_cathedral.src = 'assets/bg_cathedral.png';
+assets.bg_glitch.src = 'assets/bg_glitch.png';
 
-function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-window.addEventListener('resize', resize); resize();
+const biomes = {
+    scrapyard: { name: "Depósito de Sucata", img: assets.bg_scrapyard, speedMod: 1, friction: 0.15 },
+    neon: { name: "Rede Neon", img: assets.bg_neon, speedMod: 1.4, friction: 0.1 },
+    cryo: { name: "Setor Criogénico", img: assets.bg_cryo, speedMod: 0.9, friction: 0.02 },
+    cathedral: { name: "Catedral Silicon", img: assets.bg_cathedral, speedMod: 1, friction: 0.15 },
+    glitch: { name: "Vazio do Código", img: assets.bg_glitch, speedMod: 1.2, friction: 0.08 }
+};
 
+const biomeOrder = ['scrapyard', 'neon', 'cryo', 'cathedral', 'glitch'];
+
+/** ESTADO DO JOGO **/
 const game = {
-    running: true, paused: false, wave: 1, kills: 0, shake: 0,
-    enemies: [], bullets: [], 
+    paused: false,
+    wave: 1,
+    kills: 0,
+    currentBiomeKey: 'scrapyard',
+    enemies: [],
+    bullets: [],
     bossActive: false,
-    biome: 0,
-    biomes: [
-        { name: "CIDADE NEON", color: "#001122", boss: "MEGA-BOT V1" },
-        { name: "FUNDIÇÃO DE SUCATA", color: "#221100", boss: "TRITURADOR" },
-        { name: "NÚCLEO ELÉTRICO", color: "#110022", boss: "VOLT-DRAGON" },
-        { name: "VAZIO BINÁRIO", color: "#050505", boss: "SYSTEM ERROR" }
-    ],
     upgrades: [
-        { id: 'dmg', name: 'Servo-Motores', desc: '+20% de Dano', rarity: 'Comum' },
-        { id: 'fr', name: 'Overclocking', desc: '+15% Vel. Ataque', rarity: 'Comum' },
-        { id: 'speed', name: 'Propulsores', desc: '+10% Vel. Movimento', rarity: 'Comum' },
-        { id: 'magnet', name: 'Ímã de Sucata', desc: '+50% Alcance de Coleta', rarity: 'Raro' },
-        { id: 'hp_max', name: 'Blindagem Reforçada', desc: '+25 HP Máximo', rarity: 'Raro' },
-        { id: 'regen', name: 'Nano-Reparo', desc: 'Regenera 1HP por seg.', rarity: 'Raro' },
-        { id: 'pierce', name: 'Munição AP', desc: 'Balas atravessam +1 inimigo', rarity: 'Épico' },
-        { id: 'multishot', name: 'Módulo Duplo', desc: '+1 Projétil disparado', rarity: 'Épico' },
-        { id: 'crit', name: 'Mira Laser', desc: '+20% Chance de Crítico', rarity: 'Raro' },
-        { id: 'nova', name: 'Pulso de Choque', desc: 'Libera onda de dano ao levar hit', rarity: 'Épico' },
-        { id: 'life_steal', name: 'Sifão de Energia', desc: 'Cura ao destruir inimigos', rarity: 'Lendário' },
-        { id: 'drone', name: 'Drone de Suporte', desc: 'Um drone que atira sozinho', rarity: 'Lendário' }
+        { id: 'dmg', name: 'Canhão Pesado', desc: '+25% de dano por tiro.', rarity: 'Comum' },
+        { id: 'fr', name: 'Auto-Loader', desc: '+20% de velocidade de tiro.', rarity: 'Comum' },
+        { id: 'speed', name: 'Overclock Transmissão', desc: '+15% vel. de movimento.', rarity: 'Comum' },
+        { id: 'pierce', name: 'Munição Perfurante', desc: 'Balas atravessam +1 inimigo.', rarity: 'Raro' },
+        { id: 'bounce', name: 'Módulo de Rebatida', desc: 'Balas ricocheteiam nas bordas.', rarity: 'Raro' },
+        { id: 'regen', name: 'Nano-Reparo', desc: 'Recupera 1 HP a cada 2 seg.', rarity: 'Raro' },
+        { id: 'shield', name: 'Escudo de Plasma', desc: 'Ganha um escudo rotativo.', rarity: 'Épico' },
+        { id: 'crit', name: 'Sensores Ópticos', desc: '+20% chance de dano crítico.', rarity: 'Comum' },
+        { id: 'nova', name: 'Pulso de Choque', desc: 'Explosão elétrica ao sofrer dano.', rarity: 'Épico' },
+        { id: 'vamp', name: 'Sifão de Código', desc: 'Cura ao destruir inimigos.', rarity: 'Lendário' },
+        { id: 'multi', name: 'Dual-Barrel', desc: 'Dispara uma bala extra.', rarity: 'Lendário' },
+        { id: 'explosive', name: 'Morte Explosiva', desc: 'Inimigos explodem ao morrer.', rarity: 'Épico' }
     ]
 };
 
 const player = {
-    x: 0, y: 0, hp: 100, maxHp: 100, xp: 0, nextXp: 50, lvl: 1,
-    speed: 4, dashCd: 0, dashMaxCd: 100, iFrames: 0,
-    stats: { dmg: 1, fr: 30, magnet: 100, pierce: 0, multi: 1, regen: 0, crit: 0.1, lifeSteal: 0 }
+    x: 0, y: 0, vx: 0, vy: 0, hp: 100, maxHp: 100, xp: 0, nextXp: 100,
+    speed: 5, stats: { dmg: 20, fr: 30, pierce: 0, multi: 1, crit: 0.1, vamp: 0, bounce: false }
 };
 
-const keys = {};
-window.onkeydown = e => keys[e.key.toLowerCase()] = true;
-window.onkeyup = e => keys[e.key.toLowerCase()] = false;
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
 
+/** LOGICA DOS BIOMAS **/
+function updateBiome() {
+    const biomeIndex = Math.floor((game.wave - 1) / 5) % biomeOrder.length;
+    game.currentBiomeKey = biomeOrder[biomeIndex];
+    document.getElementById('biome-name').innerText = biomes[game.currentBiomeKey].name;
+}
+
+/** SPAWN DE INIMIGOS E BOSS **/
 function spawnEnemy(isBoss = false) {
     const angle = Math.random() * Math.PI * 2;
-    const dist = canvas.width * 0.6;
+    const dist = canvas.width;
     const enemy = {
         x: player.x + Math.cos(angle) * dist,
         y: player.y + Math.sin(angle) * dist,
-        hp: isBoss ? 500 * (game.biome + 1) : 20 + (game.wave * 5),
-        maxHp: isBoss ? 500 * (game.biome + 1) : 20 + (game.wave * 5),
-        speed: isBoss ? 1 : 1.5 + (Math.random() * 0.5),
-        size: isBoss ? 80 : 25,
-        isBoss: isBoss
+        hp: isBoss ? 500 * game.wave : 20 + (game.wave * 10),
+        maxHp: isBoss ? 500 * game.wave : 20 + (game.wave * 10),
+        speed: isBoss ? 1.5 : 2 + (Math.random() * game.wave * 0.1),
+        size: isBoss ? 80 : 30,
+        boss: isBoss
     };
     game.enemies.push(enemy);
-    if(isBoss) game.bossActive = true;
-}
-
-function checkWave() {
-    if (game.kills >= game.wave * 20 && !game.bossActive) {
-        if (game.wave % 5 === 0) {
-            spawnEnemy(true);
-            announceBiome(`BOSS: ${game.biomes[game.biome].boss}`);
-        } else {
-            game.wave++;
-            document.getElementById('wave-count').innerText = game.wave;
-            // Muda bioma a cada 5 waves
-            if (game.wave % 5 === 1 && game.wave > 1) {
-                game.biome = (game.biome + 1) % game.biomes.length;
-                announceBiome(game.biomes[game.biome].name);
-                document.getElementById('biome-name').innerText = game.biomes[game.biome].name;
-            }
-        }
+    if(isBoss) {
+        game.bossActive = true;
+        document.getElementById('boss-warning').style.display = 'block';
+        setTimeout(() => document.getElementById('boss-warning').style.display = 'none', 3000);
     }
 }
 
-function announceBiome(txt) {
-    const el = document.getElementById('biome-announcement');
-    el.innerText = txt;
-    el.style.opacity = 1;
-    setTimeout(() => el.style.opacity = 0, 3000);
-}
-
-function handleUpgrades() {
+/** CARTAS E UPGRADES **/
+function showUpgradeMenu() {
     game.paused = true;
     const overlay = document.getElementById('overlay');
     const container = document.getElementById('card-container');
     overlay.style.display = 'flex';
     container.innerHTML = '';
     
-    const options = [...game.upgrades].sort(() => 0.5 - Math.random()).slice(0, 3);
+    const pool = [...game.upgrades].sort(() => 0.5 - Math.random()).slice(0, 3);
     
-    options.forEach(upg => {
+    pool.forEach(upg => {
         const card = document.createElement('div');
-        card.className = `card ${upg.rarity.toLowerCase()}`;
+        card.className = 'card';
         card.innerHTML = `<h3>${upg.name}</h3><p>${upg.desc}</p><div class="rarity">${upg.rarity}</div>`;
         card.onclick = () => {
             applyUpgrade(upg);
-            overlay.style.display = 'none';
             game.paused = false;
+            overlay.style.display = 'none';
             requestAnimationFrame(loop);
         };
         container.appendChild(card);
@@ -167,86 +169,75 @@ function handleUpgrades() {
 }
 
 function applyUpgrade(upg) {
-    if (upg.id === 'dmg') player.stats.dmg += 0.2;
-    if (upg.id === 'fr') player.stats.fr *= 0.8;
-    if (upg.id === 'speed') player.speed *= 1.1;
-    if (upg.id === 'hp_max') { player.maxHp += 25; player.hp += 25; }
-    if (upg.id === 'regen') player.stats.regen += 0.1;
-    if (upg.id === 'pierce') player.stats.pierce += 1;
-    if (upg.id === 'multishot') player.stats.multi += 1;
-    if (upg.id === 'life_steal') player.stats.lifeSteal += 2;
+    if(upg.id === 'dmg') player.stats.dmg *= 1.25;
+    if(upg.id === 'fr') player.stats.fr *= 0.8;
+    if(upg.id === 'speed') player.speed *= 1.15;
+    if(upg.id === 'pierce') player.stats.pierce++;
+    if(upg.id === 'bounce') player.stats.bounce = true;
+    if(upg.id === 'multi') player.stats.multi++;
+    if(upg.id === 'vamp') player.stats.vamp += 2;
     
     player.xp = 0;
-    player.nextXp *= 1.2;
-    player.lvl++;
+    player.nextXp *= 1.3;
 }
 
-let fireTimer = 0;
+const keys = {};
+window.onkeydown = e => keys[e.key.toLowerCase()] = true;
+window.onkeyup = e => keys[e.key.toLowerCase()] = false;
+
+let shootTimer = 0;
+
+/** LOOP PRINCIPAL **/
 function loop() {
     if (game.paused) return;
 
-    // Fundo do Bioma
-    ctx.fillStyle = game.biomes[game.biome].color;
+    const bConfig = biomes[game.currentBiomeKey];
+
+    // Desenha Chão (Tiling)
+    const ptrn = ctx.createPattern(bConfig.img, 'repeat');
+    ctx.fillStyle = ptrn;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Player Movimentação
-    if(keys['w']) player.y -= player.speed;
-    if(keys['s']) player.y += player.speed;
-    if(keys['a']) player.x -= player.speed;
-    if(keys['d']) player.x += player.speed;
+    // Movimento com Inércia (afetado pelo Bioma)
+    let ax = 0, ay = 0;
+    if(keys['w']) ay = -1; if(keys['s']) ay = 1;
+    if(keys['a']) ax = -1; if(keys['d']) ax = 1;
+
+    const moveSpeed = player.speed * bConfig.speedMod;
+    player.vx += ax * 0.8;
+    player.vy += ay * 0.8;
     
-    // Regeneração
-    if(player.hp < player.maxHp) player.hp += player.stats.regen / 60;
+    // Aplica fricção do bioma
+    player.vx *= (1 - bConfig.friction);
+    player.vy *= (1 - bConfig.friction);
 
-    // Desenha Player
-    ctx.fillStyle = '#00d2ff';
-    ctx.shadowBlur = 15; ctx.shadowColor = '#00d2ff';
-    ctx.fillRect(player.x - 20, player.y - 20, 40, 40);
-    ctx.shadowBlur = 0;
+    player.x += player.vx;
+    player.y += player.vy;
 
-    // Atirar
-    fireTimer++;
-    if(fireTimer > player.stats.fr) {
+    // Limites da tela
+    player.x = Math.max(20, Math.min(canvas.width - 20, player.x));
+    player.y = Math.max(20, Math.min(canvas.height - 20, player.y));
+
+    // Desenha Jogador
+    ctx.drawImage(assets.player, player.x - 25, player.y - 25, 50, 50);
+
+    // Atirar Automaticamente
+    shootTimer++;
+    if(shootTimer > player.stats.fr) {
         const target = game.enemies[0];
         if(target) {
-            for(let i=0; i < player.stats.multi; i++) {
-                const angle = Math.atan2(target.y - player.y, target.x - player.x) + (i*0.1 - (player.stats.multi*0.05));
+            const angle = Math.atan2(target.y - player.y, target.x - player.x);
+            for(let i=0; i<player.stats.multi; i++) {
                 game.bullets.push({
                     x: player.x, y: player.y,
-                    vx: Math.cos(angle) * 10, vy: Math.sin(angle) * 10,
-                    dmg: 15 * player.stats.dmg, pierce: player.stats.pierce
+                    vx: Math.cos(angle + (i*0.1)) * 10,
+                    vy: Math.sin(angle + (i*0.1)) * 10,
+                    dmg: player.stats.dmg,
+                    pierce: player.stats.pierce
                 });
             }
         }
-        fireTimer = 0;
-    }
-
-    // Processar Balas
-    for(let i=game.bullets.length-1; i>=0; i--) {
-        const b = game.bullets[i];
-        b.x += b.vx; b.y += b.vy;
-        ctx.fillStyle = '#00ff88';
-        ctx.fillRect(b.x-4, b.y-4, 8, 8);
-
-        game.enemies.forEach((en, ei) => {
-            if(Math.hypot(b.x-en.x, b.y-en.y) < en.size) {
-                en.hp -= b.dmg;
-                if(b.pierce <= 0) game.bullets.splice(i, 1);
-                else b.pierce--;
-
-                if(en.hp <= 0) {
-                    if(en.isBoss) { game.bossActive = false; game.wave++; }
-                    game.enemies.splice(ei, 1);
-                    game.kills++;
-                    player.xp += en.isBoss ? 100 : 10;
-                    player.hp = Math.min(player.maxHp, player.hp + player.stats.lifeSteal);
-                    if(player.xp >= player.nextXp) handleUpgrades();
-                    checkWave();
-                }
-            }
-        });
-
-        if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) game.bullets.splice(i, 1);
+        shootTimer = 0;
     }
 
     // Processar Inimigos
@@ -254,34 +245,72 @@ function loop() {
         const angle = Math.atan2(player.y - en.y, player.x - en.x);
         en.x += Math.cos(angle) * en.speed;
         en.y += Math.sin(angle) * en.speed;
+
+        ctx.drawImage(assets.enemy, en.x - en.size/2, en.y - en.size/2, en.size, en.size);
         
-        ctx.fillStyle = en.isBoss ? '#ff0055' : '#888';
-        ctx.fillRect(en.x - en.size/2, en.y - en.size/2, en.size, en.size);
-        
-        // HP Bar para Boss
-        if(en.isBoss) {
-            ctx.fillStyle = '#333'; ctx.fillRect(en.x - 40, en.y - 60, 80, 10);
-            ctx.fillStyle = '#ff0055'; ctx.fillRect(en.x - 40, en.y - 60, (en.hp/en.maxHp)*80, 10);
+        if(en.boss) { // Barra de vida do boss
+            ctx.fillStyle = 'red';
+            ctx.fillRect(en.x - 40, en.y - 60, (en.hp/(500*game.wave))*80, 5);
         }
 
-        if(Math.hypot(player.x-en.x, player.y-en.y) < en.size && player.iFrames <= 0) {
-            player.hp -= en.isBoss ? 1 : 0.2;
+        if(Math.hypot(player.x - en.x, player.y - en.y) < en.size) {
+            player.hp -= en.boss ? 1 : 0.2;
             if(player.hp <= 0) location.reload();
         }
     });
 
-    if(Math.random() < 0.03 && !game.bossActive) spawnEnemy();
+    // Processar Balas
+    for(let i=game.bullets.length-1; i>=0; i--) {
+        const b = game.bullets[i];
+        b.x += b.vx; b.y += b.vy;
+        
+        ctx.fillStyle = '#00ff88';
+        ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2); ctx.fill();
 
-    // UI
-    document.getElementById('hp-count').innerText = Math.floor(player.hp) + "/" + player.maxHp;
+        game.enemies.forEach((en, ei) => {
+            if(Math.hypot(b.x - en.x, b.y - en.y) < en.size) {
+                en.hp -= b.dmg;
+                if(b.pierce <= 0) game.bullets.splice(i, 1); else b.pierce--;
+
+                if(en.hp <= 0) {
+                    if(en.boss) { game.bossActive = false; game.wave++; updateBiome(); }
+                    game.enemies.splice(ei, 1);
+                    game.kills++;
+                    player.xp += 15;
+                    player.hp = Math.min(player.maxHp, player.hp + player.stats.vamp);
+                    if(player.xp >= player.nextXp) showUpgradeMenu();
+                }
+            }
+        });
+
+        // Bounce logic
+        if(player.stats.bounce) {
+            if(b.x < 0 || b.x > canvas.width) b.vx *= -1;
+            if(b.y < 0 || b.y > canvas.height) b.vy *= -1;
+        } else {
+            if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) game.bullets.splice(i, 1);
+        }
+    }
+
+    // Spawner
+    if(Math.random() < 0.04 && !game.bossActive) spawnEnemy();
+    if(game.kills > 0 && game.kills % 50 === 0 && !game.bossActive) spawnEnemy(true);
+
+    // UI Update
+    document.getElementById('hp-count').innerText = Math.floor(player.hp);
     document.getElementById('kill-count').innerText = game.kills;
+    document.getElementById('wave-count').innerText = game.wave;
     document.getElementById('xp-bar-fill').style.width = (player.xp/player.nextXp)*100 + '%';
 
     requestAnimationFrame(loop);
 }
 
-player.x = canvas.width/2; player.y = canvas.height/2;
-loop();
+// Iniciar após carregar player
+assets.player.onload = () => {
+    player.x = canvas.width/2; player.y = canvas.height/2;
+    updateBiome();
+    loop();
+};
 </script>
 </body>
 </html>
