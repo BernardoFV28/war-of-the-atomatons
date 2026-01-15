@@ -1,537 +1,264 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Biopunk: Robot Warfare Survivor</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <title>Robot Survivors</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', monospace; }
+        body { margin: 0; overflow: hidden; background: #000; color: #00d2ff; font-family: 'Courier New', monospace; user-select: none; }
+        canvas { display: block; filter: saturate(1.5) contrast(1.2); }
         
-        /* UI */
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        /* UI Estilo Retro-Futurista */
+        #ui-layer { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 10; }
+        .stat { background: rgba(0, 10, 30, 0.8); padding: 10px; border: 1px solid #00d2ff; margin-bottom: 5px; box-shadow: 0 0 10px #00d2ff55; }
         
-        .hud-box { 
-            position: absolute; background: rgba(0, 10, 20, 0.9); 
-            border: 1px solid #00d2ff; padding: 10px; border-radius: 5px;
-            color: #00d2ff; font-weight: bold; text-shadow: 0 0 5px #00d2ff;
-            pointer-events: auto;
-        }
+        #xp-bar-container { position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: #111; }
+        #xp-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00d2ff, #00ff88); box-shadow: 0 0 15px #00d2ff; }
 
-        #xp-container { 
-            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            width: 400px; height: 25px; background: #111; border: 2px solid #333; border-radius: 15px; overflow: hidden;
-        }
-        #xp-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #00d2ff, #ffffff); transition: width 0.2s; }
-        
-        /* ALERTA DE BOSS */
-        #boss-alert {
-            position: absolute; top: 25%; width: 100%; text-align: center;
-            font-size: 3rem; color: #ff003c; font-weight: 900; text-shadow: 0 0 20px #ff003c;
-            display: none; text-transform: uppercase; animation: shake 0.5s infinite;
-        }
-
-        /* MENU CARDS */
-        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; pointer-events: auto; }
-        .hidden { display: none !important; }
-        
-        .card-container { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; }
-        
-        /* Estilo do Card usando sua imagem de fundo */
+        /* Menu de Upgrades (Cartas) */
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; display: none; }
+        #card-container { display: flex; gap: 20px; perspective: 1000px; }
         .card { 
-            width: 200px; height: 280px;
-            background-image: url('assets/card.png'); /* SEU ASSET AQUI */
-            background-size: cover; background-position: center;
-            background-color: #222; /* Fallback se a imagem falhar */
-            border: 2px solid #444; padding: 15px;
-            border-radius: 8px; cursor: pointer; transition: 0.3s; text-align: center; color: #eee;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            width: 220px; height: 320px; background: #050505; border: 2px solid #00d2ff; 
+            border-radius: 15px; padding: 20px; cursor: pointer; transition: 0.3s;
+            display: flex; flex-direction: column; align-items: center; text-align: center;
         }
-        .card:hover { border-color: #00d2ff; transform: scale(1.05); box-shadow: 0 0 15px #00d2ff; }
-        .card h3 { color: #ffd700; margin: 0 0 10px 0; text-shadow: 1px 1px 2px black; }
-        .card small { color: #ccc; display: block; margin-bottom: 5px; font-weight: bold; }
-        .card p { font-size: 0.9rem; text-shadow: 1px 1px 1px black; }
+        .card:hover { transform: scale(1.05) translateY(-10px); background: #001a33; box-shadow: 0 0 30px #00d2ff88; }
+        .card.evolution { border-color: #ff00ff; box-shadow: 0 0 20px #ff00ff55; }
+        .card h3 { color: #fff; margin-bottom: 10px; text-transform: uppercase; font-size: 1.2rem; }
+        .card p { color: #888; font-size: 0.9rem; line-height: 1.4; }
+        .card .rarity { font-size: 0.7rem; color: #ffd700; margin-top: auto; }
 
-        @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-1px, -1px); } 100% { transform: translate(1px, 1px); } }
+        /* Mutador HUD */
+        #mutator-hud { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); font-weight: bold; font-size: 1.5rem; color: #ff0055; text-shadow: 0 0 10px #ff0055; opacity: 0; transition: 1s; }
+        
+        .glitch-text { animation: glitch 0.3s infinite; }
+        @keyframes glitch { 0% { transform: translate(0); } 20% { transform: translate(-2px, 2px); } 40% { transform: translate(-2px, -2px); } 60% { transform: translate(2px, 2px); } 80% { transform: translate(2px, -2px); } 100% { transform: translate(0); } }
     </style>
 </head>
 <body>
 
-<div id="ui-layer">
-    <div class="hud-box" style="top: 10px; left: 10px;">
-        LVL: <span id="hud-lvl">1</span> | HP: <span id="hud-hp">100</span>
+    <div id="xp-bar-container"><div id="xp-bar-fill"></div></div>
+
+    <div id="ui-layer">
+        <div class="stat">WAVE: <span id="wave-count">1</span></div>
+        <div class="stat">HP: <span id="hp-count">100</span></div>
+        <div class="stat">KILLS: <span id="kill-count">0</span></div>
     </div>
-    <div class="hud-box" style="top: 10px; right: 10px;">
-        TEMPO: <span id="hud-time">00:00</span> | MORTES: <span id="hud-kills">0</span>
+
+    <div id="mutator-hud">WAVE MUTATOR: EXPLOSIVE DEATH</div>
+
+    <div id="overlay">
+        <h1 class="glitch-text">SISTEMA ATUALIZADO</h1>
+        <div id="card-container"></div>
     </div>
-    <div id="xp-container"><div id="xp-bar"></div></div>
-    <div id="boss-alert">ALERTA: TITÃ DETECTADO</div>
-</div>
 
-<div id="start-screen" class="overlay">
-    <h1 style="color:#00d2ff; font-size: 4rem; text-shadow: 0 0 30px #00d2ff;"></h1>
-    <h2 style="color:#fff;">MODO: SOBREVIVÊNCIA</h2>
-    <p style="color:#ccc">WASD para mover. Mouse para mirar. Sobreviva à horda.</p>
-    <button onclick="startGame()" style="padding: 15px 40px; font-size: 1.5rem; background: #00d2ff; border: none; font-weight: bold; cursor: pointer; border-radius: 5px;">INICIAR OPERAÇÃO</button>
-</div>
-
-<div id="levelup-screen" class="overlay hidden">
-    <h2 style="color:#ffd700; text-shadow: 0 0 10px gold;">UPGRADE DE SISTEMA</h2>
-    <div class="card-container" id="upgrade-list"></div>
-</div>
-
-<div id="game-container"></div>
+    <canvas id="gameCanvas"></canvas>
 
 <script>
-// ================= DADOS DO JOGO (RPG) =================
-const STATE = {
-    hp: 100, maxHp: 100,
-    xp: 0, nextXp: 100, level: 1,
-    kills: 0, time: 0,
-    weapons: [], 
-    passives: { might: 1, cooldown: 1, speed: 200, area: 1 }, // Speed ajustado para o player
-    isPaused: false,
-    gameActive: false
+/** CONFIGURAÇÕES TÉCNICAS E ASSETS **/
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const assets = {
+    player: new Image(), enemy: new Image(), bullet: new Image(), particle: new Image()
+};
+assets.player.src = 'assets/player.png';
+assets.enemy.src = 'assets/enemy_robot.png';
+assets.bullet.src = 'assets/bullet.png';
+
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
+
+/** ESTADO DO JOGO **/
+const game = {
+    running: false,
+    paused: false,
+    wave: 1,
+    kills: 0,
+    mutator: 'none', // none, explosive, fast, low_vis, gravity
+    timer: 0,
+    shake: 0,
+    particles: [],
+    enemies: [],
+    bullets: [],
+    items: [], // XP Gems
+    upgrades: [
+        { id: 'gun_dmg', name: 'Canhão Pesado', desc: '+5 Dano de Projétil', rarity: 'Comum', lv: 0 },
+        { id: 'gun_fr', name: 'Auto-Loader', desc: '-15% Tempo de Recarga', rarity: 'Raro', lv: 0 },
+        { id: 'dash_cd', name: 'Propulsor Turbo', desc: '-0.5s Cooldown do Dash', rarity: 'Comum', lv: 0 },
+        { id: 'evo_glitch', name: 'GLITCH CORE', desc: 'EVOLUÇÃO: Balas se duplicam ao atingir inimigos.', rarity: 'LENDÁRIO', lv: 0, evo: true }
+    ]
 };
 
-const WEAPONS_DB = [
-    { id: 'gun', name: 'Metralhadora', desc: 'Disparos rápidos contra o inimigo mais próximo.', type: 'projectile', dmg: 15, cd: 600, speed: 500, color: 0xffff00 },
-    { id: 'gas', name: 'Campo de Radiação', desc: 'Aura que danifica inimigos próximos constantemente.', type: 'aura', dmg: 3, cd: 200, area: 130, color: 0x00ff00 },
-    { id: 'drone', name: 'Drone Orbital', desc: 'Gira ao redor protegendo e causando dano.', type: 'orbital', dmg: 20, cd: 0, speed: 2.5, count: 1, color: 0x00d2ff }
-];
+/** O JOGADOR **/
+const player = {
+    x: 0, y: 0, hp: 100, maxHp: 100, xp: 0, nextXp: 100, lvl: 1,
+    speed: 4, dashCd: 0, dashMaxCd: 120, iFrames: 0,
+    weapons: [
+        { name: 'Plasma Gun', damage: 15, fr: 30, cd: 0, type: 'auto' }
+    ],
+    stats: { dmgMod: 1, frMod: 1, xpMod: 1, bulletPierce: 0 }
+};
 
-const BOSS_DB = [
-    { name: "Destruidor MK-1", tint: 0xffaaaa, scale: 2.0, hpMult: 100, ai: 'charger' }, // Tint leve para não perder a cor da imagem
-    { name: "Ciber-Enxame", tint: 0xaaffaa, scale: 1.8, hpMult: 80, ai: 'shooter' },
-    { name: "Goliath Prime", tint: 0xffffff, scale: 3.0, hpMult: 200, ai: 'tank' }
-];
+/** LÓGICA DE COMBATE E MOVIMENTO **/
+const keys = {};
+window.onkeydown = e => keys[e.key.toLowerCase()] = true;
+window.onkeyup = e => keys[e.key.toLowerCase()] = false;
 
-class MainScene extends Phaser.Scene {
-    constructor() { super('MainScene'); }
-
-    preload() {
-        // --- AQUI ESTÃO OS SEUS ASSETS ---
-        // Se a imagem falhar em carregar, o jogo não trava, mas mostra um quadrado preto/verde.
-        
-        this.load.image('bg', 'assets/dungeon_floor.png');
-        this.load.image('player', 'assets/player.png');
-        this.load.image('bullet', 'assets/bullet.png');
-        
-        // Inimigos
-        this.load.image('enemy_basic', 'assets/enemy_robot.png');
-        this.load.image('enemy_fast', 'assets/enemy_fast.png');
-        this.load.image('enemy_tank', 'assets/enemy_tank.png');
-        
-        // Boss e Itens
-        this.load.image('boss', 'assets/boss_robot.png');
-        this.load.image('pickup', 'assets/ammo.png'); // Cura/XP
-        
-        // UI
-        this.load.image('card_bg', 'assets/card.png');
-
-        // Fallback: Gráficos gerados caso as imagens não existam na pasta
-        const createFallback = (key, color) => {
-            const g = this.make.graphics().fillStyle(color).fillRect(0,0,32,32);
-            g.generateTexture('fallback_'+key, 32, 32);
-        };
-        createFallback('player', 0x00ff00);
-        createFallback('enemy', 0xff0000);
-    }
-
-    create() {
-        STATE.gameActive = true;
-        
-        // Mundo Infinito (TileSprite)
-        this.physics.world.setBounds(0, 0, 4000, 4000);
-        
-        // Tenta usar a imagem 'bg', se não existir, usa uma cor sólida
-        if(this.textures.exists('bg')) {
-            this.bg = this.add.tileSprite(2000, 2000, 4000, 4000, 'bg');
-        } else {
-            this.add.grid(2000, 2000, 4000, 4000, 128, 128, 0x001133).setAlpha(0.5);
-        }
-
-        // Player
-        const pKey = this.textures.exists('player') ? 'player' : 'fallback_player';
-        this.player = this.physics.add.sprite(2000, 2000, pKey);
-        this.player.setCollideWorldBounds(true);
-        this.player.setDepth(10); 
-        this.player.setScale(0.05);
-        // Player sempre acima do chão
-        
-        // Câmera
-        this.cameras.main.startFollow(this.player, true);
-        this.cameras.main.setZoom(1.2);
-
-        // Grupos
-        this.enemies = this.physics.add.group({ runChildUpdate: true });
-        this.enemies.setScale(0.04);
-        this.bullets = this.physics.add.group({ runChildUpdate: true });
-        this.bullets.setScale(0.02);
-        this.xpGems = this.physics.add.group();
-        this.xpGems.setScale(0.03);
-        this.damageTexts = this.add.group();
-        this.damageTexts.setScale(0.05);
-
-        // Colisões
-        this.physics.add.overlap(this.bullets, this.enemies, this.hitEnemy, null, this);
-        this.physics.add.overlap(this.player, this.enemies, this.hitPlayer, null, this);
-        this.physics.add.overlap(this.player, this.xpGems, this.collectXp, null, this);
-
-        // Inputs
-        this.keys = this.input.keyboard.addKeys('W,A,S,D');
-
-        // Timers
-        this.time.addEvent({ delay: 1000, callback: this.tickSecond, callbackScope: this, loop: true });
-        this.time.addEvent({ delay: 600, callback: this.spawnHorde, callbackScope: this, loop: true });
-
-        // Arma Inicial
-        this.addWeapon('gun');
-    }
-
-    update(time, delta) {
-        if(STATE.isPaused || !STATE.gameActive) return;
-
-        // 1. Movimento Player
-        this.player.setVelocity(0);
-        const spd = STATE.passives.speed;
-        if(this.keys.A.isDown) this.player.setVelocityX(-spd);
-        else if(this.keys.D.isDown) this.player.setVelocityX(spd);
-        if(this.keys.W.isDown) this.player.setVelocityY(-spd);
-        else if(this.keys.S.isDown) this.player.setVelocityY(spd);
-
-        // 2. Armas
-        STATE.weapons.forEach(w => {
-            if(time > w.nextFire) {
-                this.fireWeapon(w);
-                w.nextFire = time + (w.cd * STATE.passives.cooldown);
-            }
-            if(w.type === 'orbital' && w.sprites) {
-                w.angle = (w.angle || 0) + (w.speed * (delta/1000));
-                w.sprites.forEach((s, i) => {
-                    const offset = (Math.PI * 2 / w.count) * i;
-                    s.x = this.player.x + Math.cos(w.angle + offset) * 80;
-                    s.y = this.player.y + Math.sin(w.angle + offset) * 80;
-                });
-            }
-            if(w.type === 'aura' && w.sprite) {
-                w.sprite.setPosition(this.player.x, this.player.y);
-            }
-        });
-
-        // 3. Inimigos perseguem
-        this.enemies.children.iterate(e => {
-            if(e && e.active) {
-                if(e.isBoss) this.updateBossAI(e, time);
-                else this.physics.moveToObject(e, this.player, e.speed);
-            }
-        });
-
-        // 4. Magneto XP
-        this.xpGems.children.iterate(xp => {
-            if(Phaser.Math.Distance.Between(this.player.x, this.player.y, xp.x, xp.y) < 150) {
-                this.physics.moveToObject(xp, this.player, 400);
-            }
-        });
-    }
-
-    // ================== COMBATE ==================
-
-    fireWeapon(w) {
-        if(w.type === 'projectile') {
-            let target = this.getClosestEnemy();
-            if(target) {
-                const bKey = this.textures.exists('bullet') ? 'bullet' : 'fallback_player';
-                const b = this.bullets.create(this.player.x, this.player.y, bKey);
-                
-                // Se a imagem for muito grande, diminui
-                if(b.width > 20) b.setScale(0.5); 
-
-                this.physics.moveToObject(b, target, w.speed);
-                // Calcula rotação da bala
-                const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, target.x, target.y);
-                b.setRotation(angle);
-                
-                b.damage = w.dmg * STATE.passives.might;
-                this.time.delayedCall(1500, () => { if(b.active) b.destroy(); });
-            }
-        }
-    }
-
-    getClosestEnemy() {
-        let closest = null, min = 800;
-        this.enemies.children.iterate(e => {
-            if(!e.active) return;
-            const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
-            if(d < min) { min = d; closest = e; }
-        });
-        return closest;
-    }
-
-    hitEnemy(bullet, enemy) {
-        if(bullet.isAura || bullet.isOrbital) {
-            if(enemy.invuln > this.time.now) return;
-            enemy.invuln = this.time.now + 300;
-        } else {
-            bullet.destroy();
-        }
-
-        const dmg = bullet.damage || (bullet.weaponRef ? bullet.weaponRef.dmg * STATE.passives.might : 10);
-        enemy.hp -= dmg;
-        
-        // Texto de dano
-        const txt = this.add.text(enemy.x, enemy.y - 20, Math.floor(dmg), { fontSize: '16px', color: '#fff', stroke: '#000', strokeThickness: 2 });
-        this.tweens.add({ targets: txt, y: enemy.y-50, alpha: 0, duration: 500, onComplete: ()=>txt.destroy() });
-
-        if(enemy.hp <= 0) {
-            // Drop de Cura/XP (ammo.png)
-            const dropKey = this.textures.exists('pickup') ? 'pickup' : 'fallback_player';
-            const drop = this.xpGems.create(enemy.x, enemy.y, dropKey);
-            drop.value = enemy.isBoss ? 500 : 10;
-            // Se o ammo.png for grande, escala
-            drop.setScale(0.5);
-
-            STATE.kills++;
-            document.getElementById('hud-kills').innerText = STATE.kills;
-            enemy.destroy();
-            
-            if(enemy.isBoss) {
-                document.getElementById('boss-alert').style.display = 'none';
-                this.cameras.main.shake(500, 0.01);
-            }
-        } else {
-            enemy.setTint(0xff0000);
-            this.time.delayedCall(100, () => enemy.clearTint());
-        }
-    }
-
-    hitPlayer(player, enemy) {
-        if(player.invuln) return;
-        STATE.hp -= 10;
-        player.setTint(0xff0000);
-        player.invuln = true;
-        this.cameras.main.shake(100, 0.01);
-        
-        document.getElementById('hud-hp').innerText = Math.max(0, Math.ceil(STATE.hp));
-        
-        this.time.delayedCall(500, () => {
-            player.clearTint();
-            player.invuln = false;
-        });
-
-        if(STATE.hp <= 0) {
-            this.physics.pause();
-            STATE.isPaused = true;
-            alert(`SISTEMA CRÍTICO! VOCÊ MORREU.\nNível: ${STATE.level}\nTempo: ${document.getElementById('hud-time').innerText}`);
-            location.reload();
-        }
-    }
-
-    collectXp(player, drop) {
-        drop.destroy();
-        STATE.xp += drop.value;
-        const pct = (STATE.xp / STATE.nextXp) * 100;
-        document.getElementById('xp-bar').style.width = Math.min(100, pct) + '%';
-        
-        // Recupera um pouco de vida ao pegar "ammo"
-        if(STATE.hp < STATE.maxHp) {
-            STATE.hp = Math.min(STATE.maxHp, STATE.hp + 2);
-            document.getElementById('hud-hp').innerText = Math.floor(STATE.hp);
-        }
-
-        if(STATE.xp >= STATE.nextXp) {
-            STATE.xp = 0;
-            STATE.nextXp = Math.floor(STATE.nextXp * 1.3);
-            STATE.level++;
-            document.getElementById('hud-lvl').innerText = STATE.level;
-            document.getElementById('xp-bar').style.width = '0%';
-            this.openLevelUp();
-        }
-    }
-
-    // ================== INIMIGOS E BOSS ==================
-
-    spawnHorde() {
-        if(this.enemies.countActive() > 250) return;
-
-        const cam = this.cameras.main;
-        // Spawn fora da tela
-        const x = Phaser.Math.Between(cam.worldView.left - 200, cam.worldView.right + 200);
-        const y = Phaser.Math.Between(cam.worldView.top - 200, cam.worldView.bottom + 200);
-        
-        // Garante que não spawna na cara do player
-        if(Phaser.Math.Distance.Between(x,y,this.player.x,this.player.y) < 600) return;
-
-        // Seleção de Inimigo baseada no asset
-        let typeKey = 'enemy_basic';
-        let hp = 20 + (STATE.level * 2);
-        let speed = 60 + Math.random() * 20;
-
-        const rand = Math.random();
-        if(rand > 0.9 && this.textures.exists('enemy_tank')) {
-            typeKey = 'enemy_tank';
-            hp *= 3;
-            speed *= 0.5;
-        } else if (rand > 0.7 && this.textures.exists('enemy_fast')) {
-            typeKey = 'enemy_fast';
-            hp *= 0.6;
-            speed *= 1.5;
-        }
-
-        // Se a textura não existir, usa fallback
-        if(!this.textures.exists(typeKey)) typeKey = 'fallback_enemy';
-
-        const e = this.enemies.create(x, y, typeKey);
-        e.hp = hp;
-        e.speed = speed;
-    }
-
-    spawnBoss() {
-        const data = BOSS_DB[Math.floor(Math.random() * BOSS_DB.length)];
-        const x = this.player.x + 500; 
-        const y = this.player.y;
-
-        const bossKey = this.textures.exists('boss') ? 'boss' : 'fallback_enemy';
-        const boss = this.enemies.create(x, y, bossKey);
-        
-        boss.setScale(data.scale);
-        if(data.tint) boss.setTint(data.tint);
-        
-        boss.isBoss = true;
-        boss.maxHp = 800 * STATE.level * (data.hpMult/100);
-        boss.hp = boss.maxHp;
-        boss.aiType = data.ai;
-        boss.state = 'CHASE'; 
-        boss.stateTimer = 0;
-        boss.speed = 50;
-
-        const alert = document.getElementById('boss-alert');
-        alert.innerText = `ALERTA: ${data.name}`;
-        alert.style.display = 'block';
-        setTimeout(() => alert.style.display = 'none', 4000);
-    }
-
-    updateBossAI(boss, time) {
-        if(time < boss.stateTimer) return;
-        const dist = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
-
-        if(boss.state === 'CHASE') {
-            this.physics.moveToObject(boss, this.player, boss.speed);
-            if(dist < 250) {
-                boss.state = 'ATTACK';
-                boss.stateTimer = time + 1000;
-                boss.body.setVelocity(0);
-            }
-        } else if (boss.state === 'ATTACK') {
-            if(boss.aiType === 'charger') this.physics.moveToObject(boss, this.player, 350);
-            else if (boss.aiType === 'shooter') {
-                 // Dispara projétil simples usando asset de bala
-                 const bKey = this.textures.exists('bullet') ? 'bullet' : 'fallback_enemy';
-                 const b = this.enemies.create(boss.x, boss.y, bKey);
-                 b.hp = 1; b.speed = 250; b.setScale(1.5); b.setTint(0xff0000);
-                 this.physics.moveToObject(b, this.player, 250);
-            }
-            boss.state = 'COOLDOWN';
-            boss.stateTimer = time + 2000;
-        } else if (boss.state === 'COOLDOWN') {
-            boss.state = 'CHASE';
-        }
-    }
-
-    // ================== UTILS ==================
-
-    tickSecond() {
-        if(STATE.isPaused) return;
-        STATE.time++;
-        const m = Math.floor(STATE.time / 60).toString().padStart(2,'0');
-        const s = (STATE.time % 60).toString().padStart(2,'0');
-        document.getElementById('hud-time').innerText = `${m}:${s}`;
-        
-        // Spawn Boss a cada 60s
-        if(STATE.time % 60 === 0 && STATE.time > 0) this.spawnBoss();
-    }
-
-    openLevelUp() {
-        STATE.isPaused = true;
-        this.physics.pause();
-        const screen = document.getElementById('levelup-screen');
-        const list = document.getElementById('upgrade-list');
-        list.innerHTML = '';
-        screen.classList.remove('hidden');
-
-        // Escolhe 3 upgrades
-        for(let i=0; i<3; i++) {
-            const item = WEAPONS_DB[Math.floor(Math.random()*WEAPONS_DB.length)];
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `<h3>${item.name}</h3><small>${item.type.toUpperCase()}</small><p>${item.desc}</p>`;
-            card.onclick = () => {
-                this.addWeapon(item.id);
-                screen.classList.add('hidden');
-                STATE.isPaused = false;
-                this.physics.resume();
-            };
-            list.appendChild(card);
-        }
-    }
-
-    addWeapon(id) {
-        const stats = WEAPONS_DB.find(x => x.id === id);
-        const existing = STATE.weapons.find(w => w.id === id);
-        
-        if(existing) {
-            existing.dmg *= 1.3;
-            if(existing.type === 'orbital') {
-                existing.count++;
-                this.rebuildOrbitals(existing);
-            }
-        } else {
-            const newWep = { ...stats, nextFire: 0 };
-            if(newWep.type === 'aura') {
-                // Aura usa um gráfico simples circular
-                const g = this.make.graphics().fillStyle(newWep.color, 0.2).fillCircle(100,100,100);
-                g.generateTexture('aura_'+id, 200, 200);
-                newWep.sprite = this.physics.add.sprite(0,0,'aura_'+id);
-                this.bullets.add(newWep.sprite);
-                newWep.sprite.isAura = true;
-                newWep.sprite.weaponRef = newWep;
-            }
-            if(newWep.type === 'orbital') {
-                this.rebuildOrbitals(newWep);
-            }
-            STATE.weapons.push(newWep);
-        }
-    }
-
-    rebuildOrbitals(wep) {
-        if(wep.sprites) wep.sprites.forEach(s => s.destroy());
-        wep.sprites = [];
-        // Usa bullet como orbital
-        const bKey = this.textures.exists('bullet') ? 'bullet' : 'fallback_player';
-        for(let i=0; i<wep.count; i++) {
-            const s = this.physics.add.sprite(0,0,bKey);
-            s.setTint(wep.color);
-            s.isOrbital = true; s.weaponRef = wep;
-            this.bullets.add(s);
-            wep.sprites.push(s);
-        }
-    }
-}
-
-function startGame() {
-    document.getElementById('start-screen').classList.add('hidden');
-    new Phaser.Game({
-        type: Phaser.AUTO,
-        width: window.innerWidth,
-        height: window.innerHeight,
-        backgroundColor: '#050505',
-        parent: 'game-container',
-        physics: { default: 'arcade', arcade: { debug: false } },
-        scene: MainScene
+function spawnEnemy() {
+    if (game.enemies.length > 100) return;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = canvas.width;
+    game.enemies.push({
+        x: player.x + Math.cos(angle) * dist,
+        y: player.y + Math.sin(angle) * dist,
+        hp: 20 + (game.wave * 10),
+        speed: 1.5 + (Math.random() * game.wave * 0.2),
+        size: 20
     });
 }
+
+function handleUpgrades() {
+    game.paused = true;
+    document.getElementById('overlay').style.display = 'flex';
+    const container = document.getElementById('card-container');
+    container.innerHTML = '';
+    
+    // Sorteia 3 opções
+    const shuffled = [...game.upgrades].sort(() => 0.5 - Math.random()).slice(0, 3);
+    
+    shuffled.forEach(upg => {
+        const card = document.createElement('div');
+        card.className = `card ${upg.evo ? 'evolution' : ''}`;
+        card.innerHTML = `<h3>${upg.name}</h3><p>${upg.desc}</p><div class="rarity">${upg.rarity}</div>`;
+        card.onclick = () => applyUpgrade(upg);
+        container.appendChild(card);
+    });
+}
+
+function applyUpgrade(upg) {
+    if (upg.id === 'gun_dmg') player.stats.dmgMod += 0.2;
+    if (upg.id === 'gun_fr') player.stats.frMod *= 0.85;
+    if (upg.id === 'dash_cd') player.dashMaxCd *= 0.8;
+    
+    player.xp = 0;
+    player.nextXp *= 1.3;
+    document.getElementById('overlay').style.display = 'none';
+    game.paused = false;
+    requestAnimationFrame(loop);
+}
+
+function dash() {
+    if (player.dashCd <= 0) {
+        player.iFrames = 20;
+        player.dashCd = player.dashMaxCd;
+        game.shake = 10;
+        // Teleporte curto na direção das teclas
+        let dx = 0, dy = 0;
+        if(keys['w']) dy = -1; if(keys['s']) dy = 1;
+        if(keys['a']) dx = -1; if(keys['d']) dx = 1;
+        player.x += dx * 100; player.y += dy * 100;
+    }
+}
+
+/** LOOP PRINCIPAL **/
+function loop() {
+    if (game.paused) return;
+
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,canvas.width, canvas.height);
+
+    // Efeito de Camera Shake
+    ctx.save();
+    if(game.shake > 0) {
+        ctx.translate(Math.random()*game.shake, Math.random()*game.shake);
+        game.shake *= 0.9;
+    }
+
+    // Movimento Player
+    if(keys['w']) player.y -= player.speed;
+    if(keys['s']) player.y += player.speed;
+    if(keys['a']) player.x -= player.speed;
+    if(keys['d']) player.x += player.speed;
+    if(keys[' ']) dash();
+    if(player.dashCd > 0) player.dashCd--;
+    if(player.iFrames > 0) player.iFrames--;
+
+    // Desenha Player
+    ctx.shadowBlur = 15; ctx.shadowColor = '#00d2ff';
+    ctx.drawImage(assets.player, player.x-25, player.y-25, 50, 50);
+    ctx.shadowBlur = 0;
+
+    // Armas Automáticas
+    player.weapons.forEach(w => {
+        w.cd--;
+        if(w.cd <= 0) {
+            // Atira no inimigo mais próximo
+            const target = game.enemies[0];
+            if(target) {
+                const angle = Math.atan2(target.y - player.y, target.x - player.x);
+                game.bullets.push({
+                    x: player.x, y: player.y,
+                    vx: Math.cos(angle) * 12, vy: Math.sin(angle) * 12,
+                    dmg: w.damage * player.stats.dmgMod
+                });
+            }
+            w.cd = w.fr * player.stats.frMod;
+        }
+    });
+
+    // Processar Inimigos
+    game.enemies.forEach((en, i) => {
+        const angle = Math.atan2(player.y - en.y, player.x - en.x);
+        en.x += Math.cos(angle) * en.speed;
+        en.y += Math.sin(angle) * en.speed;
+        
+        ctx.drawImage(assets.enemy, en.x-20, en.y-20, 40, 40);
+
+        // Colisão com Player
+        if(Math.hypot(player.x-en.x, player.y-en.y) < 30 && player.iFrames <= 0) {
+            player.hp -= 0.1;
+            if(player.hp <= 0) location.reload();
+        }
+    });
+
+    // Processar Balas
+    for(let i=game.bullets.length-1; i>=0; i--) {
+        const b = game.bullets[i];
+        b.x += b.vx; b.y += b.vy;
+        ctx.fillStyle = '#00ff88';
+        ctx.fillRect(b.x-4, b.y-4, 8, 8);
+
+        game.enemies.forEach((en, ei) => {
+            if(Math.hypot(b.x-en.x, b.y-en.y) < 25) {
+                en.hp -= b.dmg;
+                game.bullets.splice(i, 1);
+                if(en.hp <= 0) {
+                    game.enemies.splice(ei, 1);
+                    game.kills++;
+                    player.xp += 10;
+                    if(player.xp >= player.nextXp) handleUpgrades();
+                }
+            }
+        });
+    }
+
+    // Spawn gradual
+    if(Math.random() < 0.05 + (game.wave * 0.01)) spawnEnemy();
+
+    // UI Update
+    document.getElementById('hp-count').innerText = Math.floor(player.hp);
+    document.getElementById('kill-count').innerText = game.kills;
+    document.getElementById('xp-bar-fill').style.width = (player.xp/player.nextXp)*100 + '%';
+
+    ctx.restore();
+    requestAnimationFrame(loop);
+}
+
+// Iniciar
+assets.player.onload = () => {
+    player.x = canvas.width/2; player.y = canvas.height/2;
+    loop();
+};
 </script>
 </body>
 </html>
-
-
