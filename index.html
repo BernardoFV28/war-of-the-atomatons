@@ -2,853 +2,372 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>War of the Automatons: Definitive Edition</title>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <title>war of automatons -hercules rege</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-
-        :root {
-            --primary: #00ffff;
-            --danger: #ff0040;
-            --gold: #ffd700;
-            --bg-overlay: rgba(0, 5, 10, 0.95);
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #050505;
-            overflow: hidden;
-            font-family: 'Share Tech Mono', monospace;
-            color: var(--primary);
-            user-select: none;
-        }
-
-        /* --- UI OVERLAYS --- */
-        #ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        /* HUD */
-        #hud-top {
-            display: flex;
-            justify-content: space-between;
-            padding: 20px;
-            background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, transparent 100%);
-        }
-
-        .stat-box {
-            background: rgba(0, 20, 40, 0.6);
-            border: 1px solid var(--primary);
-            padding: 10px 15px;
-            border-radius: 4px;
-            box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
-            margin-bottom: 5px;
-            min-width: 150px;
-        }
-
-        .bar-container {
-            width: 100%;
-            height: 8px;
-            background: #222;
-            border: 1px solid #444;
-            margin-top: 5px;
-            position: relative;
-        }
-
-        .bar-fill { height: 100%; transition: width 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
-        #hp-bar-fill { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
-        #xp-bar-fill { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
-        #dash-bar-fill { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
-
-        /* ALERTS & NOTIFICATIONS */
-        #biome-alert {
-            position: absolute;
-            top: 20%;
-            width: 100%;
-            text-align: center;
-            font-size: 2.5rem;
-            color: var(--danger);
-            text-shadow: 0 0 20px var(--danger);
-            background: rgba(0,0,0,0.6);
-            display: none;
-            z-index: 50;
-        }
-
-        #mission-notif {
-            position: absolute;
-            top: 100px;
-            right: -350px;
-            width: 300px;
-            background: rgba(0, 255, 136, 0.1);
-            border: 1px solid #00ff88;
-            color: #fff;
-            padding: 15px;
-            transition: 0.5s;
-            backdrop-filter: blur(5px);
-            z-index: 90;
-        }
-
-        /* MENUS (PAUSE / LEVEL UP / INVENTORY) */
-        .modal {
-            position: absolute;
-            inset: 0;
-            background: var(--bg-overlay);
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            pointer-events: auto;
-            z-index: 100;
-            backdrop-filter: blur(8px);
-        }
-
-        .modal h1 {
-            font-size: 3rem;
-            color: var(--danger);
-            text-transform: uppercase;
-            text-shadow: 0 0 20px var(--danger);
-            letter-spacing: 5px;
-            margin-bottom: 10px;
-        }
-
-        /* CARDS SYSTEM */
-        #card-container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; max-width: 1000px; }
-        .card {
-            width: 200px;
-            height: 300px;
-            background: linear-gradient(135deg, #0a0a0a 0%, #151515 100%);
-            border: 2px solid #333;
-            border-radius: 8px;
-            padding: 15px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            overflow: hidden;
-        }
-        .card:hover { transform: translateY(-10px); border-color: var(--primary); box-shadow: 0 0 25px rgba(0, 255, 255, 0.4); }
-        .card.rare { border-color: #bf00ff; }
-        .card.legendary { border-color: var(--gold); }
-        .card-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 10px; color: #fff; }
-        .card-desc { font-size: 0.9rem; color: #aaa; flex-grow: 1; }
-        .card-type { font-size: 0.7rem; text-transform: uppercase; opacity: 0.7; margin-top: auto; }
-
-        /* INVENTORY GRID */
-        #inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; width: 60%; max-height: 60vh; overflow-y: auto; padding: 10px; }
-        .inv-item { background: rgba(0, 255, 255, 0.05); border: 1px solid #333; padding: 10px; text-align: center; font-size: 0.8rem; }
-
-        /* CONTROLS & BUTTONS */
-        button {
-            background: var(--primary);
-            color: #000;
-            border: none;
-            padding: 12px 25px;
-            font-family: inherit;
-            font-weight: bold;
-            font-size: 1.1rem;
-            cursor: pointer;
-            margin-top: 20px;
-            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
-            transition: 0.2s;
-        }
-        button:hover { background: #fff; box-shadow: 0 0 15px var(--primary); }
+        body { margin: 0; overflow: hidden; background: #000; color: #ff0000; font-family: 'Courier New', monospace; user-select: none; }
+        canvas { display: block; filter: saturate(1.2) contrast(1.1); }
         
-        #btn-inventory { position: absolute; bottom: 20px; right: 20px; pointer-events: auto; background: #333; color: #fff; border: 1px solid #555; }
+        #ui-layer { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 10; }
+        .stat { background: rgba(0, 10, 30, 0.85); padding: 10px; border: 1px solid #ff3c00; margin-bottom: 5px; box-shadow: 0 0 10px #ff000055; min-width: 160px; }
+        
+        #xp-bar-container { position: absolute; top: 0; left: 0; width: 100%; height: 10px; background: #111; z-index: 20; }
+        #xp-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #ffd900, #b40606); box-shadow: 0 0 15px #e61616; transition: width 0.3s; }
 
-        /* GLITCH ANIMATION */
-        .glitch-text { animation: glitch 2s infinite alternate; }
-        @keyframes glitch {
-            0% { transform: translate(0); }
-            2% { transform: translate(-2px, 2px); }
-            4% { transform: translate(2px, -2px); }
-            6% { transform: translate(0); }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        #card-container { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; padding: 20px; }
+        
+        .card { 
+            width: 200px; height: 280px; background: #050505; border: 2px solid #940d0d; 
+            border-radius: 10px; padding: 15px; cursor: pointer; transition: 0.3s;
+            display: flex; flex-direction: column; align-items: center; text-align: center;
         }
+        .card:hover { transform: translateY(-10px); background: #001a33; border-color: #fff; box-shadow: 0 0 20px #6e180d; }
+        .card h3 { font-size: 1.1rem; margin: 10px 0; color: #fff; text-transform: uppercase; }
+        .card p { font-size: 0.85rem; color: #aaa; flex-grow: 1; }
+        .card .rarity { font-weight: bold; font-size: 0.7rem; color: #2b1799; text-transform: uppercase; }
+
+        #boss-warning { position: absolute; top: 25%; left: 50%; transform: translateX(-50%); color: #fa0808; font-size: 3.5rem; font-weight: bold; display: none; text-shadow: 0 0 20px #ff0055; animation: blink 0.5s infinite; z-index: 5; text-align: center;}
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* Estilo do Inventário */
+        #inventory-btn { position: absolute; bottom: 20px; right: 20px; padding: 15px; background: #ff1100; color: #000; cursor: pointer; font-weight: bold; border: none; z-index: 10; }
+        #inventory-screen { position: absolute; inset: 50px; background: rgba(0, 10, 20, 0.95); border: 3px solid #f39110; display: none; flex-direction: column; padding: 20px; z-index: 200; overflow-y: auto; }
+        .inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 20px; }
+        .inv-slot { width: 120px; height: 120px; background: rgba(0, 210, 255, 0.1); border: 1px solid #e20909; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.7rem; text-align: center; padding: 5px; }
+        
+        .mission-notif { position: absolute; top: 100px; right: -350px; width: 300px; background: #08da13; color: #000; padding: 15px; border-left: 5px solid #000; transition: 0.5s; font-weight: bold; z-index: 1000; box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
     </style>
 </head>
 <body>
 
-    <div id="game-container"></div>
+    <div id="xp-bar-container"><div id="xp-bar-fill"></div></div>
+    <div id="boss-warning">ALERTA:<br>FENDA DO NECROCRYSTAL ATIVA</div>
 
     <div id="ui-layer">
-        <div id="hud-top">
-            <div>
-                <div class="stat-box">
-                    <div>ESTRUTURA <span id="hp-text">100/100</span></div>
-                    <div class="bar-container"><div id="hp-bar-fill" class="bar-fill" style="width: 100%;"></div></div>
-                </div>
-                <div class="stat-box">
-                    <div>DADOS (XP) LVL <span id="lvl-text">1</span></div>
-                    <div class="bar-container"><div id="xp-bar-fill" class="bar-fill" style="width: 0%;"></div></div>
-                </div>
-                <div class="stat-box">
-                    <div>PROPULSOR</div>
-                    <div class="bar-container"><div id="dash-bar-fill" class="bar-fill" style="width: 100%;"></div></div>
-                </div>
-            </div>
-            <div style="text-align: right;">
-                <div class="stat-box">BIOMA: <span id="biome-text" style="color:var(--gold)">NEXUS</span></div>
-                <div class="stat-box">WAVE: <span id="wave-text">1</span></div>
-                <div class="stat-box">TEMPO: <span id="time-text">00:00</span></div>
-                <div class="stat-box">ABATES: <span id="kill-text">0</span> / <span id="kill-goal">10</span></div>
-            </div>
-        </div>
-        
-        <div id="biome-alert" class="glitch-text">ANOMALIA DETECTADA</div>
-        <div id="mission-notif">MISSÃO CONCLUÍDA</div>
-        <button id="btn-inventory" onclick="window.GameEvents.emit('toggleInventory')">INVENTÁRIO [I]</button>
+        <div class="stat">SETOR: <span id="biome-name">-</span></div>
+        <div class="stat">WAVE: <span id="wave-count">1</span></div>
+        <div class="stat">HP: <span id="hp-count">100</span></div>
+        <div class="stat">KILLS: <span id="kill-count">0</span></div>
     </div>
 
-    <div id="levelup-screen" class="modal">
-        <h1>SISTEMA ATUALIZADO</h1>
-        <h2 style="color:#fff; margin-bottom:20px;">SELECIONE PROTOCOLO DE EVOLUÇÃO</h2>
+    <button id="inventory-btn" onclick="toggleInventory()">INVENTÁRIO (I)</button>
+    <div id="inventory-screen">
+        <h1 style="text-align: center; color: #00d2ff;">SISTEMAS EQUIPADOS (PERMANENTE)</h1>
+        <div class="inv-grid" id="inv-grid"></div>
+        <button onclick="toggleInventory()" style="margin-top: 20px; padding: 15px; cursor:pointer; background:#ff0055; color:#fff; border:none; font-weight:bold;">FECHAR</button>
+    </div>
+    <div id="mission-notif" class="mission-notif">MISSÃO CONCLUÍDA!</div>
+
+    <div id="overlay">
+        <h1 style="color: #ff0040; text-shadow: 0 0 10px #ff3300;">UPGRADE DISPONÍVEL</h1>
         <div id="card-container"></div>
     </div>
 
-    <div id="inventory-screen" class="modal">
-        <h1>REGISTRO DE SISTEMAS</h1>
-        <div id="inventory-grid"></div>
-        <button onclick="window.GameEvents.emit('toggleInventory')">FECHAR</button>
-    </div>
+    <canvas id="gameCanvas"></canvas>
 
-    <div id="gameover-screen" class="modal">
-        <h1>FALHA CRÍTICA</h1>
-        <h2 id="death-stats" style="color:#fff">SISTEMA DESLIGADO</h2>
-        <button onclick="location.reload()">REINICIAR SEQUÊNCIA</button>
-    </div>
+<script>
+/** ASSETS **/
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const assets = {
+    player: new Image(), enemy: new Image(),
+    bg_scrapyard: new Image(), bg_neon: new Image(),
+    bg_cryo: new Image(), bg_cathedral: new Image(), bg_glitch: new Image()
+};
+assets.player.src = 'assets/player.png';
+assets.enemy.src = 'assets/enemy_robot.png';
+assets.bg_scrapyard.src = 'assets/dungeon_floor.png';
+assets.bg_neon.src = 'assets/bg_neon.png';
+assets.bg_cryo.src = 'assets/bg_cryo.png';
+assets.bg_cathedral.src = 'assets/bg_cathedral.png';
+assets.bg_glitch.src = 'assets/bg_glitch.png';
 
-    <script>
-        // --- 1. CONFIGURAÇÃO CENTRALIZADA ---
-        const CONSTANTS = {
-            WORLD_SIZE: 4000,
-            SAVE_KEY: 'WotA_Definitive_v1',
-            ASSETS: {
-                player: 'assets/player.png',
-                enemy: 'assets/enemy_robot.png',
-                enemyFast: 'assets/enemy_fast.png',
-                enemyTank: 'assets/enemy_tank.png',
-                boss: 'assets/boss_robot.png',
-                bullet: 'assets/bullet.png',
-                xp: 'assets/ammo.png',
-                bg: 'assets/dungeon_floor.png'
-            },
-            CLASSES: {
-                engineer: { name: "Engenheiro", color: "#ffff00", stat: "cooldown", val: 0.85, desc: "Foco em cadência." },
-                ghost: { name: "Fantasma", color: "#00ffff", stat: "speed", val: 1.2, desc: "Alta mobilidade." },
-                tank: { name: "Tanque", color: "#ff0040", stat: "maxHp", val: 1.5, desc: "Alta resistência." }
-            },
-            BIOMES: {
-                nexus: { name: "Nexus Central", color: 0x222222, friction: 1.0 },
-                neon: { name: "Rede Neon", color: 0x000033, friction: 1.0 }, // Normal
-                cryo: { name: "Setor Criogênico", color: 0xeeeeff, friction: 0.1 }, // Escorregadio
-                glitch: { name: "Vazio do Código", color: 0x220022, friction: 1.0 } // Caótico
+const biomes = {
+    scrapyard: { name: "Depósito de Sucata", img: assets.bg_scrapyard, speedMod: 1, friction: 0.15 },
+    neon: { name: "Rede Neon", img: assets.bg_neon, speedMod: 1.4, friction: 0.1 },
+    cryo: { name: "Setor Criogénico", img: assets.bg_cryo, speedMod: 0.9, friction: 0.02 },
+    cathedral: { name: "Catedral Silicon", img: assets.bg_cathedral, speedMod: 1, friction: 0.15 },
+    glitch: { name: "Vazio do Código", img: assets.bg_glitch, speedMod: 1.2, friction: 0.08 }
+};
+const biomeOrder = ['scrapyard', 'neon', 'cryo', 'cathedral', 'glitch'];
+
+/** ESTADO GLOBAL **/
+let inventory = [];
+let completedMissions = [];
+
+const game = {
+    paused: false, wave: 1, kills: 0, 
+    totalKills: parseInt(localStorage.getItem('totalKills') || 0),
+    runTimer: 0, shotsFired: 0, bossKillsCount: 0,
+    currentBiomeKey: 'scrapyard',
+    enemies: [], bullets: [], bossActive: false,
+    upgrades: [
+        { id: 'dmg', name: 'Canhão Pesado', desc: '+30% de Dano Real', rarity: 'Comum' },
+        { id: 'fr', name: 'Módulo de Ciclo', desc: '+25% Vel. de Disparo', rarity: 'Comum' },
+        { id: 'pierce', name: 'Munição Railgun', desc: 'Balas atravessam inimigos', rarity: 'Raro' },
+        { id: 'regen', name: 'Auto-Reparo Nano', desc: 'Recupera HP passivamente', rarity: 'Raro' },
+        { id: 'multi', name: 'Burst Core', desc: '+1 Projétil por tiro', rarity: 'Épico' },
+        { id: 'vamp', name: 'Sifão de Energia', desc: 'Recupera vida ao destruir robôs', rarity: 'Lendário' },
+        { id: 'speed', name: 'Servo-Motores', desc: '+20% Vel. de Movimento', rarity: 'Comum' }
+    ]
+};
+
+const player = {
+    x: 0, y: 0, vx: 0, vy: 0, hp: 100, maxHp: 100, xp: 0, nextXp: 100, lvl: 1,
+    speed: 5, stats: { dmg: 25, fr: 25, multi: 1, pierce: 0, vamp: 0, regen: 0, crit: 0, magnetRange: 100 }
+};
+
+/** MISSÕES **/
+const missions = [
+    { id: 1, name: "Recruta de Sucata", goal: 50, type: "kills", reward: { name: "Placa de Ferro", stat: "hp", val: 20 } },
+    { id: 2, name: "Velocidade Neon", goal: 120, type: "timer", reward: { name: "Chip Overclock", stat: "speed", val: 1.2 } },
+    { id: 3, name: "Coração Gelado", goal: 1, type: "boss_cryo", reward: { name: "Núcleo Ártico", stat: "speed", val: 1.1 } },
+    { id: 4, name: "Caçador de Elite", goal: 5, type: "boss_kills", reward: { name: "Lente de Precisão", stat: "crit", val: 0.15 } },
+    { id: 5, name: "Sobrevivente Absoluto", goal: 1, type: "low_hp", reward: { name: "Módulo Emergência", stat: "hp", val: 50 } },
+    { id: 6, name: "Engenheiro", goal: 5, type: "upgrades", reward: { name: "Bateria Estendida", stat: "fr", val: 0.8 } },
+    { id: 7, name: "Purificador Silicon", goal: 100, type: "kills", reward: { name: "Símbolo Sagrado", stat: "vamp", val: 2 } },
+    { id: 8, name: "Mestre do Código", goal: 10, type: "max_wave", reward: { name: "Fragmento Glitch", stat: "speed", val: 1.3 } },
+    { id: 9, name: "Colecionador", goal: 1000, type: "total_xp", reward: { name: "Ímã Industrial", stat: "magnet", val: 2 } },
+    { id: 10, name: "Destruidor de Tanques", goal: 1, type: "boss_kills", reward: { name: "Ponta de Urânio", stat: "dmg", val: 1.4 } },
+    { id: 11, name: "Pacifista", goal: 60, type: "timer", reward: { name: "Capa Camuflagem", stat: "speed", val: 1.1 } },
+    { id: 12, name: "Artilheiro", goal: 1000, type: "total_shots", reward: { name: "Cano Duplo", stat: "fr", val: 0.7 } },
+    { id: 13, name: "Inabalável", goal: 5, type: "max_wave", reward: { name: "Blindagem Titânio", stat: "hp", val: 40 } },
+    { id: 14, name: "Explorador Vazio", goal: 20, type: "max_wave", reward: { name: "Drive Fantasma", stat: "speed", val: 1.5 } },
+    { id: 15, name: "Deus Ex Machina", goal: 500, type: "total_kills", reward: { name: "NÚCLEO OMEGA", stat: "all_stats", val: 2 } }
+];
+
+function checkMissions() {
+    missions.forEach(m => {
+        if (completedMissions.includes(m.id)) return;
+        let progress = 0;
+        if (m.type === "kills") progress = game.kills;
+        if (m.type === "total_kills") progress = game.totalKills;
+        if (m.type === "timer") progress = Math.floor(game.runTimer);
+        if (m.type === "boss_kills") progress = game.bossKillsCount;
+        if (m.type === "upgrades") progress = player.lvl;
+        if (m.type === "max_wave") progress = game.wave;
+        if (m.type === "total_shots") progress = game.shotsFired;
+
+        if (progress >= m.goal) completeMission(m);
+    });
+}
+
+function completeMission(mission) {
+    if (completedMissions.includes(mission.id)) return;
+    completedMissions.push(mission.id);
+    inventory.push(mission.reward);
+    
+    // Salva Progresso
+    localStorage.setItem('robot_missions', JSON.stringify(completedMissions));
+    
+    // Notificação
+    const notif = document.getElementById('mission-notif');
+    notif.innerHTML = `MISSÃO CONCLUÍDA!<br><span style="color:#000; font-size:0.8rem">${mission.name}</span><br>+ ${mission.reward.name}`;
+    notif.style.right = "20px";
+    setTimeout(() => notif.style.right = "-350px", 4000);
+
+    applyItemEffect(mission.reward);
+    updateInventoryUI();
+}
+
+function applyItemEffect(item) {
+    if (item.stat === "hp") { player.maxHp += item.val; player.hp += item.val; }
+    if (item.stat === "speed") player.speed *= item.val;
+    if (item.stat === "fr") player.stats.fr *= item.val;
+    if (item.stat === "vamp") player.stats.vamp += item.val;
+    if (item.stat === "dmg") player.stats.dmg *= item.val;
+    if (item.stat === "all_stats") { player.stats.dmg *= 1.5; player.maxHp += 100; player.speed *= 1.2; }
+}
+
+function updateInventoryUI() {
+    const grid = document.getElementById('inv-grid');
+    grid.innerHTML = "";
+    inventory.forEach(item => {
+        const slot = document.createElement('div');
+        slot.className = "inv-slot";
+        slot.innerHTML = `<b style="color:#00d2ff">${item.name}</b><br><span style="color:#00ff88">SISTEMA ATIVO</span>`;
+        grid.appendChild(slot);
+    });
+}
+
+function toggleInventory() {
+    game.paused = !game.paused;
+    const screen = document.getElementById('inventory-screen');
+    screen.style.display = game.paused ? 'flex' : 'none';
+    if (game.paused) updateInventoryUI(); else requestAnimationFrame(loop);
+}
+
+function loadSave() {
+    const saved = localStorage.getItem('robot_missions');
+    if (saved) {
+        const ids = JSON.parse(saved);
+        ids.forEach(id => {
+            const m = missions.find(x => x.id === id);
+            if (m) {
+                completedMissions.push(m.id);
+                inventory.push(m.reward);
+                applyItemEffect(m.reward);
             }
+        });
+    }
+}
+
+/** MECÂNICAS DE JOGO **/
+function spawnBoss() {
+    game.bossActive = true;
+    const boss = {
+        x: canvas.width/2, y: -100,
+        hp: 1000 * game.wave, maxHp: 1000 * game.wave,
+        size: 100, speed: 2, boss: true, state: 'move', timer: 0, laserAngle: 0
+    };
+    game.enemies.push(boss);
+    document.getElementById('boss-warning').style.display = 'block';
+    setTimeout(() => document.getElementById('boss-warning').style.display = 'none', 3000);
+}
+
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
+
+const keys = {};
+window.onkeydown = e => {
+    keys[e.key.toLowerCase()] = true;
+    if(e.key.toLowerCase() === 'i') toggleInventory();
+};
+window.onkeyup = e => keys[e.key.toLowerCase()] = false;
+
+let shootTimer = 0;
+
+    function showUpgradeMenu() {
+    game.paused = true; // Pausa o jogo
+    const overlay = document.getElementById('overlay');
+    const container = document.getElementById('card-container');
+    
+    overlay.style.display = 'flex'; // Mostra o menu
+    container.innerHTML = ''; // Limpa cartas anteriores
+    
+    // Escolhe 3 upgrades aleatórios
+    const pool = [...game.upgrades].sort(() => 0.5 - Math.random()).slice(0, 3);
+    
+    pool.forEach(upg => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<h3>${upg.name}</h3><p>${upg.desc}</p><div class="rarity">${upg.rarity}</div>`;
+        
+        card.onclick = () => {
+            // Aplica o efeito do upgrade
+            if(upg.id === 'dmg') player.stats.dmg *= 1.3;
+            if(upg.id === 'fr') player.stats.fr *= 0.75;
+            if(upg.id === 'multi') player.stats.multi++;
+            if(upg.id === 'speed') player.speed *= 1.2;
+            if(upg.id === 'vamp') player.stats.vamp += 3;
+            if(upg.id === 'regen') player.stats.regen += 0.05;
+            if(upg.id === 'pierce') player.stats.pierce += 1;
+
+            // Fecha o menu e volta ao jogo
+            game.paused = false;
+            overlay.style.display = 'none';
+            requestAnimationFrame(loop);
         };
+        container.appendChild(card);
+    });
+}
 
-        // Event Bus Global para comunicação HTML <-> Phaser
-        window.GameEvents = new Phaser.Events.EventEmitter();
+function loop() {
+    if (game.paused) return;
 
-        // --- 2. SISTEMA DE PERSISTÊNCIA & MISSÕES ---
-        const Persistence = {
-            data: JSON.parse(localStorage.getItem(CONSTANTS.SAVE_KEY)) || {
-                totalKills: 0,
-                missionsCompleted: [],
-                inventory: []
-            },
-            save() {
-                localStorage.setItem(CONSTANTS.SAVE_KEY, JSON.stringify(this.data));
-            },
-            addMission(id, reward) {
-                if (!this.data.missionsCompleted.includes(id)) {
-                    this.data.missionsCompleted.push(id);
-                    this.data.inventory.push(reward);
-                    this.save();
-                    return true;
-                }
-                return false;
-            }
-        };
+    game.runTimer += 1/60; // Incrementa tempo real
+    checkMissions();
 
-        const MISSIONS = [
-            { id: 'kills_50', goal: 50, type: 'kills', reward: { name: 'Blindagem Leve', stat: 'maxHp', val: 10 } },
-            { id: 'wave_5', goal: 5, type: 'wave', reward: { name: 'Motor Auxiliar', stat: 'speed', val: 10 } },
-            { id: 'boss_1', goal: 1, type: 'boss', reward: { name: 'Núcleo de Dano', stat: 'damage', val: 2 } }
-        ];
+    const bConfig = biomes[game.currentBiomeKey];
+    ctx.clearRect(0,0,canvas.width, canvas.height);
 
-        // --- 3. PHASER SCENE: PRELOAD & ASSETS ---
-        class BootScene extends Phaser.Scene {
-            constructor() { super('BootScene'); }
+    // Fundo
+    const ptrn = ctx.createPattern(bConfig.img, 'repeat');
+    if(ptrn) { ctx.fillStyle = ptrn; ctx.fillRect(0, 0, canvas.width, canvas.height); }
 
-            preload() {
-                // Gerador de Fallback (Caso imagens não existam)
-                const createFallback = (key, color, size = 32) => {
-                    if (this.textures.exists(key)) return;
-                    const g = this.make.graphics({x:0, y:0, add:false});
-                    g.fillStyle(color, 1);
-                    if (key === 'bg') {
-                        g.fillRect(0,0,64,64);
-                        g.lineStyle(1, 0x333333); g.strokeRect(0,0,64,64);
-                    } else if (key === 'bullet') {
-                        g.fillStyle(0xffff00); g.fillCircle(4,4,4);
-                    } else if (key === 'boss') {
-                        g.lineStyle(2, 0xff0000); g.strokeCircle(32,32,30); g.fillCircle(32,32,15);
-                    } else {
-                        g.fillRect(0,0,size,size);
-                    }
-                    g.generateTexture(key, key === 'bg' ? 64 : size, key === 'bg' ? 64 : size);
-                };
+    // Movimento Player
+    let ax = 0, ay = 0;
+    if(keys['w']) ay = -1; if(keys['s']) ay = 1;
+    if(keys['a']) ax = -1; if(keys['d']) ax = 1;
+    player.vx += ax * 0.8; player.vy += ay * 0.8;
+    player.vx *= (1 - bConfig.friction); player.vy *= (1 - bConfig.friction);
+    player.x += player.vx * bConfig.speedMod; player.y += player.vy * bConfig.speedMod;
+    
+    // Limites
+    player.x = Math.max(20, Math.min(canvas.width-20, player.x));
+    player.y = Math.max(20, Math.min(canvas.height-20, player.y));
 
-                // Carregar Assets
-                Object.entries(CONSTANTS.ASSETS).forEach(([key, path]) => {
-                    this.load.image(key, path);
-                });
+    // Tiro
+    shootTimer++;
+    if(shootTimer > player.stats.fr) {
+        const target = game.enemies[0];
+        if(target) {
+            game.shotsFired++;
+            const angle = Math.atan2(target.y - player.y, target.x - player.x);
+            game.bullets.push({ x: player.x, y: player.y, vx: Math.cos(angle)*12, vy: Math.sin(angle)*12, dmg: player.stats.dmg });
+        }
+        shootTimer = 0;
+    }
 
-                // Handler de Erro para gerar Fallback
-                this.load.on('loaderror', (file) => {
-                    const colors = {
-                        player: 0x00ffff, enemy: 0xff0000, enemyFast: 0xff8800,
-                        enemyTank: 0x550000, bullet: 0xffff00, xp: 0x00ff00,
-                        boss: 0xff00ff, bg: 0x111111
-                    };
-                    createFallback(file.key, colors[file.key] || 0xffffff);
-                });
-            }
+    // Inimigos
+    game.enemies.forEach((en, i) => {
+        const angle = Math.atan2(player.y - en.y, player.x - en.x);
+        en.x += Math.cos(angle) * en.speed;
+        en.y += Math.sin(angle) * en.speed;
 
-            create() {
-                // Garante fallbacks mesmo se loaderror não disparar (ex: bloqueio de CORS ou arquivo local)
-                const checkKeys = Object.keys(CONSTANTS.ASSETS);
-                const colors = { player: 0x00ffff, enemy: 0xff0000, enemyFast: 0xff8800, enemyTank: 0x550000, bullet: 0xffff00, xp: 0x00ff00, boss: 0xff00ff, bg: 0x111111 };
-                
-                checkKeys.forEach(k => {
-                    if (!this.textures.exists(k)) {
-                        const g = this.make.graphics({x:0, y:0, add:false});
-                        g.fillStyle(colors[k] || 0xffffff, 1);
-                        const s = k === 'bg' ? 64 : 32;
-                        if(k==='bg') { g.fillRect(0,0,64,64); g.lineStyle(2, 0x222222); g.strokeRect(0,0,64,64); }
-                        else if(k==='bullet') g.fillCircle(4,4,4);
-                        else g.fillRect(0,0,s,s);
-                        g.generateTexture(k, s, s);
-                    }
-                });
+        ctx.drawImage(assets.enemy, en.x - en.size/2, en.y - en.size/2, en.size, en.size);
 
-                this.scene.start('GameScene');
+        if(Math.hypot(player.x - en.x, player.y - en.y) < en.size) {
+            player.hp -= 0.5;
+            if(player.hp <= 0) {
+                localStorage.setItem('totalKills', game.totalKills);
+                location.reload();
             }
         }
+    });
 
-        // --- 4. ENTIDADES DO JOGO ---
-        class Player extends Phaser.Physics.Arcade.Sprite {
-            constructor(scene, x, y) {
-                super(scene, x, y, 'player');
-                scene.add.existing(this);
-                scene.physics.add.existing(this);
-                
-                this.setCollideWorldBounds(true);
-                this.setOrigin(0.5);
-                
-                // Stats Base
-                this.stats = {
-                    maxHp: 100, hp: 100,
-                    speed: 200, damage: 10, cooldown: 500,
-                    projectiles: 1, pierce: 0, area: 1.0,
-                    magnet: 150, dashCd: 2000, level: 1, xp: 0, nextXp: 50
-                };
+    // Balas
+    for(let i=game.bullets.length-1; i>=0; i--) {
+        const b = game.bullets[i];
+        b.x += b.vx; b.y += b.vy;
+        ctx.fillStyle = '#00ff88';
+        ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill();
 
-                // Apply Permanent Inventory Stats
-                Persistence.data.inventory.forEach(item => {
-                    if(this.stats[item.stat] !== undefined) this.stats[item.stat] += item.val;
-                });
-
-                // Estado
-                this.lastShot = 0;
-                this.canDash = true;
-                this.isInvulnerable = false;
-                this.friction = 1.0; // Biome modifier
-            }
-
-            move(cursors, wasd, delta) {
-                // Dash Logic
-                if (Phaser.Input.Keyboard.JustDown(cursors.space) && this.canDash) {
-                    this.dash();
-                }
-
-                // Movement Logic with Friction (Ice biome support)
-                const accel = 2000 * this.friction;
-                const drag = 1500 * this.friction;
-
-                this.setDrag(drag);
-                this.setMaxVelocity(this.stats.speed);
-
-                let dx = 0, dy = 0;
-                if (cursors.left.isDown || wasd.a.isDown) dx = -1;
-                if (cursors.right.isDown || wasd.d.isDown) dx = 1;
-                if (cursors.up.isDown || wasd.w.isDown) dy = -1;
-                if (cursors.down.isDown || wasd.s.isDown) dy = 1;
-
-                if (dx !== 0 || dy !== 0) {
-                    const vec = new Phaser.Math.Vector2(dx, dy).normalize().scale(accel);
-                    this.setAcceleration(vec.x, vec.y);
-                } else {
-                    this.setAcceleration(0, 0);
+        game.enemies.forEach((en, ei) => {
+            if(Math.hypot(b.x - en.x, b.y - en.y) < en.size/2) {
+                en.hp -= b.dmg;
+                game.bullets.splice(i, 1);
+                if(en.hp <= 0) {
+                    if(en.boss) { game.bossActive = false; game.bossKillsCount++; game.wave++; }
+                    game.enemies.splice(ei, 1);
+                    game.kills++; game.totalKills++;
+                    player.xp += en.boss ? 150 : 20;
+                    if(player.xp >= player.nextXp) { player.lvl++; player.xp=0; player.nextXp*=1.5; showUpgradeMenu(); // AGORA A FUNÇÃO É CHAMADA AQUI
+}
                 }
             }
+        });
+    }
 
-            dash() {
-                this.canDash = false;
-                const dashSpeed = 600;
-                const vel = this.body.velocity.clone().normalize().scale(dashSpeed);
-                if (vel.x === 0 && vel.y === 0) vel.x = dashSpeed; // Dash forward if idle
-                
-                this.setVelocity(vel.x, vel.y);
-                this.setTint(0x00ff00);
-                this.isInvulnerable = true;
+    // Spawn
+    if(!game.bossActive && Math.random() < 0.02) {
+        game.enemies.push({ x: Math.random()*canvas.width, y: -50, hp: 50, maxHp: 50, speed: 2, size: 30, boss: false });
+    }
+    if(game.kills > 0 && game.kills % 50 === 0 && !game.bossActive) spawnBoss();
 
-                // UI Update
-                document.getElementById('dash-bar-fill').style.width = '0%';
-                
-                // Reset
-                this.scene.time.delayedCall(200, () => {
-                    this.clearTint();
-                    this.isInvulnerable = false;
-                });
-                
-                this.scene.time.delayedCall(this.stats.dashCd, () => {
-                    this.canDash = true;
-                    document.getElementById('dash-bar-fill').style.width = '100%';
-                });
-            }
+    // UI
+    document.getElementById('hp-count').innerText = Math.floor(player.hp);
+    document.getElementById('kill-count').innerText = game.kills;
+    document.getElementById('wave-count').innerText = game.wave;
+    document.getElementById('xp-bar-fill').style.width = (player.xp/player.nextXp)*100 + '%';
+    document.getElementById('biome-name').innerText = biomes[game.currentBiomeKey].name;
 
-            takeDamage(amount) {
-                if (this.isInvulnerable) return;
-                
-                this.stats.hp -= amount;
-                this.scene.cameras.main.shake(100, 0.01);
-                this.setTint(0xff0000);
-                this.isInvulnerable = true;
+    ctx.drawImage(assets.player, player.x-25, player.y-25, 50, 50);
+    requestAnimationFrame(loop);
+}
 
-                this.scene.time.delayedCall(200, () => {
-                    this.clearTint();
-                    this.isInvulnerable = false;
-                });
-
-                if (this.stats.hp <= 0) this.scene.gameOver();
-                this.scene.updateHUD();
-            }
-
-            gainXp(amount) {
-                this.stats.xp += amount;
-                if (this.stats.xp >= this.stats.nextXp) {
-                    this.stats.xp -= this.stats.nextXp;
-                    this.stats.level++;
-                    this.stats.nextXp = Math.floor(this.stats.nextXp * 1.2);
-                    this.scene.levelUp();
-                }
-                this.scene.updateHUD();
-            }
-        }
-
-        // --- 5. MAIN SCENE ---
-        class GameScene extends Phaser.Scene {
-            constructor() { super('GameScene'); }
-
-            create() {
-                // World Setup
-                this.physics.world.setBounds(0, 0, CONSTANTS.WORLD_SIZE, CONSTANTS.WORLD_SIZE);
-                this.bg = this.add.tileSprite(CONSTANTS.WORLD_SIZE/2, CONSTANTS.WORLD_SIZE/2, CONSTANTS.WORLD_SIZE, CONSTANTS.WORLD_SIZE, 'bg');
-                
-                // Player
-                this.player = new Player(this, CONSTANTS.WORLD_SIZE/2, CONSTANTS.WORLD_SIZE/2);
-                this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-                this.cameras.main.setBounds(0, 0, CONSTANTS.WORLD_SIZE, CONSTANTS.WORLD_SIZE);
-
-                // Groups (Pooling)
-                this.bullets = this.physics.add.group({ defaultKey: 'bullet', maxSize: 100 });
-                this.enemies = this.physics.add.group({ runChildUpdate: true });
-                this.xpGroup = this.physics.add.group();
-
-                // Inputs
-                this.cursors = this.input.keyboard.createCursorKeys();
-                this.wasd = this.input.keyboard.addKeys('W,A,S,D,I,ESC');
-
-                // Game State
-                this.wave = 1;
-                this.kills = 0;
-                this.waveKills = 0;
-                this.killsToNextWave = 10;
-                this.timer = 0;
-                this.biome = CONSTANTS.BIOMES.nexus;
-                this.isPaused = false;
-
-                // Collisions
-                this.physics.add.overlap(this.bullets, this.enemies, this.handleBulletHit, null, this);
-                this.physics.add.collider(this.player, this.enemies, this.handlePlayerHit, null, this);
-                this.physics.add.overlap(this.player, this.xpGroup, this.handleXpCollect, null, this);
-
-                // Events
-                this.time.addEvent({ delay: 1000, callback: this.secondTick, loop: true, callbackScope: this });
-                this.time.addEvent({ delay: 800, callback: this.spawnEnemy, loop: true, callbackScope: this, id: 'spawner' });
-                this.time.addEvent({ delay: 30000, callback: this.triggerBiomeEvent, loop: true, callbackScope: this });
-
-                // UI Events
-                window.GameEvents.on('toggleInventory', this.toggleInventory, this);
-                
-                this.updateHUD();
-            }
-
-            update(time, delta) {
-                if (this.isPaused) return;
-
-                // Background Parallax
-                this.bg.tilePositionX = this.cameras.main.scrollX;
-                this.bg.tilePositionY = this.cameras.main.scrollY;
-
-                // Player Logic
-                this.player.move(this.cursors, this.wasd, delta);
-
-                // Auto Fire
-                if (time > this.player.lastShot + this.player.stats.cooldown) {
-                    this.fireWeapon();
-                    this.player.lastShot = time;
-                }
-
-                // Magnet
-                this.xpGroup.getChildren().forEach(orb => {
-                    if (Phaser.Math.Distance.Between(this.player.x, this.player.y, orb.x, orb.y) < this.player.stats.magnet) {
-                        this.physics.moveToObject(orb, this.player, 400);
-                    }
-                });
-
-                // Input Toggle
-                if (Phaser.Input.Keyboard.JustDown(this.wasd.I)) this.toggleInventory();
-            }
-
-            fireWeapon() {
-                const target = this.physics.closest(this.player, this.enemies.getChildren());
-                let angle = 0;
-                if (target) {
-                    angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, target.x, target.y);
-                } else {
-                    // Random shoot if no enemy
-                    angle = Math.random() * Math.PI * 2;
-                }
-
-                const count = this.player.stats.projectiles;
-                const spread = 0.2;
-                const startAngle = angle - (spread * (count - 1)) / 2;
-
-                for(let i=0; i<count; i++) {
-                    const bullet = this.bullets.get(this.player.x, this.player.y);
-                    if (bullet) {
-                        bullet.setActive(true).setVisible(true).setScale(1.0 * this.player.stats.area);
-                        const curAngle = startAngle + (i * spread);
-                        this.physics.velocityFromRotation(curAngle, 600, bullet.body.velocity);
-                        bullet.dmg = this.player.stats.damage;
-                        bullet.pierce = this.player.stats.pierce;
-                        bullet.life = 2000;
-                        bullet.setTint(0xffff00);
-                    }
-                }
-            }
-
-            spawnEnemy() {
-                if (this.enemies.countActive() >= 100 || this.isPaused) return;
-
-                // Spawn off-camera
-                const cam = this.cameras.main;
-                let x, y;
-                if (Math.random() > 0.5) {
-                    x = Math.random() > 0.5 ? cam.scrollX - 50 : cam.scrollX + cam.width + 50;
-                    y = Phaser.Math.Between(cam.scrollY, cam.scrollY + cam.height);
-                } else {
-                    x = Phaser.Math.Between(cam.scrollX, cam.scrollX + cam.width);
-                    y = Math.random() > 0.5 ? cam.scrollY - 50 : cam.scrollY + cam.height + 50;
-                }
-                
-                x = Phaser.Math.Clamp(x, 0, CONSTANTS.WORLD_SIZE);
-                y = Phaser.Math.Clamp(y, 0, CONSTANTS.WORLD_SIZE);
-
-                // Determine Type based on Wave
-                let type = 'enemy';
-                let hp = 10 + (this.wave * 5);
-                let speed = 80;
-                let scale = 1;
-
-                if (this.wave > 3 && Math.random() > 0.8) { type = 'enemyFast'; speed = 160; hp *= 0.6; }
-                if (this.wave > 5 && Math.random() > 0.9) { type = 'enemyTank'; speed = 40; hp *= 3; scale = 1.4; }
-
-                const enemy = this.enemies.create(x, y, type);
-                enemy.hp = hp;
-                enemy.maxHp = hp;
-                enemy.speed = speed;
-                enemy.setScale(scale);
-                enemy.setTint(0xffffff);
-                
-                // Simple AI: Chase
-                enemy.update = () => {
-                    if (!enemy.active) return;
-                    this.physics.moveToObject(enemy, this.player, enemy.speed);
-                }
-            }
-
-            spawnBoss() {
-                const boss = this.enemies.create(this.player.x, this.player.y - 400, 'boss');
-                boss.setScale(3);
-                boss.hp = 2000 * this.wave;
-                boss.maxHp = boss.hp;
-                boss.isBoss = true;
-                boss.speed = 60;
-                
-                // Alert UI
-                const alert = document.getElementById('biome-alert');
-                alert.innerText = "ALERTA: TITÃ DO NÚCLEO";
-                alert.style.display = 'block';
-                this.time.delayedCall(3000, () => alert.style.display = 'none');
-
-                boss.update = () => {
-                    if(!boss.active) return;
-                    this.physics.moveToObject(boss, this.player, boss.speed);
-                }
-            }
-
-            handleBulletHit(bullet, enemy) {
-                if (!bullet.active || !enemy.active) return;
-
-                enemy.hp -= bullet.dmg;
-                enemy.setTint(0xff0000);
-                this.time.delayedCall(50, () => { if(enemy.active) enemy.setTint(0xffffff); });
-
-                if (enemy.hp <= 0) {
-                    this.handleEnemyDeath(enemy);
-                }
-
-                if (bullet.pierce > 0) {
-                    bullet.pierce--;
-                } else {
-                    bullet.setActive(false).setVisible(false);
-                }
-            }
-
-            handlePlayerHit(player, enemy) {
-                player.takeDamage(5 + this.wave);
-            }
-
-            handleEnemyDeath(enemy) {
-                // XP Drop
-                const xp = this.xpGroup.create(enemy.x, enemy.y, 'xp');
-                xp.setScale(0.5);
-                xp.val = enemy.isBoss ? 500 : 10;
-
-                // Stats
-                this.kills++;
-                this.waveKills++;
-                Persistence.data.totalKills++;
-
-                // Missions Check
-                if (this.kills >= 50) this.completeMission('kills_50');
-                if (enemy.isBoss) this.completeMission('boss_1');
-
-                enemy.destroy();
-                this.updateHUD();
-
-                // Wave Logic
-                if (this.waveKills >= this.killsToNextWave) {
-                    this.nextWave();
-                }
-            }
-
-            handleXpCollect(player, xp) {
-                player.gainXp(xp.val);
-                xp.destroy();
-            }
-
-            nextWave() {
-                this.wave++;
-                this.waveKills = 0;
-                this.killsToNextWave += 10;
-                
-                // Difficulty Scaling
-                const spawner = this.time.getEvent('spawner');
-                if(spawner) spawner.delay = Math.max(100, 800 - (this.wave * 50));
-
-                if (this.wave % 5 === 0) {
-                    this.spawnBoss();
-                }
-
-                if (this.wave >= 5) this.completeMission('wave_5');
-
-                const alert = document.getElementById('biome-alert');
-                alert.innerText = `ONDA ${this.wave} INICIADA`;
-                alert.style.display = 'block';
-                this.time.delayedCall(2000, () => alert.style.display = 'none');
-                
-                this.updateHUD();
-            }
-
-            triggerBiomeEvent() {
-                const keys = Object.keys(CONSTANTS.BIOMES);
-                const key = keys[Phaser.Math.Between(0, keys.length - 1)];
-                this.biome = CONSTANTS.BIOMES[key];
-                
-                // Apply Effects
-                this.bg.setTint(this.biome.color);
-                this.player.friction = this.biome.friction;
-
-                const alert = document.getElementById('biome-alert');
-                alert.innerText = `BIOMA: ${this.biome.name.toUpperCase()}`;
-                alert.style.display = 'block';
-                this.time.delayedCall(3000, () => alert.style.display = 'none');
-                
-                this.updateHUD();
-            }
-
-            secondTick() {
-                this.timer++;
-                this.updateHUD();
-                
-                // Bullet cleanup
-                this.bullets.getChildren().forEach(b => {
-                    if (b.active) {
-                        b.life -= 1000;
-                        if(b.life <= 0) b.setActive(false).setVisible(false);
-                    }
-                });
-            }
-
-            // --- UI & SYSTEMS ---
-            updateHUD() {
-                const p = this.player.stats;
-                document.getElementById('hp-text').innerText = `${Math.floor(p.hp)}/${p.maxHp}`;
-                document.getElementById('hp-bar-fill').style.width = `${(p.hp / p.maxHp) * 100}%`;
-                
-                document.getElementById('lvl-text').innerText = p.level;
-                document.getElementById('xp-bar-fill').style.width = `${(p.xp / p.nextXp) * 100}%`;
-                
-                document.getElementById('wave-text').innerText = this.wave;
-                document.getElementById('kill-text').innerText = this.waveKills;
-                document.getElementById('kill-goal').innerText = this.killsToNextWave;
-                
-                const m = Math.floor(this.timer / 60).toString().padStart(2,'0');
-                const s = (this.timer % 60).toString().padStart(2,'0');
-                document.getElementById('time-text').innerText = `${m}:${s}`;
-                
-                document.getElementById('biome-text').innerText = this.biome.name;
-            }
-
-            levelUp() {
-                this.isPaused = true;
-                this.physics.pause();
-                
-                const container = document.getElementById('card-container');
-                container.innerHTML = '';
-                document.getElementById('levelup-screen').style.display = 'flex';
-
-                const UPGRADES = [
-                    { id: 'dmg', name: 'Munição Instável', desc: '+20% Dano', rarity: 'Comum', apply: (s) => s.damage *= 1.2 },
-                    { id: 'cdr', name: 'Overclock', desc: '-15% Cooldown', rarity: 'Comum', apply: (s) => s.cooldown *= 0.85 },
-                    { id: 'spd', name: 'Hidráulica', desc: '+10% Velocidade', rarity: 'Comum', apply: (s) => s.speed += 20 },
-                    { id: 'count', name: 'Núcleo Split', desc: '+1 Projétil', rarity: 'Lendário', apply: (s) => s.projectiles += 1 },
-                    { id: 'hp', name: 'Nanobots', desc: 'Cura Total + 20 Max HP', rarity: 'Raro', apply: (s) => { s.maxHp += 20; s.hp = s.maxHp; } },
-                    { id: 'pierce', name: 'Broca Laser', desc: '+1 Perfuração', rarity: 'Raro', apply: (s) => s.pierce += 1 }
-                ];
-
-                // Shuffle & Pick 3
-                const choices = Phaser.Utils.Array.Shuffle(UPGRADES).slice(0, 3);
-
-                choices.forEach(u => {
-                    const card = document.createElement('div');
-                    card.className = `card ${u.rarity === 'Lendário' ? 'legendary' : u.rarity === 'Raro' ? 'rare' : ''}`;
-                    card.innerHTML = `
-                        <div class="card-title">${u.name}</div>
-                        <div class="card-desc">${u.desc}</div>
-                        <div class="card-type">${u.rarity}</div>
-                    `;
-                    card.onclick = () => {
-                        u.apply(this.player.stats);
-                        this.closeMenu('levelup-screen');
-                    };
-                    container.appendChild(card);
-                });
-            }
-
-            toggleInventory() {
-                const screen = document.getElementById('inventory-screen');
-                if (screen.style.display === 'flex') {
-                    this.closeMenu('inventory-screen');
-                } else {
-                    this.isPaused = true;
-                    this.physics.pause();
-                    screen.style.display = 'flex';
-                    
-                    const grid = document.getElementById('inventory-grid');
-                    grid.innerHTML = '';
-                    Persistence.data.inventory.forEach(item => {
-                        const div = document.createElement('div');
-                        div.className = 'inv-item';
-                        div.innerHTML = `<span style="color:cyan">${item.name}</span><br>+${item.val} ${item.stat}`;
-                        grid.appendChild(div);
-                    });
-                }
-            }
-
-            closeMenu(id) {
-                document.getElementById(id).style.display = 'none';
-                this.isPaused = false;
-                this.physics.resume();
-                this.updateHUD();
-            }
-
-            completeMission(id) {
-                const mission = MISSIONS.find(m => m.id === id);
-                if (mission && Persistence.addMission(id, mission.reward)) {
-                    // Show Notification
-                    const notif = document.getElementById('mission-notif');
-                    notif.innerText = `MISSÃO: ${mission.reward.name}`;
-                    notif.style.right = '20px';
-                    setTimeout(() => notif.style.right = '-350px', 4000);
-                    
-                    // Apply immediately
-                    if(this.player.stats[mission.reward.stat]) this.player.stats[mission.reward.stat] += mission.reward.val;
-                }
-            }
-
-            gameOver() {
-                this.isPaused = true;
-                this.physics.pause();
-                Persistence.save();
-                document.getElementById('gameover-screen').style.display = 'flex';
-                document.getElementById('death-stats').innerText = `RODADA ENCERRADA\nWAVE: ${this.wave} | KILLS: ${this.kills}`;
-            }
-        }
-
-        // --- 6. INICIALIZAÇÃO ---
-        const config = {
-            type: Phaser.AUTO,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            parent: 'game-container',
-            backgroundColor: '#050505',
-            physics: {
-                default: 'arcade',
-                arcade: { debug: false }
-            },
-            scene: [BootScene, GameScene],
-            scale: {
-                mode: Phaser.Scale.RESIZE,
-                autoCenter: Phaser.Scale.CENTER_BOTH
-            }
-        };
-
-        const game = new Phaser.Game(config);
-
-    </script>
+loadSave();
+assets.player.onload = () => { player.x = canvas.width/2; player.y = canvas.height/2; loop(); };
+</script>
 </body>
 </html>
