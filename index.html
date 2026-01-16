@@ -185,6 +185,8 @@
 
                 // Player
                 this.player = this.physics.add.sprite(worldSize/2, worldSize/2, 'player');
+                this.player = this.physics.add.sprite(x, y, 'player');
+                this.player.setScale(0.4);
                 this.player.stats = {
                     hp: 100, maxHp: 100,
                     speed: 250, dmg: 30,
@@ -247,7 +249,7 @@
                     name = "Catedral Silício (Final)";
                 } else if (this.kills >= 500) {
                     nextKey = 'bg_neon';
-                    name = "Metrópole Neon";
+                    name = "º`distorção+`´";
                 } else if (this.wave >= 10) {
                     nextKey = 'bg_glitch';
                     name = "Vazio do Código";
@@ -419,3 +421,4 @@
     </script>
 </body>
 </html>
+
