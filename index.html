@@ -2,275 +2,372 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Automatons: Ultimate Survival</title>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <title>war of automatons -hercules rege</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Share Tech Mono', monospace; }
-        #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 10; color: #0ff; }
-        .stat { background: rgba(0,0,0,0.8); padding: 10px; border: 1px solid #0ff; margin-bottom: 5px; min-width: 180px; }
-        #xp-bar { position: absolute; top: 0; width: 100%; height: 6px; background: #222; }
-        #xp-fill { width: 0%; height: 100%; background: #ffd700; box-shadow: 0 0 10px #ffd700; }
-        .modal { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; color: white; }
-        .card { width: 200px; padding: 20px; border: 2px solid #0ff; margin: 10px; cursor: pointer; text-align: center; }
-        .card:hover { background: #003333; }
+        body { margin: 0; overflow: hidden; background: #000; color: #ff0000; font-family: 'Courier New', monospace; user-select: none; }
+        canvas { display: block; filter: saturate(1.2) contrast(1.1); }
+        
+        #ui-layer { position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 10; }
+        .stat { background: rgba(0, 10, 30, 0.85); padding: 10px; border: 1px solid #ff3c00; margin-bottom: 5px; box-shadow: 0 0 10px #ff000055; min-width: 160px; }
+        
+        #xp-bar-container { position: absolute; top: 0; left: 0; width: 100%; height: 10px; background: #111; z-index: 20; }
+        #xp-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #ffd900, #b40606); box-shadow: 0 0 15px #e61616; transition: width 0.3s; }
+
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        #card-container { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; padding: 20px; }
+        
+        .card { 
+            width: 200px; height: 280px; background: #050505; border: 2px solid #940d0d; 
+            border-radius: 10px; padding: 15px; cursor: pointer; transition: 0.3s;
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+        }
+        .card:hover { transform: translateY(-10px); background: #001a33; border-color: #fff; box-shadow: 0 0 20px #6e180d; }
+        .card h3 { font-size: 1.1rem; margin: 10px 0; color: #fff; text-transform: uppercase; }
+        .card p { font-size: 0.85rem; color: #aaa; flex-grow: 1; }
+        .card .rarity { font-weight: bold; font-size: 0.7rem; color: #2b1799; text-transform: uppercase; }
+
+        #boss-warning { position: absolute; top: 25%; left: 50%; transform: translateX(-50%); color: #fa0808; font-size: 3.5rem; font-weight: bold; display: none; text-shadow: 0 0 20px #ff0055; animation: blink 0.5s infinite; z-index: 5; text-align: center;}
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* Estilo do Inventário */
+        #inventory-btn { position: absolute; bottom: 20px; right: 20px; padding: 15px; background: #ff1100; color: #000; cursor: pointer; font-weight: bold; border: none; z-index: 10; }
+        #inventory-screen { position: absolute; inset: 50px; background: rgba(0, 10, 20, 0.95); border: 3px solid #f39110; display: none; flex-direction: column; padding: 20px; z-index: 200; overflow-y: auto; }
+        .inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 20px; }
+        .inv-slot { width: 120px; height: 120px; background: rgba(0, 210, 255, 0.1); border: 1px solid #e20909; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.7rem; text-align: center; padding: 5px; }
+        
+        .mission-notif { position: absolute; top: 100px; right: -350px; width: 300px; background: #8b0a0a; color: #000; padding: 15px; border-left: 5px solid #000; transition: 0.5s; font-weight: bold; z-index: 1000; box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
     </style>
 </head>
 <body>
 
-    <div id="xp-bar"><div id="xp-fill"></div></div>
-    <div id="ui">
-        <div class="stat">SISTEMA: <span id="txt-biome">Dungeon</span></div>
-        <div class="stat">WAVE: <span id="txt-wave">1</span></div>
-        <div class="stat">ABATES: <span id="txt-kills">0</span></div>
-        <div class="stat">HP: <span id="txt-hp">100/100</span></div>
+    <div id="xp-bar-container"><div id="xp-bar-fill"></div></div>
+    <div id="boss-warning">ALERTA:<br>FENDA DO NECROCRYSTAL ATIVA</div>
+
+    <div id="ui-layer">
+        <div class="stat">SETOR: <span id="biome-name">-</span></div>
+        <div class="stat">WAVE: <span id="wave-count">1</span></div>
+        <div class="stat">HP: <span id="hp-count">100</span></div>
+        <div class="stat">KILLS: <span id="kill-count">0</span></div>
     </div>
 
-    <div id="levelup" class="modal">
-        <h1>UPGRADE DE NÚCLEO</h1>
-        <div style="display:flex" id="cards"></div>
+    <button id="inventory-btn" onclick="toggleInventory()">INVENTÁRIO (I)</button>
+    <div id="inventory-screen">
+        <h1 style="text-align: center; color: #11800d;">SISTEMAS EQUIPADOS (PERMANENTE)</h1>
+        <div class="inv-grid" id="inv-grid"></div>
+        <button onclick="toggleInventory()" style="margin-top: 20px; padding: 15px; cursor:pointer; background:#9b0303; color:#fff; border:none; font-weight:bold;">FECHAR</button>
+    </div>
+    <div id="mission-notif" class="mission-notif">MISSÃO CONCLUÍDA!</div>
+
+    <div id="overlay">
+        <h1 style="color: #ff0040; text-shadow: 0 0 10px #ff3300;">UPGRADE DISPONÍVEL</h1>
+        <div id="card-container"></div>
     </div>
 
-    <script>
-        const CONFIG = {
-            ASSETS: {
-                player: 'assets/player.png',
-                enemy: 'assets/enemy_robot.png',
-                enemyFast: 'assets/enemy_fast.png',
-                enemyTank: 'assets/enemy_tank.png',
-                boss: 'assets/boss_robot.png',
-                bullet: 'assets/bullet.png',
-                xp: 'assets/ammo.png',
-                // Biomas
-                bg_dungeon: 'assets/dungeon_floor.png',
-                bg_cryo: 'assets/bg_cryo.png',
-                bg_glitch: 'assets/bg_glitch.png',
-                bg_cathedral: 'assets/bg_cathedral.png',
-                bg_neon: 'assets/bg_neon.png'
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+/** ASSETS **/
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const assets = {
+    player: new Image(), enemy: new Image(),
+    bg_scrapyard: new Image(), bg_neon: new Image(),
+    bg_cryo: new Image(), bg_cathedral: new Image(), bg_glitch: new Image()
+};
+assets.player.src = 'assets/player.png';
+assets.enemy.src = 'assets/enemy_robot.png';
+assets.bg_scrapyard.src = 'assets/dungeon_floor.png';
+assets.bg_neon.src = 'assets/bg_neon.png';
+assets.bg_cryo.src = 'assets/bg_cryo.png';
+assets.bg_cathedral.src = 'assets/bg_cathedral.png';
+assets.bg_glitch.src = 'assets/bg_glitch.png';
+
+const biomes = {
+    scrapyard: { name: "Depósito de Sucata", img: assets.bg_scrapyard, speedMod: 1, friction: 0.15 },
+    neon: { name: "Rede Neon", img: assets.bg_neon, speedMod: 1.4, friction: 0.1 },
+    cryo: { name: "Setor Criogénico", img: assets.bg_cryo, speedMod: 0.9, friction: 0.02 },
+    cathedral: { name: "Catedral Silicon", img: assets.bg_cathedral, speedMod: 1, friction: 0.15 },
+    glitch: { name: "Vazio do Código", img: assets.bg_glitch, speedMod: 1.2, friction: 0.08 }
+};
+const biomeOrder = ['scrapyard', 'neon', 'cryo', 'cathedral', 'glitch'];
+
+/** ESTADO GLOBAL **/
+let inventory = [];
+let completedMissions = [];
+
+const game = {
+    paused: false, wave: 1, kills: 0, 
+    totalKills: parseInt(localStorage.getItem('totalKills') || 0),
+    runTimer: 0, shotsFired: 0, bossKillsCount: 0,
+    currentBiomeKey: 'scrapyard',
+    enemies: [], bullets: [], bossActive: false,
+    upgrades: [
+        { id: 'dmg', name: 'Canhão Pesado', desc: '+30% de Dano Real', rarity: 'Comum' },
+        { id: 'fr', name: 'Módulo de Ciclo', desc: '+25% Vel. de Disparo', rarity: 'Comum' },
+        { id: 'pierce', name: 'Munição Railgun', desc: 'Balas atravessam inimigos', rarity: 'Raro' },
+        { id: 'regen', name: 'Auto-Reparo Nano', desc: 'Recupera HP passivamente', rarity: 'Raro' },
+        { id: 'multi', name: 'Burst Core', desc: '+1 Projétil por tiro', rarity: 'Épico' },
+        { id: 'vamp', name: 'Sifão de Energia', desc: 'Recupera vida ao destruir robôs', rarity: 'Lendário' },
+        { id: 'speed', name: 'Servo-Motores', desc: '+20% Vel. de Movimento', rarity: 'Comum' }
+    ]
+};
+
+const player = {
+    x: 0, y: 0, vx: 0, vy: 0, hp: 100, maxHp: 100, xp: 0, nextXp: 100, lvl: 1,
+    speed: 5, stats: { dmg: 25, fr: 25, multi: 1, pierce: 0, vamp: 0, regen: 0, crit: 0, magnetRange: 100 }
+};
+
+/** MISSÕES **/
+const missions = [
+    { id: 1, name: "Recruta de Sucata", goal: 50, type: "kills", reward: { name: "Placa de Ferro", stat: "hp", val: 20 } },
+    { id: 2, name: "Velocidade Neon", goal: 120, type: "timer", reward: { name: "Chip Overclock", stat: "speed", val: 1.2 } },
+    { id: 3, name: "Coração Gelado", goal: 1, type: "boss_cryo", reward: { name: "Núcleo Ártico", stat: "speed", val: 1.1 } },
+    { id: 4, name: "Caçador de Elite", goal: 5, type: "boss_kills", reward: { name: "Lente de Precisão", stat: "crit", val: 0.15 } },
+    { id: 5, name: "Sobrevivente Absoluto", goal: 1, type: "low_hp", reward: { name: "Módulo Emergência", stat: "hp", val: 50 } },
+    { id: 6, name: "Engenheiro", goal: 5, type: "upgrades", reward: { name: "Bateria Estendida", stat: "fr", val: 0.8 } },
+    { id: 7, name: "Purificador Silicon", goal: 100, type: "kills", reward: { name: "Símbolo Sagrado", stat: "vamp", val: 2 } },
+    { id: 8, name: "Mestre do Código", goal: 10, type: "max_wave", reward: { name: "Fragmento Glitch", stat: "speed", val: 1.3 } },
+    { id: 9, name: "Colecionador", goal: 1000, type: "total_xp", reward: { name: "Ímã Industrial", stat: "magnet", val: 2 } },
+    { id: 10, name: "Destruidor de Tanques", goal: 1, type: "boss_kills", reward: { name: "Ponta de Urânio", stat: "dmg", val: 1.4 } },
+    { id: 11, name: "Pacifista", goal: 60, type: "timer", reward: { name: "Capa Camuflagem", stat: "speed", val: 1.1 } },
+    { id: 12, name: "Artilheiro", goal: 1000, type: "total_shots", reward: { name: "Cano Duplo", stat: "fr", val: 0.7 } },
+    { id: 13, name: "Inabalável", goal: 5, type: "max_wave", reward: { name: "Blindagem Titânio", stat: "hp", val: 40 } },
+    { id: 14, name: "Explorador Vazio", goal: 20, type: "max_wave", reward: { name: "Drive Fantasma", stat: "speed", val: 1.5 } },
+    { id: 15, name: "Deus Ex Machina", goal: 500, type: "total_kills", reward: { name: "NÚCLEO OMEGA", stat: "all_stats", val: 2 } }
+];
+
+function checkMissions() {
+    missions.forEach(m => {
+        if (completedMissions.includes(m.id)) return;
+        let progress = 0;
+        if (m.type === "kills") progress = game.kills;
+        if (m.type === "total_kills") progress = game.totalKills;
+        if (m.type === "timer") progress = Math.floor(game.runTimer);
+        if (m.type === "boss_kills") progress = game.bossKillsCount;
+        if (m.type === "upgrades") progress = player.lvl;
+        if (m.type === "max_wave") progress = game.wave;
+        if (m.type === "total_shots") progress = game.shotsFired;
+
+        if (progress >= m.goal) completeMission(m);
+    });
+}
+
+function completeMission(mission) {
+    if (completedMissions.includes(mission.id)) return;
+    completedMissions.push(mission.id);
+    inventory.push(mission.reward);
+    
+    // Salva Progresso
+    localStorage.setItem('robot_missions', JSON.stringify(completedMissions));
+    
+    // Notificação
+    const notif = document.getElementById('mission-notif');
+    notif.innerHTML = `MISSÃO CONCLUÍDA!<br><span style="color:#000; font-size:0.8rem">${mission.name}</span><br>+ ${mission.reward.name}`;
+    notif.style.right = "20px";
+    setTimeout(() => notif.style.right = "-350px", 4000);
+
+    applyItemEffect(mission.reward);
+    updateInventoryUI();
+}
+
+function applyItemEffect(item) {
+    if (item.stat === "hp") { player.maxHp += item.val; player.hp += item.val; }
+    if (item.stat === "speed") player.speed *= item.val;
+    if (item.stat === "fr") player.stats.fr *= item.val;
+    if (item.stat === "vamp") player.stats.vamp += item.val;
+    if (item.stat === "dmg") player.stats.dmg *= item.val;
+    if (item.stat === "all_stats") { player.stats.dmg *= 1.5; player.maxHp += 100; player.speed *= 1.2; }
+}
+
+function updateInventoryUI() {
+    const grid = document.getElementById('inv-grid');
+    grid.innerHTML = "";
+    inventory.forEach(item => {
+        const slot = document.createElement('div');
+        slot.className = "inv-slot";
+        slot.innerHTML = `<b style="color:#00d2ff">${item.name}</b><br><span style="color:#00ff88">SISTEMA ATIVO</span>`;
+        grid.appendChild(slot);
+    });
+}
+
+function toggleInventory() {
+    game.paused = !game.paused;
+    const screen = document.getElementById('inventory-screen');
+    screen.style.display = game.paused ? 'flex' : 'none';
+    if (game.paused) updateInventoryUI(); else requestAnimationFrame(loop);
+}
+
+function loadSave() {
+    const saved = localStorage.getItem('robot_missions');
+    if (saved) {
+        const ids = JSON.parse(saved);
+        ids.forEach(id => {
+            const m = missions.find(x => x.id === id);
+            if (m) {
+                completedMissions.push(m.id);
+                inventory.push(m.reward);
+                applyItemEffect(m.reward);
             }
+        });
+    }
+}
+
+/** MECÂNICAS DE JOGO **/
+function spawnBoss() {
+    game.bossActive = true;
+    const boss = {
+        x: canvas.width/2, y: -100,
+        hp: 1000 * game.wave, maxHp: 1000 * game.wave,
+        size: 100, speed: 2, boss: true, state: 'move', timer: 0, laserAngle: 0
+    };
+    game.enemies.push(boss);
+    document.getElementById('boss-warning').style.display = 'block';
+    setTimeout(() => document.getElementById('boss-warning').style.display = 'none', 3000);
+}
+
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
+
+const keys = {};
+window.onkeydown = e => {
+    keys[e.key.toLowerCase()] = true;
+    if(e.key.toLowerCase() === 'i') toggleInventory();
+};
+window.onkeyup = e => keys[e.key.toLowerCase()] = false;
+
+let shootTimer = 0;
+
+    function showUpgradeMenu() {
+    game.paused = true; // Pausa o jogo
+    const overlay = document.getElementById('overlay');
+    const container = document.getElementById('card-container');
+    
+    overlay.style.display = 'flex'; // Mostra o menu
+    container.innerHTML = ''; // Limpa cartas anteriores
+    
+    // Escolhe 3 upgrades aleatórios
+    const pool = [...game.upgrades].sort(() => 0.5 - Math.random()).slice(0, 3);
+    
+    pool.forEach(upg => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<h3>${upg.name}</h3><p>${upg.desc}</p><div class="rarity">${upg.rarity}</div>`;
+        
+        card.onclick = () => {
+            // Aplica o efeito do upgrade
+            if(upg.id === 'dmg') player.stats.dmg *= 1.3;
+            if(upg.id === 'fr') player.stats.fr *= 0.75;
+            if(upg.id === 'multi') player.stats.multi++;
+            if(upg.id === 'speed') player.speed *= 1.2;
+            if(upg.id === 'vamp') player.stats.vamp += 3;
+            if(upg.id === 'regen') player.stats.regen += 0.05;
+            if(upg.id === 'pierce') player.stats.pierce += 1;
+
+            // Fecha o menu e volta ao jogo
+            game.paused = false;
+            overlay.style.display = 'none';
+            requestAnimationFrame(loop);
         };
+        container.appendChild(card);
+    });
+}
 
-        class MainScene extends Phaser.Scene {
-            constructor() { super('MainScene'); }
+function loop() {
+    if (game.paused) return;
 
-            preload() {
-                // Carrega todos os assets da lista
-                Object.entries(CONFIG.ASSETS).forEach(([key, path]) => {
-                    this.load.image(key, path);
-                });
+    game.runTimer += 1/60; // Incrementa tempo real
+    checkMissions();
 
-                // Fallback: Se a imagem falhar, cria uma textura colorida para não ficar invisível
-                this.load.on('loaderror', (file) => {
-                    let color = 0x00ffff;
-                    if(file.key.includes('enemy')) color = 0xff0000;
-                    if(file.key.includes('bg')) color = 0x222222;
-                    if(file.key === 'boss') color = 0xff00ff;
-                    
-                    const graphics = this.make.graphics({x: 0, y: 0, add: false});
-                    graphics.fillStyle(color, 1);
-                    graphics.fillRect(0, 0, 64, 64);
-                    graphics.generateTexture(file.key, 64, 64);
-                });
-            }
+    const bConfig = biomes[game.currentBiomeKey];
+    ctx.clearRect(0,0,canvas.width, canvas.height);
 
-            create() {
-                this.physics.world.setBounds(0, 0, 3000, 3000);
-                
-                // Inicializa Fundo
-                this.bg = this.add.tileSprite(0, 0, 3000, 3000, 'bg_dungeon').setOrigin(0);
+    // Fundo
+    const ptrn = ctx.createPattern(bConfig.img, 'repeat');
+    if(ptrn) { ctx.fillStyle = ptrn; ctx.fillRect(0, 0, canvas.width, canvas.height); }
 
-                // Player
-                this.player = this.physics.add.sprite(1500, 1500, 'player');
-                this.player.stats = { hp: 100, maxHp: 100, speed: 200, dmg: 20, xp: 0, nextXp: 100, level: 1 };
-                this.player.setCollideWorldBounds(true);
-                this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+    // Movimento Player
+    let ax = 0, ay = 0;
+    if(keys['w']) ay = -1; if(keys['s']) ay = 1;
+    if(keys['a']) ax = -1; if(keys['d']) ax = 1;
+    player.vx += ax * 0.8; player.vy += ay * 0.8;
+    player.vx *= (1 - bConfig.friction); player.vy *= (1 - bConfig.friction);
+    player.x += player.vx * bConfig.speedMod; player.y += player.vy * bConfig.speedMod;
+    
+    // Limites
+    player.x = Math.max(20, Math.min(canvas.width-20, player.x));
+    player.y = Math.max(20, Math.min(canvas.height-20, player.y));
 
-                // Grupos
-                this.enemies = this.physics.add.group();
-                this.bullets = this.physics.add.group();
-                this.xpOrbs = this.physics.add.group();
+    // Tiro
+    shootTimer++;
+    if(shootTimer > player.stats.fr) {
+        const target = game.enemies[0];
+        if(target) {
+            game.shotsFired++;
+            const angle = Math.atan2(target.y - player.y, target.x - player.x);
+            game.bullets.push({ x: player.x, y: player.y, vx: Math.cos(angle)*12, vy: Math.sin(angle)*12, dmg: player.stats.dmg });
+        }
+        shootTimer = 0;
+    }
 
-                // Variáveis de Progressão
-                this.kills = 0;
-                this.wave = 1;
-                this.isPaused = false;
+    // Inimigos
+    game.enemies.forEach((en, i) => {
+        const angle = Math.atan2(player.y - en.y, player.x - en.x);
+        en.x += Math.cos(angle) * en.speed;
+        en.y += Math.sin(angle) * en.speed;
 
-                // Teclado
-                this.keys = this.input.keyboard.addKeys('W,A,S,D');
+        ctx.drawImage(assets.enemy, en.x - en.size/2, en.y - en.size/2, en.size, en.size);
 
-                // Colisões
-                this.physics.add.overlap(this.bullets, this.enemies, this.hitEnemy, null, this);
-                this.physics.add.overlap(this.player, this.enemies, this.hitPlayer, null, this);
-                this.physics.add.overlap(this.player, this.xpOrbs, this.collectXp, null, this);
-
-                // Loop de tiro e spawn
-                this.time.addEvent({ delay: 500, callback: this.autoFire, loop: true, callbackScope: this });
-                this.time.addEvent({ delay: 1000, callback: this.spawnHandler, loop: true, callbackScope: this });
-            }
-
-            update() {
-                if (this.isPaused) return;
-
-                // Movimentação
-                let vx = 0, vy = 0;
-                if (this.keys.W.isDown) vy = -1;
-                if (this.keys.S.isDown) vy = 1;
-                if (this.keys.A.isDown) vx = -1;
-                if (this.keys.D.isDown) vx = 1;
-
-                const speed = this.player.stats.speed;
-                const vec = new Phaser.Math.Vector2(vx, vy).normalize().scale(speed);
-                this.player.setVelocity(vec.x, vec.y);
-
-                // Lógica de Troca de Bioma (CONFORME SUA SOLICITAÇÃO)
-                this.checkBiomeLogic();
-                
-                // Inimigos olham para o player
-                this.enemies.getChildren().forEach(e => {
-                    this.physics.moveToObject(e, this.player, e.speed || 100);
-                });
-            }
-
-            checkBiomeLogic() {
-                let currentKey = 'bg_dungeon';
-                let biomeName = "Dungeon";
-
-                if (this.wave >= 15) { 
-                    currentKey = 'bg_cathedral'; biomeName = "Catedral (Final)";
-                } else if (this.kills >= 500) {
-                    currentKey = 'bg_neon'; biomeName = "Neon City";
-                } else if (this.wave >= 10) {
-                    currentKey = 'bg_glitch'; biomeName = "Glitch Void";
-                } else if (this.wave >= 5) {
-                    currentKey = 'bg_cryo'; biomeName = "Setor Cryo";
-                }
-
-                if (this.bg.texture.key !== currentKey) {
-                    this.bg.setTexture(currentKey);
-                    document.getElementById('txt-biome').innerText = biomeName;
-                    this.cameras.main.flash(500, 0, 255, 255);
-                }
-            }
-
-            spawnHandler() {
-                if (this.enemies.countActive() > 40 || this.isPaused) return;
-
-                // Spawn fora da tela
-                const x = this.player.x + Phaser.Math.Between(-600, 600);
-                const y = this.player.y + Phaser.Math.Between(-600, 600);
-                if (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 300) return;
-
-                let type = 'enemy';
-                let hp = 40 + (this.wave * 10);
-                let speed = 100;
-
-                if (this.wave > 8) { type = 'enemyFast'; speed = 180; hp *= 0.7; }
-                if (this.wave > 12) { type = 'enemyTank'; speed = 50; hp *= 3; }
-
-                const en = this.enemies.create(x, y, type);
-                en.hp = hp; en.speed = speed;
-            }
-
-            autoFire() {
-                const target = this.physics.closest(this.player, this.enemies.getChildren());
-                if (!target || this.isPaused) return;
-
-                const b = this.bullets.create(this.player.x, this.player.y, 'bullet');
-                this.physics.moveToObject(b, target, 500);
-                b.dmg = this.player.stats.dmg;
-            }
-
-            hitEnemy(bullet, enemy) {
-                bullet.destroy();
-                enemy.hp -= bullet.dmg;
-                enemy.setTint(0xff0000);
-                this.time.delayedCall(100, () => enemy.clearTint());
-
-                if (enemy.hp <= 0) {
-                    this.kills++;
-                    const orb = this.xpOrbs.create(enemy.x, enemy.y, 'xp');
-                    orb.val = 20;
-                    enemy.destroy();
-                    this.updateUI();
-
-                    // Wave sobe a cada 20 kills
-                    if (this.kills % 20 === 0) {
-                        this.wave++;
-                        if (this.wave % 5 === 0) this.spawnBoss();
-                        this.updateUI();
-                    }
-                }
-            }
-
-            spawnBoss() {
-                const boss = this.enemies.create(this.player.x, this.player.y - 300, 'boss');
-                boss.hp = 1000 * (this.wave / 5);
-                boss.speed = 70;
-                boss.setScale(2);
-            }
-
-            hitPlayer(player, enemy) {
-                player.stats.hp -= 0.5;
-                this.updateUI();
-                if (player.stats.hp <= 0) location.reload();
-            }
-
-            collectXp(player, orb) {
-                player.stats.xp += orb.val;
-                orb.destroy();
-                if (player.stats.xp >= player.stats.nextXp) this.levelUp();
-                this.updateUI();
-            }
-
-            levelUp() {
-                this.isPaused = true;
-                this.physics.pause();
-                this.player.stats.xp = 0;
-                this.player.stats.nextXp *= 1.4;
-                this.player.stats.level++;
-
-                const modal = document.getElementById('levelup');
-                const cards = document.getElementById('cards');
-                modal.style.display = 'flex';
-                cards.innerHTML = '';
-
-                const opts = [
-                    { t: '+ DANO', f: () => this.player.stats.dmg += 15 },
-                    { t: '+ VELOCIDADE', f: () => this.player.stats.speed += 30 },
-                    { t: '+ VIDA MAX', f: () => { this.player.stats.maxHp += 50; this.player.stats.hp = this.player.stats.maxHp; } }
-                ];
-
-                opts.forEach(o => {
-                    const d = document.createElement('div');
-                    d.className = 'card';
-                    d.innerText = o.t;
-                    d.onclick = () => {
-                        o.f();
-                        modal.style.display = 'none';
-                        this.isPaused = false;
-                        this.physics.resume();
-                    };
-                    cards.appendChild(d);
-                });
-            }
-
-            updateUI() {
-                document.getElementById('txt-kills').innerText = this.kills;
-                document.getElementById('txt-wave').innerText = this.wave;
-                document.getElementById('txt-hp').innerText = `${Math.floor(this.player.stats.hp)}/${this.player.stats.maxHp}`;
-                const perc = (this.player.stats.xp / this.player.stats.nextXp) * 100;
-                document.getElementById('xp-fill').style.width = perc + '%';
+        if(Math.hypot(player.x - en.x, player.y - en.y) < en.size) {
+            player.hp -= 0.5;
+            if(player.hp <= 0) {
+                localStorage.setItem('totalKills', game.totalKills);
+                location.reload();
             }
         }
+    });
 
-        const config = {
-            type: Phaser.AUTO,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            physics: { default: 'arcade' },
-            scene: MainScene
-        };
-        new Phaser.Game(config);
-    </script>
+    // Balas
+    for(let i=game.bullets.length-1; i>=0; i--) {
+        const b = game.bullets[i];
+        b.x += b.vx; b.y += b.vy;
+        ctx.fillStyle = '#00ff88';
+        ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill();
+
+        game.enemies.forEach((en, ei) => {
+            if(Math.hypot(b.x - en.x, b.y - en.y) < en.size/2) {
+                en.hp -= b.dmg;
+                game.bullets.splice(i, 1);
+                if(en.hp <= 0) {
+                    if(en.boss) { game.bossActive = false; game.bossKillsCount++; game.wave++; }
+                    game.enemies.splice(ei, 1);
+                    game.kills++; game.totalKills++;
+                    player.xp += en.boss ? 150 : 20;
+                    if(player.xp >= player.nextXp) { player.lvl++; player.xp=0; player.nextXp*=1.5; showUpgradeMenu(); // AGORA A FUNÇÃO É CHAMADA AQUI
+}
+                }
+            }
+        });
+    }
+
+    // Spawn
+    if(!game.bossActive && Math.random() < 0.02) {
+        game.enemies.push({ x: Math.random()*canvas.width, y: -50, hp: 50, maxHp: 50, speed: 2, size: 30, boss: false });
+    }
+    if(game.kills > 0 && game.kills % 50 === 0 && !game.bossActive) spawnBoss();
+
+    // UI
+    document.getElementById('hp-count').innerText = Math.floor(player.hp);
+    document.getElementById('kill-count').innerText = game.kills;
+    document.getElementById('wave-count').innerText = game.wave;
+    document.getElementById('xp-bar-fill').style.width = (player.xp/player.nextXp)*100 + '%';
+    document.getElementById('biome-name').innerText = biomes[game.currentBiomeKey].name;
+
+    ctx.drawImage(assets.player, player.x-25, player.y-25, 50, 50);
+    requestAnimationFrame(loop);
+}
+
+loadSave();
+assets.player.onload = () => { player.x = canvas.width/2; player.y = canvas.height/2; loop(); };
+</script>
 </body>
 </html>
