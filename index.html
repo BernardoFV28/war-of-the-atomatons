@@ -87,10 +87,18 @@ const biomes = {
     neon: { name: "Rede Neon", img: assets.bg_neon, speedMod: 1.4, friction: 0.1 },
     cryo: { name: "Setor Criogénico", img: assets.bg_cryo, speedMod: 0.9, friction: 0.02 },
     cathedral: { name: "Catedral Silicon", img: assets.bg_cathedral, speedMod: 1, friction: 0.15 },
-    glitch: { name: "Vazio do Código", img: assets.bg_glitch, speedMod: 1.2, friction: 0.08 }
+    glitch: { name: "Vazio ", img: assets.bg_glitch, speedMod: 1.2, friction: 0.08 }
 };
 const biomeOrder = ['scrapyard', 'neon', 'cryo', 'cathedral', 'glitch'];
-
+class MainScene extends Phaser.Scene {
+            constructor() {
+                super('MainScene');
+                this.maps = ['scrapyard', 'neon', 'cryo', 'cathedral', 'glitch'];
+                this.mapNames = ['Depósito de Sucata', 'Setor Criogênico', 'Vazio ', 'Rede Neon', 'Catedral Silicon'];
+                this.currentMapIdx = 0;
+                this.timeLeft = 120; // 2 minutos em segundos
+            }
+        }
 /** ESTADO GLOBAL **/
 let inventory = [];
 let completedMissions = [];
