@@ -52,14 +52,14 @@
 
     <button id="inventory-btn" onclick="toggleInventory()">INVENTÁRIO (I)</button>
     <div id="inventory-screen">
-        <h1 style="text-align: center; color: #11800d;">SISTEMAS EQUIPADOS (PERMANENTE)</h1>
+        <h1 style="text-align: center; color: #11800d;">Modificações sinergicas (PERMANENTE)</h1>
         <div class="inv-grid" id="inv-grid"></div>
         <button onclick="toggleInventory()" style="margin-top: 20px; padding: 15px; cursor:pointer; background:#9b0303; color:#fff; border:none; font-weight:bold;">FECHAR</button>
     </div>
     <div id="mission-notif" class="mission-notif">MISSÃO CONCLUÍDA!</div>
 
     <div id="overlay">
-        <h1 style="color: #ff0040; text-shadow: 0 0 10px #ff3300;">UPGRADE DISPONÍVEL</h1>
+        <h1 style="color: #ff0040; text-shadow: 0 0 10px #ff3300;">Modificação Disponível</h1>
         <div id="card-container"></div>
     </div>
 
@@ -348,10 +348,39 @@ function loop() {
         });
     }
 
-    // Spawn
-    if(!game.bossActive && Math.random() < 0.02) {
-        game.enemies.push({ x: Math.random()*canvas.width, y: -50, hp: 50, maxHp: 50, speed: 2, size: 30, boss: false });
+    // Spawn 
+    const wave = game.wave;
+
+// dificuldade cresce de forma inevitável
+const hpBase = 40;
+const speedBase = 1.8;
+const sizeBase = 26;
+
+// escalas (frio e matemático)
+const hp = hpBase + wave * 20;
+const speed = speedBase + wave * 0.12;
+const size = sizeBase + Math.min(wave * 1.2, 25);
+
+// chance de spawn (o futuro não perdoa)
+const spawnChance = 0.01 + wave * 0.003;
+
+// quantidade por spawn (enxame assassino)
+const amount = Math.min(1 + Math.floor(wave / 2), 6);
+
+if (!game.bossActive && Math.random() < spawnChance) {
+    for (let i = 0; i < amount; i++) {
+        game.enemies.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() < 0.5 ? -60 : canvas.height + 60,
+            hp: hp,
+            maxHp: hp,
+            speed: speed,
+            size: size,
+            boss: false,
+            terminator: true
+        });
     }
+}
     if(game.kills > 0 && game.kills % 50 === 0 && !game.bossActive) spawnBoss();
 
     // UI
@@ -370,4 +399,5 @@ assets.player.onload = () => { player.x = canvas.width/2; player.y = canvas.heig
 </script>
 </body>
 </html>
+
 
